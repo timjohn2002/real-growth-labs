@@ -43,12 +43,12 @@ export function EditorTopBar({
   }
 
   return (
-    <div className="border-b border-gray-200 bg-white px-6 py-4">
+    <div className="border-b border-border bg-card px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Left Side */}
         <div className="flex items-center gap-4 flex-1">
           <Link href="/dashboard">
-            <button className="text-gray-600 hover:text-gray-900 transition-colors">
+            <button className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
           </Link>
@@ -63,13 +63,13 @@ export function EditorTopBar({
                   handleTitleBlur()
                 }
               }}
-              className="text-lg font-semibold text-gray-900 border-none outline-none focus:ring-0 px-2 py-1 -mx-2 -my-1 bg-gray-50 rounded"
+              className="text-lg font-semibold text-foreground border-none outline-none focus:ring-0 px-2 py-1 -mx-2 -my-1 bg-muted rounded"
               autoFocus
             />
           ) : (
             <button
               onClick={() => setIsEditingTitle(true)}
-              className="text-lg font-semibold text-gray-900 hover:bg-gray-50 px-2 py-1 rounded transition-colors"
+              className="text-lg font-semibold text-foreground hover:bg-muted px-2 py-1 rounded transition-colors"
             >
               {title || "Untitled Book"}
             </button>
@@ -77,8 +77,8 @@ export function EditorTopBar({
           <span
             className={`text-xs px-2 py-1 rounded-full ${
               status === "published"
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-700"
+                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                : "bg-muted text-muted-foreground"
             }`}
           >
             {status === "published" ? "Published" : "Draft"}
@@ -86,7 +86,7 @@ export function EditorTopBar({
         </div>
 
         {/* Center */}
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="h-4 w-4" />
           <span>Last updated {lastUpdated}</span>
         </div>

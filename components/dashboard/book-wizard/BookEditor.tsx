@@ -46,8 +46,8 @@ export function BookEditor({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground">
           {chapter ? chapter.title : "Book Editor"}
         </h2>
         <div className="flex items-center gap-2">
@@ -67,8 +67,8 @@ export function BookEditor({
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto p-8">
         {/* Info Bar (first time) */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
-          <p className="text-sm text-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
             Draft generated from your template + content vault. Edit freely — you won&apos;t break
             the structure.
           </p>
@@ -87,7 +87,7 @@ export function BookEditor({
               <Input
                 value={bookSubtitle}
                 onChange={(e) => onSubtitleChange(e.target.value)}
-                className="text-xl text-gray-600 border-none shadow-none p-0 focus-visible:ring-0"
+                className="text-xl text-muted-foreground border-none shadow-none p-0 focus-visible:ring-0"
                 placeholder="Book Subtitle"
               />
             </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, RefreshCw } from "lucide-react"
+import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const BRAND_COLOR = "#a6261c"
@@ -9,9 +9,10 @@ const BRAND_COLOR = "#a6261c"
 interface ReviewHeaderProps {
   lastAnalyzed: string
   onRunAgain: () => void
+  isAnalyzing?: boolean
 }
 
-export function ReviewHeader({ lastAnalyzed, onRunAgain }: ReviewHeaderProps) {
+export function ReviewHeader({ lastAnalyzed, onRunAgain, isAnalyzing = false }: ReviewHeaderProps) {
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-6">
       <div className="flex items-center justify-between">
@@ -34,10 +35,20 @@ export function ReviewHeader({ lastAnalyzed, onRunAgain }: ReviewHeaderProps) {
             variant="outline"
             size="sm"
             onClick={onRunAgain}
+            disabled={isAnalyzing}
             className="flex items-center gap-2"
           >
-            <RefreshCw className="h-4 w-4" />
-            Run Again
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Run Again
+              </>
+            )}
           </Button>
         </div>
       </div>

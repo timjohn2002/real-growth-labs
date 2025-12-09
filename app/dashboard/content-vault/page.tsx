@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -9,6 +9,7 @@ import { ContentCard } from "@/components/dashboard/content-vault/ContentCard"
 import { ContentDrawer } from "@/components/dashboard/content-vault/ContentDrawer"
 import { ContentFilters } from "@/components/dashboard/content-vault/ContentFilters"
 import { EmptyState } from "@/components/dashboard/content-vault/EmptyState"
+import { UploadForm } from "@/components/dashboard/content-vault/UploadForm"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -17,7 +18,7 @@ interface ContentItem {
   title: string
   type: "podcast" | "video" | "audio" | "url" | "text"
   wordCount?: number
-  status: "pending" | "processing" | "ready"
+  status: "pending" | "processing" | "ready" | "error"
   summary?: string
   transcript?: string
   thumbnail?: string
@@ -32,70 +33,69 @@ export default function ContentVaultPage() {
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
-  const [contentItems, setContentItems] = useState<ContentItem[]>([
-    {
-      id: "1",
-      title: "Marketing Strategies Podcast Episode 12",
-      type: "podcast",
-      wordCount: 5420,
-      status: "ready",
-      summary: "Deep dive into modern marketing strategies for growing businesses. Covers social media, email marketing, and content creation.",
-      transcript: "Welcome to Marketing Strategies. Today we're discussing...",
-      source: "Apple Podcasts",
-      duration: "45:30",
-      tags: ["marketing", "business", "growth"],
-      uploadedAt: "2 hours ago",
-    },
-    {
-      id: "2",
-      title: "YouTube: Business Growth Tips",
-      type: "video",
-      wordCount: 3200,
-      status: "ready",
-      summary: "Essential tips for scaling your business and increasing revenue through strategic planning.",
-      source: "YouTube",
-      duration: "28:15",
-      tags: ["business", "growth", "strategy"],
-      uploadedAt: "1 day ago",
-    },
-    {
-      id: "3",
-      title: "Voice Memo - Chapter Ideas",
-      type: "audio",
-      wordCount: 850,
-      status: "processing",
-      summary: "Quick voice notes about potential chapter topics for the upcoming book.",
-      tags: ["ideas", "notes"],
-      uploadedAt: "2 days ago",
-    },
-    {
-      id: "4",
-      title: "Article: Content Marketing Best Practices",
-      type: "url",
-      wordCount: 2100,
-      status: "ready",
-      summary: "Comprehensive guide to content marketing strategies that drive engagement and conversions.",
-      source: "contentmarketing.com",
-      tags: ["content", "marketing"],
-      uploadedAt: "3 days ago",
-    },
-    {
-      id: "5",
-      title: "Sales Funnel Outline Notes",
-      type: "text",
-      wordCount: 1200,
-      status: "ready",
-      summary: "Detailed notes on building effective sales funnels for online businesses.",
-      transcript: "Sales funnels are essential for converting visitors into customers...",
-      tags: ["sales", "funnel", "conversion"],
-      uploadedAt: "4 days ago",
-    },
-  ])
+  const [contentItems, setContentItems] = useState<ContentItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [uploadType, setUploadType] = useState<"podcast" | "video" | "audio" | "url" | "text" | null>(null)
+  
+  // TODO: Get userId from auth context/session
+  const userId = "user-1" // Placeholder - replace with actual auth
+
+  // Fetch content items
+  const fetchContent = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(`/api/content?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setContentItems(data.items || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch content:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchContent()
+    
+    // Poll for updates on processing items
+    const interval = setInterval(() => {
+      const hasProcessing = contentItems.some(
+        (item) => item.status === "processing" || item.status === "pending"
+      )
+      if (hasProcessing) {
+        fetchContent()
+      }
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Update polling when contentItems change
+  useEffect(() => {
+    const hasProcessing = contentItems.some(
+      (item) => item.status === "processing" || item.status === "pending"
+    )
+    if (hasProcessing) {
+      const interval = setInterval(() => {
+        fetchContent()
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [contentItems.length])
 
   const handleAddContent = (type: string) => {
-    console.log("Adding content type:", type)
     setIsModalOpen(false)
-    // TODO: Implement actual content upload logic
+    // Map modal type names to our type system
+    const typeMap: Record<string, "podcast" | "video" | "audio" | "url" | "text"> = {
+      "Podcast Link": "podcast",
+      "Video Upload": "video",
+      "Audio Upload": "audio",
+      "Paste URL": "url",
+      "Paste Text / Notes": "text",
+    }
+    setUploadType(typeMap[type] || "text")
   }
 
   const handleView = (item: ContentItem) => {
@@ -103,11 +103,17 @@ export default function ContentVaultPage() {
     setIsDrawerOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    setContentItems((prev) => prev.filter((item) => item.id !== id))
-    if (selectedItem?.id === id) {
-      setIsDrawerOpen(false)
-      setSelectedItem(null)
+  const handleDelete = async (id: string) => {
+    try {
+      // TODO: Add DELETE API endpoint
+      // await fetch(`/api/content/${id}`, { method: "DELETE" })
+      setContentItems((prev) => prev.filter((item) => item.id !== id))
+      if (selectedItem?.id === id) {
+        setIsDrawerOpen(false)
+        setSelectedItem(null)
+      }
+    } catch (error) {
+      console.error("Failed to delete content:", error)
     }
   }
 
@@ -116,13 +122,34 @@ export default function ContentVaultPage() {
     // TODO: Implement add to book logic
   }
 
-  const handleReprocess = (id: string) => {
-    setContentItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "processing" as const } : item
-      )
-    )
-    // TODO: Implement reprocess logic
+  const handleReprocess = async (id: string) => {
+    try {
+      const item = contentItems.find((i) => i.id === id)
+      if (!item) return
+
+      // Reprocess based on type
+      if (item.type === "audio" || item.type === "video") {
+        await fetch("/api/content/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentItemId: id }),
+        })
+      } else if (item.type === "url" && item.source) {
+        await fetch("/api/content/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: item.source,
+            title: item.title,
+            userId,
+          }),
+        })
+      }
+
+      fetchContent()
+    } catch (error) {
+      console.error("Failed to reprocess:", error)
+    }
   }
 
   const handleImproveSummary = (id: string) => {
@@ -147,8 +174,8 @@ export default function ContentVaultPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Content Vault</h1>
-          <p className="text-gray-600">
+          <h1 className="text-4xl font-bold text-foreground mb-2">Content Vault</h1>
+          <p className="text-muted-foreground">
             Your central repository for podcasts, videos, notes, and links.
           </p>
         </div>
@@ -166,7 +193,11 @@ export default function ContentVaultPage() {
       <ContentFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
       {/* Content Grid or Empty State */}
-      {filteredContent.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-muted-foreground">Loading content...</div>
+        </div>
+      ) : filteredContent.length === 0 ? (
         <EmptyState onAddContent={() => setIsModalOpen(true)} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -188,6 +219,20 @@ export default function ContentVaultPage() {
         onClose={() => setIsModalOpen(false)}
         onSelectType={handleAddContent}
       />
+
+      {/* Upload Forms */}
+      {uploadType && (
+        <UploadForm
+          type={uploadType}
+          isOpen={!!uploadType}
+          onClose={() => setUploadType(null)}
+          onSuccess={() => {
+            fetchContent()
+            setUploadType(null)
+          }}
+          userId={userId}
+        />
+      )}
 
       {/* Content Drawer */}
       <ContentDrawer

@@ -67,12 +67,12 @@ export function TipTapEditor({
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="border-b border-gray-200 bg-gray-50 px-4 py-2 flex items-center gap-1">
+      <div className="border-b border-border bg-muted px-4 py-2 flex items-center gap-1">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={editor.isActive("bold") ? "bg-gray-200" : ""}
+          className={editor.isActive("bold") ? "bg-background" : ""}
         >
           <Bold className="h-4 w-4" />
         </Button>
@@ -80,16 +80,16 @@ export function TipTapEditor({
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={editor.isActive("italic") ? "bg-gray-200" : ""}
+          className={editor.isActive("italic") ? "bg-background" : ""}
         >
           <Italic className="h-4 w-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-border mx-1" />
         <Button
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={editor.isActive("heading", { level: 1 }) ? "bg-gray-200" : ""}
+          className={editor.isActive("heading", { level: 1 }) ? "bg-background" : ""}
         >
           <Heading1 className="h-4 w-4" />
         </Button>
@@ -97,7 +97,7 @@ export function TipTapEditor({
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={editor.isActive("heading", { level: 2 }) ? "bg-gray-200" : ""}
+          className={editor.isActive("heading", { level: 2 }) ? "bg-background" : ""}
         >
           <Heading2 className="h-4 w-4" />
         </Button>
@@ -105,16 +105,16 @@ export function TipTapEditor({
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={editor.isActive("heading", { level: 3 }) ? "bg-gray-200" : ""}
+          className={editor.isActive("heading", { level: 3 }) ? "bg-background" : ""}
         >
           <Heading3 className="h-4 w-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-border mx-1" />
         <Button
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={editor.isActive("bulletList") ? "bg-gray-200" : ""}
+          className={editor.isActive("bulletList") ? "bg-background" : ""}
         >
           <List className="h-4 w-4" />
         </Button>
@@ -122,7 +122,7 @@ export function TipTapEditor({
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={editor.isActive("orderedList") ? "bg-gray-200" : ""}
+          className={editor.isActive("orderedList") ? "bg-background" : ""}
         >
           <ListOrdered className="h-4 w-4" />
         </Button>
@@ -130,11 +130,11 @@ export function TipTapEditor({
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={editor.isActive("blockquote") ? "bg-gray-200" : ""}
+          className={editor.isActive("blockquote") ? "bg-background" : ""}
         >
           <Quote className="h-4 w-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-border mx-1" />
         <Button
           variant="ghost"
           size="sm"
@@ -152,7 +152,7 @@ export function TipTapEditor({
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="flex-1 overflow-y-auto bg-background">
         <EditorContent editor={editor} />
       </div>
     </div>

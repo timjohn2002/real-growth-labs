@@ -26,9 +26,21 @@ export function ProfileSection({ user, onUpdate }: ProfileSectionProps) {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
 
-  const handleNameBlur = () => {
-    if (name !== user.name) {
-      onUpdate({ name })
+  const handleNameBlur = async () => {
+    if (name !== user.name && name.trim()) {
+      try {
+        const response = await fetch("/api/user", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        })
+
+        if (response.ok) {
+          onUpdate({ name })
+        }
+      } catch (error) {
+        console.error("Failed to update name:", error)
+      }
     }
   }
 
@@ -39,31 +51,63 @@ export function ProfileSection({ user, onUpdate }: ProfileSectionProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <Card className="border-gray-200 shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Personal Information</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-6">Personal Information</h3>
 
             <div className="space-y-6">
               {/* Profile Photo */}
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                   {user.avatar ? (
                     <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
-                    <User className="h-8 w-8 text-gray-400" />
+                    <User className="h-8 w-8 text-muted-foreground" />
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implement photo upload
-                    console.log("Change photo")
-                  }}
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Change Photo
-                </Button>
+                <div>
+                  <input
+                    type="file"
+                    id="avatar-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+
+                      try {
+                        const formData = new FormData()
+                        formData.append("file", file)
+
+                        const response = await fetch("/api/user/avatar", {
+                          method: "POST",
+                          body: formData,
+                        })
+
+                        if (response.ok) {
+                          const data = await response.json()
+                          onUpdate({ avatar: data.avatar })
+                        } else {
+                          const data = await response.json()
+                          alert(data.error || "Failed to upload avatar. Please try again.")
+                        }
+                      } catch (error) {
+                        console.error("Avatar upload error:", error)
+                        alert(`Failed to upload avatar: ${error instanceof Error ? error.message : "Unknown error"}`)
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      document.getElementById("avatar-upload")?.click()
+                    }}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Change Photo
+                  </Button>
+                </div>
               </div>
 
               {/* Full Name */}
@@ -86,8 +130,8 @@ export function ProfileSection({ user, onUpdate }: ProfileSectionProps) {
               <div className="space-y-2">
                 <Label>Email Address</Label>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-gray-900">
-                    <Mail className="h-4 w-4 text-gray-500" />
+                  <div className="flex items-center gap-2 text-foreground">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
                     <span>{user.email}</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setIsEmailModalOpen(true)}>
@@ -100,7 +144,7 @@ export function ProfileSection({ user, onUpdate }: ProfileSectionProps) {
               <div className="space-y-2">
                 <Label>Password</Label>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <Lock className="h-4 w-4" />
                     <span>••••••••</span>
                   </div>

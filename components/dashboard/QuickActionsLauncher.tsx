@@ -46,16 +46,16 @@ export function QuickActionsLauncher() {
             />
             {/* Panel */}
             <motion.div
-              className="fixed bottom-8 right-8 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4"
+              className="fixed bottom-8 right-8 w-64 bg-card rounded-lg shadow-xl border border-border z-50 p-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">Quick Actions</h3>
+                <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -66,11 +66,11 @@ export function QuickActionsLauncher() {
                   return (
                     <Link key={index} href={action.href} onClick={() => setIsOpen(false)}>
                       <motion.div
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
                         whileHover={{ x: 4 }}
                       >
                         <Icon className="h-4 w-4 text-[#a6261c]" />
-                        <span className="text-sm text-gray-900">{action.name}</span>
+                        <span className="text-sm text-foreground">{action.name}</span>
                       </motion.div>
                     </Link>
                   )

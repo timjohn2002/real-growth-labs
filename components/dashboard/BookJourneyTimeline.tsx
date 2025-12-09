@@ -21,11 +21,11 @@ interface BookJourneyTimelineProps {
 
 export function BookJourneyTimeline({ currentStage = 2, bookTitle = "Marketing Guide" }: BookJourneyTimelineProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">Book Journey Timeline</h3>
+    <div className="bg-card rounded-lg border border-border p-6 mb-6">
+      <h3 className="text-sm font-semibold text-foreground mb-4">Book Journey Timeline</h3>
       <div className="relative">
         {/* Timeline line */}
-        <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-200">
+        <div className="absolute top-6 left-0 right-0 h-0.5 bg-border">
           <motion.div
             className="h-full bg-[#a6261c]"
             initial={{ width: 0 }}
@@ -47,7 +47,7 @@ export function BookJourneyTimeline({ currentStage = 2, bookTitle = "Marketing G
                   className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
                     isCompleted
                       ? "bg-[#a6261c] border-[#a6261c]"
-                      : "bg-white border-gray-300"
+                      : "bg-card border-border"
                   }`}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -55,12 +55,12 @@ export function BookJourneyTimeline({ currentStage = 2, bookTitle = "Marketing G
                   whileHover={{ scale: 1.1 }}
                 >
                   <Icon
-                    className={`h-5 w-5 ${isCompleted ? "text-white" : "text-gray-400"}`}
+                    className={`h-5 w-5 ${isCompleted ? "text-white" : "text-muted-foreground"}`}
                   />
                 </motion.div>
                 <span
                   className={`text-xs mt-2 font-medium ${
-                    isCompleted ? "text-[#a6261c]" : "text-gray-500"
+                    isCompleted ? "text-[#a6261c]" : "text-muted-foreground"
                   }`}
                 >
                   {stage.name}

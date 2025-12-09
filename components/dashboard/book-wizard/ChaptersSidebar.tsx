@@ -27,9 +27,9 @@ export function ChaptersSidebar({
   onAddChapter,
 }: ChaptersSidebarProps) {
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 h-full overflow-y-auto">
+    <div className="w-64 bg-card border-r border-border h-full overflow-y-auto">
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Chapters</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">Chapters</h3>
         <div className="space-y-1">
           {chapters.map((chapter) => {
             const isActive = chapter.id === activeChapterId
@@ -39,14 +39,14 @@ export function ChaptersSidebar({
                 onClick={() => onSelectChapter(chapter.id)}
                 className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
                   isActive
-                    ? "bg-white shadow-sm border border-gray-200"
-                    : "hover:bg-white/50"
+                    ? "bg-background shadow-sm border border-border"
+                    : "hover:bg-muted/50"
                 }`}
                 whileHover={{ x: 2 }}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">{chapter.number}.</span>
-                  <span className={`text-sm ${isActive ? "font-semibold text-gray-900" : "text-gray-700"}`}>
+                  <span className="text-xs font-medium text-muted-foreground">{chapter.number}.</span>
+                  <span className={`text-sm ${isActive ? "font-semibold text-foreground" : "text-foreground"}`}>
                     {chapter.title}
                   </span>
                 </div>

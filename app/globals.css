@@ -40,19 +40,29 @@
 }
 
 .ProseMirror blockquote {
-  border-left: 4px solid #e5e7eb;
+  border-left: 4px solid hsl(var(--border));
   padding-left: 1em;
   margin: 1em 0;
   font-style: italic;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground));
   pointer-events: none;
   height: 0;
+}
+
+.ProseMirror {
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  color: hsl(var(--foreground));
 }
 
 @layer base {
@@ -77,6 +87,28 @@
     --input: 0 0% 89.8%;
     --ring: 5 71% 38%; /* #a6261c */
     --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 0%; /* Pure black background */
+    --foreground: 0 0% 100%; /* Pure white text */
+    --card: 0 0% 3.9%; /* Slightly lighter for cards */
+    --card-foreground: 0 0% 100%; /* White text on cards */
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 5 71% 38%; /* #a6261c */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 9.8%; /* Dark gray for secondary elements */
+    --secondary-foreground: 0 0% 100%; /* White text */
+    --muted: 0 0% 9.8%;
+    --muted-foreground: 0 0% 70%; /* Light gray for muted text */
+    --accent: 0 0% 9.8%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 5 71% 38%; /* #a6261c */
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 20%; /* Slightly visible borders */
+    --input: 0 0% 9.8%; /* Dark input backgrounds */
+    --ring: 5 71% 38%; /* #a6261c */
   }
 }
 

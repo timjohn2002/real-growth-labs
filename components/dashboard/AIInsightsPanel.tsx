@@ -26,11 +26,11 @@ export function AIInsightsPanel() {
   }, [])
 
   return (
-    <Card className="border-gray-200 shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="h-4 w-4 text-[#a6261c]" />
-          <h3 className="text-sm font-semibold text-gray-900">AI Insights for You</h3>
+          <h3 className="text-sm font-semibold text-foreground">AI Insights for You</h3>
         </div>
         <AnimatePresence mode="wait">
           <motion.p
@@ -39,7 +39,7 @@ export function AIInsightsPanel() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="text-sm text-gray-700"
+            className="text-sm text-foreground"
           >
             {insights[currentIndex]}
           </motion.p>
@@ -49,7 +49,7 @@ export function AIInsightsPanel() {
             <div
               key={index}
               className={`h-1 flex-1 rounded-full transition-all ${
-                index === currentIndex ? "bg-[#a6261c]" : "bg-gray-200"
+                index === currentIndex ? "bg-[#a6261c]" : "bg-muted"
               }`}
             />
           ))}

@@ -6,7 +6,7 @@ import { FunnelPagesSidebar } from "@/components/dashboard/funnel-builder/Funnel
 import { FunnelCanvas, Block, BlockType } from "@/components/dashboard/funnel-builder/FunnelCanvas"
 import { BlockSettingsPanel } from "@/components/dashboard/funnel-builder/BlockSettingsPanel"
 import { AddBlockModal } from "@/components/dashboard/funnel-builder/AddBlockModal"
-import { Plus } from "lucide-react"
+import { Plus, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // Default blocks for opt-in page
@@ -184,61 +184,82 @@ export default function FunnelBuilderPage() {
   const selectedBlock = currentBlocks.find((b) => b.id === selectedBlockId) || null
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      {/* Top Bar */}
-      <FunnelHeader
-        funnelName="Your Book Funnel"
-        onPreview={handlePreview}
-        onPublish={handlePublish}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Pages Sidebar */}
-        <FunnelPagesSidebar
-          activePageId={activePageId}
-          onSelectPage={setActivePageId}
-        />
-
-        {/* Center: Canvas */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            <FunnelCanvas
-              blocks={currentBlocks}
-              selectedBlockId={selectedBlockId}
-              onBlocksChange={handleBlocksChange}
-              onSelectBlock={handleSelectBlock}
-              onEditBlock={handleEditBlock}
-              onDeleteBlock={handleDeleteBlock}
-              onAddBlock={handleAddBlock}
-            />
+    <div className="h-screen flex flex-col bg-background relative">
+      {/* Coming Soon Overlay */}
+      <div className="absolute inset-0 z-50 bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <div className="mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#a6261c]/10 mb-4">
+              <Clock className="w-10 h-10 text-[#a6261c]" />
+            </div>
           </div>
-          {/* Add Block Button */}
-          <div className="border-t border-gray-200 p-4 bg-white">
-            <Button
-              variant="outline"
-              onClick={() => setIsAddBlockModalOpen(true)}
-              className="w-full"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Block
-            </Button>
-          </div>
+          <h2 className="text-3xl font-bold text-foreground mb-3">Coming Soon</h2>
+          <p className="text-lg text-muted-foreground mb-2">
+            The Funnel Builder is currently under development.
+          </p>
+          <p className="text-base text-muted-foreground">
+            We're working hard to bring you an amazing funnel building experience. Check back soon!
+          </p>
         </div>
-
-        {/* Right: Settings Panel */}
-        <BlockSettingsPanel
-          selectedBlock={selectedBlock}
-          onUpdateBlock={handleUpdateBlock}
-        />
       </div>
 
-      {/* Add Block Modal */}
-      <AddBlockModal
-        isOpen={isAddBlockModalOpen}
-        onClose={() => setIsAddBlockModalOpen(false)}
-        onSelectBlock={handleAddBlock}
-      />
+      {/* Backend Code - Hidden but preserved */}
+      <div className="opacity-0 pointer-events-none">
+        {/* Top Bar */}
+        <FunnelHeader
+          funnelName="Your Book Funnel"
+          onPreview={handlePreview}
+          onPublish={handlePublish}
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left: Pages Sidebar */}
+          <FunnelPagesSidebar
+            activePageId={activePageId}
+            onSelectPage={setActivePageId}
+          />
+
+          {/* Center: Canvas */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              <FunnelCanvas
+                blocks={currentBlocks}
+                selectedBlockId={selectedBlockId}
+                onBlocksChange={handleBlocksChange}
+                onSelectBlock={handleSelectBlock}
+                onEditBlock={handleEditBlock}
+                onDeleteBlock={handleDeleteBlock}
+                onAddBlock={handleAddBlock}
+              />
+            </div>
+            {/* Add Block Button */}
+            <div className="border-t border-border p-4 bg-background">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddBlockModalOpen(true)}
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Block
+              </Button>
+            </div>
+          </div>
+
+          {/* Right: Settings Panel */}
+          <BlockSettingsPanel
+            selectedBlock={selectedBlock}
+            onUpdateBlock={handleUpdateBlock}
+          />
+        </div>
+
+        {/* Add Block Modal */}
+        <AddBlockModal
+          isOpen={isAddBlockModalOpen}
+          onClose={() => setIsAddBlockModalOpen(false)}
+          onSelectBlock={handleAddBlock}
+        />
+      </div>
     </div>
   )
 }

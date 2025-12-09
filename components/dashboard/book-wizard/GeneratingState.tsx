@@ -40,7 +40,7 @@ export function GeneratingState() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3 }}
-          className="text-lg text-gray-700"
+          className="text-lg text-foreground"
         >
           {statusMessages[currentMessageIndex]}
         </motion.p>

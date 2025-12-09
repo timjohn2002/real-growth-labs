@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // Change to your preferred database
+  provider = "sqlite" // Using SQLite for local development (no setup required)
   url      = env("DATABASE_URL")
 }
 
@@ -16,10 +16,13 @@ model User {
   email         String    @unique
   name          String?
   passwordHash  String?
+  avatar        String?   // URL to profile picture
+  preferences   String?   // JSON string: { theme, autosaveFrequency, notifications }
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   books         Book[]
   sessions      Session[]
+  contentItems  ContentItem[]
 }
 
 model Session {
@@ -32,16 +35,18 @@ model Session {
 }
 
 model Book {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
   coverImage  String?
   userId      String
-  status      String   @default("draft")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String       @default("draft")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapters    Chapter[]
+  audiobooks  Audiobook[]
+  reviews     BookReview[]
 }
 
 model Chapter {
@@ -53,5 +58,71 @@ model Chapter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model ContentItem {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  type        String   // "podcast" | "video" | "audio" | "url" | "text"
+  status      String   @default("pending") // "pending" | "processing" | "ready" | "error"
+  wordCount   Int?
+  summary     String?
+  transcript  String?
+  rawText     String?
+  thumbnail   String?
+  source      String?
+  duration    String?
+  fileUrl     String?
+  metadata    String?  // JSON string: Store additional metadata like podcast feed data, video info, etc.
+  tags        String   // Store as JSON string for SQLite compatibility
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+model Audiobook {
+  id          String   @id @default(cuid())
+  bookId      String
+  voice        String   // Voice ID/name used for generation
+  audioUrl     String?  // URL to the generated audio file
+  duration     Int?     // Duration in seconds
+  status       String   @default("pending") // "pending" | "generating" | "completed" | "failed"
+  jobId        String?  // For tracking async generation jobs
+  options      String?  // JSON string: { addIntro: boolean, addOutro: boolean }
+  error        String?
+  fileSize     Int?     // File size in bytes
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@index([bookId])
+  @@index([status])
+}
+
+model BookReview {
+  id              String   @id @default(cuid())
+  bookId          String
+  scores          String   // JSON string: { proficiency: number, value: number, offerAlignment: number, structure: number, leadMagnet: number }
+  readTime        Int?     // Reading time in minutes
+  wordCount       Int?     // Total word count
+  complexity      String?  // "Beginner-friendly" | "Intermediate" | "Advanced"
+  structure       String?  // JSON string: Structure analysis data
+  offerAlignment  String?  // JSON string: Offer alignment metrics
+  proficiency     String?  // JSON string: Proficiency breakdown
+  value           String?  // JSON string: Value breakdown
+  recommendations String?  // JSON string: Array of recommendations
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  book            Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@index([bookId])
+  @@index([createdAt])
 }
 

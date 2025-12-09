@@ -13,19 +13,19 @@ const metrics = [
 
 export function PerformanceOverview() {
   return (
-    <Card className="border-gray-200 shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Performance Overview</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">Performance Overview</h3>
         <div className="space-y-3">
           {metrics.map((metric, index) => {
             const Icon = metric.icon
             return (
               <div key={index} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-600">{metric.label}</span>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{metric.label}</span>
                 </div>
-                <span className="text-sm font-semibold text-gray-900">{metric.value}</span>
+                <span className="text-sm font-semibold text-foreground">{metric.value}</span>
               </div>
             )
           })}

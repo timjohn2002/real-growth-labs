@@ -48,13 +48,13 @@ export function BookOverview({
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(0)
 
   return (
-    <Card className="border-gray-200 shadow-sm mb-6">
+    <Card className="border-border shadow-sm mb-6">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Book Overview</h3>
+          <h3 className="text-lg font-semibold text-foreground">Book Overview</h3>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-muted-foreground hover:text-foreground"
           >
             {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </button>
@@ -72,7 +72,7 @@ export function BookOverview({
               <div className="space-y-6">
                 {/* Title */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Title</label>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Title</label>
                   <div className="flex gap-2">
                     <Input
                       value={titleOptions[selectedTitleIndex]}
@@ -102,7 +102,7 @@ export function BookOverview({
 
                 {/* Subtitle */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Subtitle</label>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Subtitle</label>
                   <div className="flex gap-2">
                     <Input
                       value={subtitleOptions[selectedSubtitleIndex]}
@@ -132,10 +132,10 @@ export function BookOverview({
 
                 {/* Outline */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Outline</label>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Outline</label>
                   <ol className="space-y-2 mb-4">
                     {outline.map((chapter, index) => (
-                      <li key={index} className="text-sm text-gray-700">
+                      <li key={index} className="text-sm text-foreground">
                         {index + 1}. {chapter}
                       </li>
                     ))}

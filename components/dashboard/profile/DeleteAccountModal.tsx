@@ -16,17 +16,48 @@ interface DeleteAccountModalProps {
 }
 
 export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps) {
-  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmText, setConfirmText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+
+    if (confirmText !== "DELETE") {
+      setError("Please type DELETE to confirm")
+      return
+    }
+
+    if (!password) {
+      setError("Password is required")
+      return
+    }
+
     setIsLoading(true)
-    // TODO: Implement account deletion logic
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
-    onClose()
-    // TODO: Redirect to login or home page
+    try {
+      const response = await fetch("/api/user/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, confirmText }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete account")
+      }
+
+      // Clear local storage and redirect
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("user")
+        window.location.href = "/login"
+      }
+    } catch (err) {
+      setError((err as Error).message)
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -34,6 +65,7 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-red-200 bg-white p-0 shadow-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg">
+          <DialogPrimitive.Title className="sr-only">Delete Account</DialogPrimitive.Title>
           <Card className="border-0 shadow-none">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <CardTitle className="text-red-600">Delete Account</CardTitle>
@@ -56,18 +88,30 @@ export function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps)
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="confirmEmail">
-                    To confirm, please type your email address
-                  </Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
-                    id="confirmEmail"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
-                    placeholder="your@email.com"
+                    placeholder="Enter your password"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmText">
+                    To confirm, please type <strong>DELETE</strong>
+                  </Label>
+                  <Input
+                    id="confirmText"
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    required
+                    placeholder="DELETE"
+                  />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
                 <div className="flex items-center justify-end gap-3 pt-4">
                   <Button type="button" variant="ghost" onClick={onClose}>
                     Cancel

@@ -1,19 +1,48 @@
 import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 import { bookSchema } from "@/lib/validations"
 
 // GET /api/books - Get all books for the user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Implement actual database query
-    // const books = await prisma.book.findMany({ where: { userId } })
-    
-    return NextResponse.json({
-      books: [
-        { id: 1, title: "My First Book", status: "published" },
-        { id: 2, title: "Marketing Guide", status: "draft" },
-      ],
+    const searchParams = request.nextUrl.searchParams
+    const userId = searchParams.get("userId") // TODO: Get from session/auth
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 }
+      )
+    }
+
+    const books = await prisma.book.findMany({
+      where: { userId },
+      include: {
+        chapters: {
+          orderBy: { order: "asc" },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
     })
+
+    const formatted = books.map((book) => ({
+      id: book.id,
+      title: book.title,
+      description: book.description,
+      coverImage: book.coverImage,
+      status: book.status,
+      chapterCount: book.chapters.length,
+      wordCount: book.chapters.reduce(
+        (sum, ch) => sum + (ch.content ? ch.content.split(/\s+/).filter(Boolean).length : 0),
+        0
+      ),
+      createdAt: book.createdAt,
+      updatedAt: book.updatedAt,
+    }))
+
+    return NextResponse.json({ books: formatted })
   } catch (error) {
+    console.error("Get books error:", error)
     return NextResponse.json(
       { error: "Failed to fetch books" },
       { status: 500 }
@@ -25,19 +54,61 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validatedData = bookSchema.parse(body)
+    const { title, description, coverImage, userId, chapters } = body
 
-    // TODO: Implement actual book creation
-    // const book = await prisma.book.create({ data: { ...validatedData, userId } })
-    
+    if (!title || !userId) {
+      return NextResponse.json(
+        { error: "title and userId are required" },
+        { status: 400 }
+      )
+    }
+
+    // Create book
+    const book = await prisma.book.create({
+      data: {
+        title,
+        description,
+        coverImage,
+        userId,
+        status: "draft",
+        chapters: chapters
+          ? {
+              create: chapters.map((ch: any, index: number) => ({
+                title: ch.title || `Chapter ${index + 1}`,
+                content: ch.content || "",
+                order: ch.number || index + 1,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        chapters: {
+          orderBy: { order: "asc" },
+        },
+      },
+    })
+
     return NextResponse.json(
-      { message: "Book created successfully", book: validatedData },
+      {
+        message: "Book created successfully",
+        book: {
+          id: book.id,
+          title: book.title,
+          chapters: book.chapters.map((ch) => ({
+            id: ch.id,
+            number: ch.order,
+            title: ch.title,
+            content: ch.content,
+          })),
+        },
+      },
       { status: 201 }
     )
   } catch (error) {
+    console.error("Create book error:", error)
     return NextResponse.json(
       { error: "Failed to create book" },
-      { status: 400 }
+      { status: 500 }
     )
   }
 }

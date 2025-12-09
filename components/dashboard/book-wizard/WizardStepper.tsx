@@ -29,20 +29,20 @@ export function WizardStepper({ currentStep }: WizardStepperProps) {
                     ? "bg-[#a6261c] border-[#a6261c]"
                     : isActive
                     ? "bg-[#a6261c] border-[#a6261c]"
-                    : "bg-white border-gray-300"
+                    : "bg-card border-border"
                 }`}
               >
                 {isCompleted ? (
                   <Check className="h-4 w-4 text-white" />
                 ) : (
-                  <span className={`text-sm font-semibold ${isActive ? "text-white" : "text-gray-400"}`}>
+                  <span className={`text-sm font-semibold ${isActive ? "text-white" : "text-muted-foreground"}`}>
                     {stepNumber}
                   </span>
                 )}
               </div>
               <span
                 className={`text-sm font-medium mt-2 ${
-                  isActive ? "text-gray-900 font-bold" : "text-gray-500"
+                  isActive ? "text-foreground font-bold" : "text-muted-foreground"
                 }`}
               >
                 {step.label}
@@ -51,7 +51,7 @@ export function WizardStepper({ currentStep }: WizardStepperProps) {
             {index < steps.length - 1 && (
               <div
                 className={`w-16 h-0.5 mx-4 ${
-                  isCompleted ? "bg-[#a6261c]" : "bg-gray-300"
+                  isCompleted ? "bg-[#a6261c]" : "bg-border"
                 }`}
               />
             )}

@@ -68,11 +68,11 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
     >
-      <Card className="border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer h-full">
+      <Card className="border-border shadow-sm hover:shadow-md transition-all cursor-pointer h-full">
         <CardContent className="p-6">
           {/* Thumbnail/Icon */}
           <div className="flex items-start gap-4 mb-4">
-            <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 relative">
+            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 relative">
               {item.status === "processing" ? (
                 <motion.div
                   animate={{ rotate: 360 }}
@@ -83,7 +83,7 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
               ) : item.thumbnail ? (
                 <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover rounded-lg" />
               ) : (
-                <Icon className="h-8 w-8 text-gray-600" />
+                <Icon className="h-8 w-8 text-muted-foreground" />
               )}
               {item.status === "processing" && (
                 <motion.div
@@ -96,7 +96,7 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">{item.title}</h3>
+                <h3 className="text-lg font-semibold text-foreground truncate">{item.title}</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {/* Status Dot */}
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(item.status)}`} />
@@ -105,14 +105,14 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
                       e.stopPropagation()
                       setShowActions(!showActions)
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </div>
               </div>
               {item.wordCount && (
-                <p className="text-sm text-gray-500 mt-1">{item.wordCount.toLocaleString()} words</p>
+                <p className="text-sm text-muted-foreground mt-1">{item.wordCount.toLocaleString()} words</p>
               )}
             </div>
           </div>
@@ -123,7 +123,7 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
               {item.tags.slice(0, 3).map((tag, index) => (
                 <span
                   key={index}
-                  className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full"
+                  className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-full"
                 >
                   {tag}
                 </span>
@@ -133,13 +133,13 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
 
           {/* Summary */}
           {item.summary && (
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{item.summary}</p>
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{item.summary}</p>
           )}
 
           {/* Status Text */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500 capitalize">{item.status}</span>
+              <span className="text-xs font-medium text-muted-foreground capitalize">{item.status}</span>
               {item.status === "processing" && (
                 <motion.span
                   className="text-xs text-[#a6261c]"
@@ -150,7 +150,7 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
                 </motion.span>
               )}
             </div>
-            <span className="text-xs text-gray-400">{item.uploadedAt}</span>
+            <span className="text-xs text-muted-foreground">{item.uploadedAt}</span>
           </div>
 
           {/* Actions */}

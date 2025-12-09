@@ -23,7 +23,7 @@ const heatmapData = generateHeatmapData()
 
 const getColorIntensity = (level: number) => {
   const colors = [
-    "bg-gray-100",
+    "bg-muted",
     "bg-[#a6261c]/20",
     "bg-[#a6261c]/40",
     "bg-[#a6261c]/60",
@@ -34,9 +34,9 @@ const getColorIntensity = (level: number) => {
 
 export function ProgressHeatmap() {
   return (
-    <Card className="border-gray-200 shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardContent className="p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Activity Heatmap</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Activity Heatmap</h3>
         <div className="flex gap-1">
           {heatmapData.map((week, weekIndex) => (
             <div key={weekIndex} className="flex flex-col gap-1">
@@ -53,7 +53,7 @@ export function ProgressHeatmap() {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+        <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
           <span>Less</span>
           <div className="flex gap-1">
             {[0, 1, 2, 3, 4].map((level) => (

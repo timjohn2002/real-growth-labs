@@ -21,12 +21,12 @@ export function EmptyState({ onAddContent }: EmptyStateProps) {
         initial={{ scale: 0.8 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.2 }}
-        className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-6"
+        className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6"
       >
-        <Archive className="h-12 w-12 text-gray-400" />
+        <Archive className="h-12 w-12 text-muted-foreground" />
       </motion.div>
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">Your Content Vault is empty</h3>
-      <p className="text-gray-600 text-center max-w-md mb-6">
+      <h3 className="text-xl font-semibold text-foreground mb-2">Your Content Vault is empty</h3>
+      <p className="text-muted-foreground text-center max-w-md mb-6">
         Upload podcasts, videos, or notes to begin building your book.
       </p>
       <Button

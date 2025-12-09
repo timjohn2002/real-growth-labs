@@ -11,6 +11,7 @@ import { ChaptersSidebar } from "@/components/dashboard/book-wizard/ChaptersSide
 import { BookEditor } from "@/components/dashboard/book-wizard/BookEditor"
 import { AIToolsPanel } from "@/components/dashboard/book-wizard/AIToolsPanel"
 import { BookOverview } from "@/components/dashboard/book-wizard/BookOverview"
+import { generateAllChapters, REAL_GROWTH_BOOK_TEMPLATE } from "@/lib/book-templates"
 import Link from "next/link"
 
 const BRAND_COLOR = "#a6261c"
@@ -30,35 +31,9 @@ export default function BookWizardPage() {
   const [questionAnswers, setQuestionAnswers] = useState<QuestionAnswers | null>(null)
   const [bookTitle, setBookTitle] = useState("Your Book Title")
   const [bookSubtitle, setBookSubtitle] = useState("Your Book Subtitle")
-  const [outline, setOutline] = useState<string[]>([
-    "Introduction – Why this matters",
-    "Your Story",
-    "Framework Overview",
-    "Implementation Guide",
-    "Case Studies",
-    "Conclusion & Next Steps",
-  ])
-  const [chapters, setChapters] = useState<Chapter[]>([
-    {
-      id: "1",
-      number: 1,
-      title: "Introduction – Why this matters",
-      content: "This is the introduction chapter content. Edit freely to customize your book.",
-    },
-    {
-      id: "2",
-      number: 2,
-      title: "Your Story",
-      content: "Share your personal story and journey here.",
-    },
-    {
-      id: "3",
-      number: 3,
-      title: "Framework Overview",
-      content: "Explain your framework and methodology.",
-    },
-  ])
-  const [activeChapterId, setActiveChapterId] = useState<string | null>("1")
+  const [outline, setOutline] = useState<string[]>([])
+  const [chapters, setChapters] = useState<Chapter[]>([])
+  const [activeChapterId, setActiveChapterId] = useState<string | null>(null)
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -70,13 +45,63 @@ export default function BookWizardPage() {
     }
   }
 
-  const handleGenerate = (answers: QuestionAnswers) => {
+  const [bookId, setBookId] = useState<string | null>(null)
+  const userId = "user-1" // TODO: Get from auth context
+
+  const handleGenerate = async (answers: QuestionAnswers) => {
     setQuestionAnswers(answers)
     setCurrentStep("generating")
-    // Simulate generation process
-    setTimeout(() => {
+    
+    // Generate book title and subtitle from answers
+    if (answers.transformation) {
+      setBookTitle(answers.transformation.split(".")[0] || "Your Book Title")
+    }
+    if (answers.highTicketOffer) {
+      setBookSubtitle(`The Complete Guide to ${answers.highTicketOffer}`)
+    }
+    
+    // Generate chapters from Real Growth Book template
+    // TODO: In production, call AI API to generate content based on answers
+    // For now, generate template structure
+    setTimeout(async () => {
+      const generatedChapters = generateAllChapters(answers)
+      setChapters(generatedChapters)
+      
+      // Set outline from chapter titles
+      setOutline(generatedChapters.map((ch) => ch.title))
+      
+      // Set first chapter as active
+      if (generatedChapters.length > 0) {
+        setActiveChapterId(generatedChapters[0].id)
+      }
+      
+      // Create book in database
+      try {
+        const response = await fetch("/api/books", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: bookTitle,
+            description: bookSubtitle,
+            userId,
+            chapters: generatedChapters.map((ch) => ({
+              number: ch.number,
+              title: ch.title,
+              content: ch.content,
+            })),
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setBookId(data.book.id)
+        }
+      } catch (error) {
+        console.error("Failed to create book:", error)
+      }
+      
       setCurrentStep("draft")
-    }, 5000)
+    }, 3000) // Reduced from 5000 for better UX
   }
 
   const handleBack = () => {
@@ -101,8 +126,10 @@ export default function BookWizardPage() {
   }
 
   const handleAddChapter = () => {
+    // For Real Growth Book template, chapters are fixed
+    // But allow adding custom chapters if needed
     const newChapter: Chapter = {
-      id: `${chapters.length + 1}`,
+      id: `custom-${Date.now()}`,
       number: chapters.length + 1,
       title: `Chapter ${chapters.length + 1}`,
       content: "",
@@ -135,10 +162,10 @@ export default function BookWizardPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white p-6">
+      <div className="border-b border-border bg-card p-6">
         <div className="mb-4">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Book Wizard</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Book Wizard</h1>
+          <p className="text-muted-foreground">
             Choose a structure, answer a few questions, and let AI draft your book.
           </p>
         </div>
@@ -212,7 +239,7 @@ export default function BookWizardPage() {
                 onSelectChapter={handleChapterSelect}
                 onAddChapter={handleAddChapter}
               />
-              <div className="flex-1 flex flex-col overflow-hidden bg-white">
+              <div className="flex-1 flex flex-col overflow-hidden bg-background">
                 <div className="p-6 overflow-y-auto">
                   <BookOverview
                     title={bookTitle}
@@ -232,14 +259,14 @@ export default function BookWizardPage() {
                   onContentChange={handleContentChange}
                 />
                 {/* Bottom Actions */}
-                <div className="border-t border-gray-200 p-6 bg-white">
+                <div className="border-t border-border p-6 bg-background">
                   <div className="flex items-center justify-end gap-4">
-                    <Link href="/dashboard/book-editor">
+                    <Link href="/dashboard">
                       <Button variant="ghost" size="sm">
                         Save and exit
                       </Button>
                     </Link>
-                    <Link href="/dashboard/book-editor">
+                    <Link href={bookId ? `/dashboard/book-editor?id=${bookId}` : "/dashboard/book-editor"}>
                       <Button
                         className="bg-[#a6261c] hover:bg-[#8e1e16] text-white"
                         style={{ backgroundColor: BRAND_COLOR }}

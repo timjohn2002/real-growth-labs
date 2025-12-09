@@ -41,9 +41,9 @@ export function AccountPreferences({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <Card className="border-gray-200 shadow-sm">
+      <Card className="border-border shadow-sm">
         <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Account Settings</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-6">Account Settings</h3>
 
           <div className="space-y-6">
             {/* Theme */}
@@ -57,10 +57,10 @@ export function AccountPreferences({
                     value="light"
                     checked={theme === "light"}
                     onChange={() => onThemeChange("light")}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
                   />
-                  <Sun className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Light</span>
+                  <Sun className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Light</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -69,10 +69,10 @@ export function AccountPreferences({
                     value="dark"
                     checked={theme === "dark"}
                     onChange={() => onThemeChange("dark")}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
                   />
-                  <Moon className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Dark</span>
+                  <Moon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Dark</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -81,10 +81,10 @@ export function AccountPreferences({
                     value="system"
                     checked={theme === "system"}
                     onChange={() => onThemeChange("system")}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
                   />
-                  <Monitor className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">System</span>
+                  <Monitor className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">System</span>
                 </label>
               </div>
             </div>
@@ -110,55 +110,55 @@ export function AccountPreferences({
               <Label>Notifications</Label>
               <div className="space-y-2">
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm text-gray-700 flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-foreground flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-muted-foreground" />
                     Notify me when audiobook is ready
                   </span>
                   <input
                     type="checkbox"
                     checked={notifications.audiobookReady}
                     onChange={(e) => onNotificationChange("audiobookReady", e.target.checked)}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 rounded focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input rounded focus:ring-[#a6261c]"
                   />
                 </label>
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm text-gray-700 flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-foreground flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-muted-foreground" />
                     Notify me when book review completes
                   </span>
                   <input
                     type="checkbox"
                     checked={notifications.bookReviewReady}
                     onChange={(e) => onNotificationChange("bookReviewReady", e.target.checked)}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 rounded focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input rounded focus:ring-[#a6261c]"
                   />
                 </label>
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm text-gray-700 flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-foreground flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-muted-foreground" />
                     Weekly progress summary
                   </span>
                   <input
                     type="checkbox"
                     checked={notifications.weeklyProgress}
                     onChange={(e) => onNotificationChange("weeklyProgress", e.target.checked)}
-                    className="w-4 h-4 text-[#a6261c] border-gray-300 rounded focus:ring-[#a6261c]"
+                    className="w-4 h-4 text-[#a6261c] border-input rounded focus:ring-[#a6261c]"
                   />
                 </label>
               </div>
             </div>
 
             {/* Connected Accounts */}
-            <div className="space-y-3 pt-4 border-t border-gray-200">
+            <div className="space-y-3 pt-4 border-t border-border">
               <Label>Connected Accounts</Label>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-700">Google Drive</span>
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Google Drive</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Not Connected</span>
+                    <span className="text-sm text-muted-foreground">Not Connected</span>
                     <Button variant="outline" size="sm">
                       Connect
                     </Button>
@@ -166,11 +166,11 @@ export function AccountPreferences({
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-700">Calendar</span>
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Calendar</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Not Connected</span>
+                    <span className="text-sm text-muted-foreground">Not Connected</span>
                     <Button variant="outline" size="sm">
                       Connect
                     </Button>

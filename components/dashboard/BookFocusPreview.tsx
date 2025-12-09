@@ -19,9 +19,9 @@ export function BookFocusPreview() {
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-3">
             <Target className="h-5 w-5 text-[#a6261c]" />
-            <h3 className="text-sm font-semibold text-gray-900">Book Focus Mode</h3>
+            <h3 className="text-sm font-semibold text-foreground">Book Focus Mode</h3>
           </div>
-          <p className="text-sm text-gray-700 mb-4">
+          <p className="text-sm text-foreground mb-4">
             You are closest to completing: <span className="font-semibold text-[#a6261c]">Marketing Guide</span>
           </p>
           <Link href="/dashboard/book-editor?book=2">

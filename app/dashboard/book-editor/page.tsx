@@ -20,71 +20,115 @@ interface Chapter {
 
 export default function FullBookEditorPage() {
   const router = useRouter()
+  const [bookId, setBookId] = useState<string | null>(null)
   const [bookTitle, setBookTitle] = useState("My First Book")
   const [bookStatus, setBookStatus] = useState<"draft" | "published">("draft")
   const [lastUpdated, setLastUpdated] = useState("just now")
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "error">("saved")
-  const [activeChapterId, setActiveChapterId] = useState<string | null>("1")
+  const [activeChapterId, setActiveChapterId] = useState<string | null>(null)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isAudiobookModalOpen, setIsAudiobookModalOpen] = useState(false)
-  const [totalWordCount, setTotalWordCount] = useState(18304)
+  const [totalWordCount, setTotalWordCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const [chapters, setChapters] = useState<Chapter[]>([
-    {
-      id: "1",
-      number: 1,
-      title: "The Big Promise",
-      content: "<p>This is the opening chapter that sets up the entire book...</p>",
-      wordCount: 1850,
-    },
-    {
-      id: "2",
-      number: 2,
-      title: "Your Story",
-      content: "<p>Share your personal journey and how you discovered this method...</p>",
-      wordCount: 2200,
-    },
-    {
-      id: "3",
-      number: 3,
-      title: "Framework Overview",
-      content: "<p>Here's the core framework that will transform your reader's life...</p>",
-      wordCount: 3100,
-    },
-    {
-      id: "4",
-      number: 4,
-      title: "Case Studies",
-      content: "<p>Real examples of how this framework has worked for others...</p>",
-      wordCount: 2800,
-    },
-    {
-      id: "5",
-      number: 5,
-      title: "Implementation Plan",
-      content: "<p>Step-by-step guide to implementing what you've learned...</p>",
-      wordCount: 3254,
-    },
-  ])
+  const [chapters, setChapters] = useState<Chapter[]>([])
 
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId)
 
-  // Auto-save logic
-  const autoSave = useCallback(async () => {
-    setSaveStatus("saving")
-    setLastUpdated("just now")
-
-    // Simulate API call
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setSaveStatus("saved")
-      const now = new Date()
-      const minutes = now.getMinutes()
-      setLastUpdated(`${minutes} minutes ago`)
-    } catch (error) {
-      setSaveStatus("error")
+  // Get book ID from URL on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const id = params.get("id")
+      setBookId(id)
     }
   }, [])
+
+  // Load book data
+  useEffect(() => {
+    if (bookId) {
+      loadBook(bookId)
+    } else {
+      // If no book ID, initialize with empty state (for new books)
+      setChapters([])
+      setActiveChapterId(null)
+    }
+  }, [bookId])
+
+  const loadBook = async (id: string) => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(`/api/books/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBookTitle(data.title)
+        setBookStatus(data.status as "draft" | "published")
+        setChapters(data.chapters || [])
+        if (data.chapters && data.chapters.length > 0) {
+          setActiveChapterId(data.chapters[0].id)
+        }
+        
+        // Calculate total word count
+        const total = data.chapters.reduce(
+          (sum: number, ch: Chapter) => sum + (ch.wordCount || 0),
+          0
+        )
+        setTotalWordCount(total)
+        
+        // Format last updated
+        const updated = new Date(data.updatedAt)
+        const now = new Date()
+        const diffMinutes = Math.floor((now.getTime() - updated.getTime()) / 60000)
+        if (diffMinutes < 1) {
+          setLastUpdated("just now")
+        } else if (diffMinutes < 60) {
+          setLastUpdated(`${diffMinutes} minutes ago`)
+        } else {
+          setLastUpdated(`${Math.floor(diffMinutes / 60)} hours ago`)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load book:", error)
+      setSaveStatus("error")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Auto-save logic
+  const autoSave = useCallback(async () => {
+    if (!bookId) return // Don't save if no book ID
+    
+    setSaveStatus("saving")
+    
+    try {
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: bookTitle,
+          status: bookStatus,
+          chapters: chapters.map((ch) => ({
+            id: ch.id,
+            number: ch.number,
+            title: ch.title,
+            content: ch.content,
+          })),
+        }),
+      })
+
+      if (response.ok) {
+        setSaveStatus("saved")
+        const now = new Date()
+        setLastUpdated("just now")
+      } else {
+        throw new Error("Save failed")
+      }
+    } catch (error) {
+      console.error("Auto-save error:", error)
+      setSaveStatus("error")
+    }
+  }, [bookId, bookTitle, bookStatus, chapters])
 
   // Auto-save on content change
   useEffect(() => {
@@ -123,7 +167,7 @@ export default function FullBookEditorPage() {
         const updated = prev.map((ch) =>
           ch.id === activeChapterId ? { ...ch, wordCount: count } : ch
         )
-        const total = updated.reduce((sum, ch) => sum + ch.wordCount, 0)
+        const total = updated.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
         setTotalWordCount(total)
         return updated
       })
@@ -136,7 +180,7 @@ export default function FullBookEditorPage() {
 
   const handleAddChapter = () => {
     const newChapter: Chapter = {
-      id: `${chapters.length + 1}`,
+      id: `temp-${Date.now()}`, // Temporary ID until saved
       number: chapters.length + 1,
       title: `Chapter ${chapters.length + 1}`,
       content: "<p></p>",
@@ -166,8 +210,18 @@ export default function FullBookEditorPage() {
     // TODO: Implement export logic
   }
 
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="text-muted-foreground mb-2">Loading book...</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-background">
       {/* Top Bar */}
       <EditorTopBar
         bookTitle={bookTitle}
@@ -177,7 +231,7 @@ export default function FullBookEditorPage() {
         onPreview={handlePreview}
         onExport={() => setIsExportModalOpen(true)}
         onGenerateAudiobook={() => setIsAudiobookModalOpen(true)}
-        onRunBookReview={() => router.push("/dashboard/book-review")}
+        onRunBookReview={() => router.push(`/dashboard/book-review?id=${bookId}`)}
       />
 
       {/* Main Content */}
@@ -222,6 +276,7 @@ export default function FullBookEditorPage() {
       <AudiobookModal
         isOpen={isAudiobookModalOpen}
         onClose={() => setIsAudiobookModalOpen(false)}
+        bookId={bookId}
         bookTitle={bookTitle}
       />
     </div>

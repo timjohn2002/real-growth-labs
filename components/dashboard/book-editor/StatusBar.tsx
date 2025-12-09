@@ -11,8 +11,8 @@ interface StatusBarProps {
 
 export function StatusBar({ saveStatus, wordCount, chapterCount }: StatusBarProps) {
   return (
-    <div className="border-t border-gray-200 bg-gray-50 px-6 py-2">
-      <div className="flex items-center justify-between text-xs text-gray-600">
+    <div className="border-t border-border bg-card px-6 py-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         {/* Left: Save Status */}
         <div className="flex items-center gap-2">
           <AnimatePresence mode="wait">

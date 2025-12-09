@@ -17,14 +17,14 @@ export function DangerZone() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <Card className="border-gray-200 shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Danger Zone</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Danger Zone</h3>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsDeleteModalOpen(true)}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete My Account

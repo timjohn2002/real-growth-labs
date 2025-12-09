@@ -29,14 +29,14 @@ interface AIToolsPanelProps {
 
 export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
   return (
-    <div className="w-64 bg-white border-l border-gray-200 h-full overflow-y-auto">
+    <div className="w-64 bg-card border-l border-border h-full overflow-y-auto">
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">AI Tools</h3>
-        <p className="text-xs text-gray-500 mb-4">Select text or a section, then choose an action.</p>
+        <h3 className="text-sm font-semibold text-foreground mb-1">AI Tools</h3>
+        <p className="text-xs text-muted-foreground mb-4">Select text or a section, then choose an action.</p>
 
         {/* Rewrite & Style */}
         <div className="mb-6">
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Rewrite & Style
           </h4>
           <div className="space-y-2">
@@ -83,7 +83,7 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
 
         {/* Enhance & Story */}
         <div className="mb-6">
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Enhance & Story
           </h4>
           <div className="space-y-2">
@@ -119,7 +119,7 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
 
         {/* Structure & Clarity */}
         <div>
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Structure & Clarity
           </h4>
           <div className="space-y-2">

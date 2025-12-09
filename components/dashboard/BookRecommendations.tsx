@@ -26,12 +26,12 @@ export function BookRecommendations() {
   }
 
   return (
-    <Card className="border-gray-200 shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#a6261c]" />
-            <h3 className="text-sm font-semibold text-gray-900">Recommendations</h3>
+            <h3 className="text-sm font-semibold text-foreground">Recommendations</h3>
           </div>
           <div className="flex gap-1">
             <Button
@@ -59,7 +59,7 @@ export function BookRecommendations() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="text-sm text-gray-700"
+            className="text-sm text-foreground"
           >
             {recommendations[currentIndex]}
           </motion.p>

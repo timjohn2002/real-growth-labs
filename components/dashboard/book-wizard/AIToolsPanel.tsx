@@ -28,13 +28,13 @@ interface AIToolsPanelProps {
 
 export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
   return (
-    <div className="w-64 bg-white border-l border-gray-200 h-full overflow-y-auto">
+    <div className="w-64 bg-card border-l border-border h-full overflow-y-auto">
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">AI Tools</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">AI Tools</h3>
 
         {/* Quick Actions */}
         <div className="mb-6">
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Quick Actions
           </h4>
           <div className="space-y-2">
@@ -83,7 +83,7 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
 
         {/* Story & Examples */}
         <div className="mb-6">
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Story & Examples
           </h4>
           <div className="space-y-2">
@@ -119,7 +119,7 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
 
         {/* Structure */}
         <div>
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
             Structure
           </h4>
           <div className="space-y-2">

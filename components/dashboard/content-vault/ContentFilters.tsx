@@ -20,12 +20,12 @@ interface ContentFiltersProps {
 
 export function ContentFilters({ activeFilter, onFilterChange }: ContentFiltersProps) {
   return (
-    <div className="flex gap-6 border-b border-gray-200 pb-4 mb-6">
+    <div className="flex gap-6 border-b border-border pb-4 mb-6">
       {filters.map((filter) => (
         <button
           key={filter.id}
           onClick={() => onFilterChange(filter.id)}
-          className="relative text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors pb-1"
+          className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors pb-1"
         >
           {filter.label}
           {activeFilter === filter.id && (

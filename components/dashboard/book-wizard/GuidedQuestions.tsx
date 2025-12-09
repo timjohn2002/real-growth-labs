@@ -47,8 +47,8 @@ export function GuidedQuestions({ onBack, onGenerate }: GuidedQuestionsProps) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">2. Answer a few questions</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold text-foreground mb-2">2. Answer a few questions</h2>
+        <p className="text-muted-foreground">
           These help the AI tailor your book to your voice and audience.
         </p>
       </div>

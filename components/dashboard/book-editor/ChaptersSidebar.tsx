@@ -59,31 +59,31 @@ function ChapterListItem({ chapter, isActive, onSelect }: ChapterListItemProps) 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group ${
-        isActive ? "bg-red-50 border-l-4" : "hover:bg-gray-50"
+        isActive ? "bg-[#a6261c]/10 dark:bg-[#a6261c]/20 border-l-4" : "hover:bg-muted"
       }`}
       onClick={() => onSelect(chapter.id)}
     >
       <div
         {...attributes}
         {...listeners}
-        className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+        className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
       >
         <GripVertical className="h-4 w-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">
+          <span className="text-xs font-medium text-muted-foreground">
             {String(chapter.number).padStart(2, "0")}
           </span>
           <span
             className={`text-sm font-medium truncate ${
-              isActive ? "text-gray-900" : "text-gray-700"
+              isActive ? "text-foreground" : "text-foreground"
             }`}
           >
             {chapter.title}
           </span>
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">~ {chapter.wordCount.toLocaleString()} words</p>
+        <p className="text-xs text-muted-foreground mt-0.5">~ {chapter.wordCount.toLocaleString()} words</p>
       </div>
     </motion.div>
   )
@@ -130,10 +130,10 @@ export function ChaptersSidebar({
   }
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200">
+    <div className="w-64 bg-card border-r border-border h-full flex flex-col">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Chapters</h3>
+          <h3 className="text-sm font-semibold text-foreground">Chapters</h3>
           <Button variant="ghost" size="sm" onClick={onAddChapter}>
             <Plus className="h-4 w-4" />
           </Button>
@@ -165,7 +165,7 @@ export function ChaptersSidebar({
         </DndContext>
       </div>
 
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-border">
         <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={onAddSection}>
           <Plus className="h-3 w-3 mr-2" />
           Add Section

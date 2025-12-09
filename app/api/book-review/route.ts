@@ -74,15 +74,15 @@ export async function POST(request: NextRequest) {
     const review = await prisma.bookReview.create({
       data: {
         bookId,
-        scores: analysis.scores,
+        scores: JSON.stringify(analysis.scores),
         readTime: analysis.readTime,
         wordCount: analysis.wordCount,
         complexity: analysis.complexity,
-        structure: analysis.structure,
-        offerAlignment: analysis.offerAlignment,
-        proficiency: analysis.proficiency,
-        value: analysis.value,
-        recommendations: analysis.recommendations,
+        structure: JSON.stringify(analysis.structure),
+        offerAlignment: JSON.stringify(analysis.offerAlignment),
+        proficiency: JSON.stringify(analysis.proficiency),
+        value: JSON.stringify(analysis.value),
+        recommendations: JSON.stringify(analysis.recommendations),
       },
       include: {
         book: {

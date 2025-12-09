@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     const summary = generateSummary(transcription.text)
 
     // Update content item with transcription
+    const existingMetadata = contentItem.metadata ? JSON.parse(contentItem.metadata) : {}
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
@@ -60,11 +61,11 @@ export async function POST(request: NextRequest) {
         wordCount,
         summary,
         processedAt: new Date(),
-        metadata: {
-          ...(contentItem.metadata as object || {}),
+        metadata: JSON.stringify({
+          ...existingMetadata,
           language: transcription.language,
           duration: transcription.duration,
-        },
+        }),
       },
     })
 

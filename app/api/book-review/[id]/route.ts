@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma"
 // GET /api/book-review/[id] - Get a specific review
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const review = await prisma.bookReview.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         book: {
           select: {
@@ -47,11 +48,12 @@ export async function GET(
 // DELETE /api/book-review/[id] - Delete a review
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.bookReview.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: "Review deleted successfully" })

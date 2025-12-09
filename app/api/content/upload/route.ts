@@ -43,11 +43,12 @@ export async function POST(request: NextRequest) {
         type,
         status: "pending",
         fileUrl,
-        metadata: {
+        metadata: JSON.stringify({
           filename: file.name,
           size: file.size,
           mimeType: file.type,
-        },
+        }),
+        tags: "[]",
       },
     })
 

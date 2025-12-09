@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma"
 // GET /api/audiobook/[id] - Get a specific audiobook
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const audiobook = await prisma.audiobook.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         book: {
           select: {
@@ -47,14 +48,15 @@ export async function GET(
 // PUT /api/audiobook/[id] - Update an audiobook
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { audioUrl, duration, status, fileSize, error } = body
 
     const audiobook = await prisma.audiobook.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(audioUrl !== undefined && { audioUrl }),
         ...(duration !== undefined && { duration }),
@@ -78,11 +80,12 @@ export async function PUT(
 // DELETE /api/audiobook/[id] - Delete an audiobook
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.audiobook.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: "Audiobook deleted successfully" })

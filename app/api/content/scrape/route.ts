@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
         type: "url",
         status: "processing",
         source: url,
-        metadata: { url },
+        metadata: JSON.stringify({ url }),
+        tags: "[]",
       },
     })
 

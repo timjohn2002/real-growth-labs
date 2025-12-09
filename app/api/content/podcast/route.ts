@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
         type: "podcast",
         status: "processing",
         source: url,
-        metadata: { url },
+        metadata: JSON.stringify({ url }),
+        tags: "[]",
       },
     })
 
@@ -70,10 +71,10 @@ async function processPodcast(contentItemId: string, url: string) {
       await prisma.contentItem.update({
         where: { id: contentItemId },
         data: {
-          metadata: {
+          metadata: JSON.stringify({
             ...metadata,
             audioUrl,
-          },
+          }),
         },
       })
 

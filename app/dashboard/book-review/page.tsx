@@ -293,7 +293,10 @@ export default function BookReviewPage() {
   ]
 
   const structureSections = review.structure.sections
-  const offerAlignmentMetrics = review.offerAlignment.metrics
+  const offerAlignmentMetrics = review.offerAlignment.metrics.map((m: any) => ({
+    ...m,
+    value: (m.value === "Low" ? "Weak" : m.value) as "High" | "Medium" | "Weak"
+  }))
   const proficiencyMetrics = review.proficiency.metrics
   const valueMetrics = review.value.metrics
   const recommendations = review.recommendations
@@ -317,7 +320,7 @@ export default function BookReviewPage() {
               minutes={review.readTime || 0} 
               wordCount={review.wordCount || 0} 
             />
-            <ComplexityCard level={review.complexity || "Beginner-friendly"} />
+            <ComplexityCard level={(review.complexity as "Beginner-friendly" | "Intermediate" | "Advanced") || "Beginner-friendly"} />
           </div>
 
           {/* Structure Flow Graph */}

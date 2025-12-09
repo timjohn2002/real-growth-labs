@@ -12,7 +12,7 @@ interface ContentItem {
   title: string
   type: "podcast" | "video" | "audio" | "url" | "text"
   wordCount?: number
-  status: "pending" | "processing" | "ready"
+  status: "pending" | "processing" | "ready" | "error"
   summary?: string
   transcript?: string
   source?: string

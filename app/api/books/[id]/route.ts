@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma"
 // GET /api/books/[id] - Get a specific book with chapters
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const book = await prisma.book.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         chapters: {
           orderBy: { order: "asc" },
@@ -54,15 +55,16 @@ export async function GET(
 // PUT /api/books/[id] - Update a book and its chapters
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { title, description, status, chapters } = body
 
     // Update book
     const book = await prisma.book.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         title,
         description,
@@ -75,13 +77,13 @@ export async function PUT(
     if (chapters && Array.isArray(chapters)) {
       // Delete existing chapters
       await prisma.chapter.deleteMany({
-        where: { bookId: params.id },
+        where: { bookId: id },
       })
 
       // Create/update chapters
       await prisma.chapter.createMany({
         data: chapters.map((ch: any, index: number) => ({
-          bookId: params.id,
+          bookId: id,
           title: ch.title,
           content: ch.content || "",
           order: ch.number || index + 1,
@@ -109,11 +111,12 @@ export async function PUT(
 // DELETE /api/books/[id] - Delete a book
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // TODO: Implement actual delete logic
-    // await prisma.book.delete({ where: { id: params.id } })
+    // await prisma.book.delete({ where: { id } })
     
     return NextResponse.json({ message: "Book deleted successfully" })
   } catch (error) {

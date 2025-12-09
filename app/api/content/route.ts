@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         transcript: text,
         wordCount,
         summary,
-        tags: tags || [],
+        tags: JSON.stringify(tags || []),
         processedAt: new Date(),
       },
     })

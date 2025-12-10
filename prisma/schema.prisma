@@ -12,17 +12,19 @@ datasource db {
 
 // Placeholder models - will be expanded later
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String?
-  avatar        String?   // URL to profile picture
-  preferences   String?   // JSON string: { theme, autosaveFrequency, notifications }
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  books         Book[]
-  sessions      Session[]
-  contentItems  ContentItem[]
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  passwordHash      String?
+  avatar            String?   // URL to profile picture
+  preferences       String?   // JSON string: { theme, autosaveFrequency, notifications }
+  resetToken        String?   // Password reset token
+  resetTokenExpires DateTime? // Password reset token expiration
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  books             Book[]
+  sessions          Session[]
+  contentItems      ContentItem[]
 }
 
 model Session {

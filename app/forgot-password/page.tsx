@@ -90,8 +90,8 @@ export default function ForgotPasswordPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     {resetLink
-                      ? "Click the link below to reset your password:"
-                      : `We've sent a password reset link to ${email}`}
+                      ? "Click the link below to reset your password (development mode):"
+                      : `We've sent a password reset link to ${email}. Please check your inbox.`}
                   </p>
                   {resetLink && (
                     <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">

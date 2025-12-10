@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sendPasswordResetEmail } from "@/lib/email"
 import { z } from "zod"
 
 const forgotPasswordSchema = z.object({
@@ -41,17 +42,24 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
-    // TODO: Send email with reset link
-    // For now, we'll log it (in production, use email service like Resend)
-    console.log(`Password reset link for ${email}: ${resetUrl}`)
+    // Send email with reset link
+    const emailResult = await sendPasswordResetEmail(email, resetUrl)
 
-    // In development, you can check the console for the reset link
-    // In production, this should send an email via Resend or similar service
+    // If email sending failed but we have RESEND_API_KEY, log the error
+    if (!emailResult.success && process.env.RESEND_API_KEY) {
+      console.error("Failed to send password reset email:", emailResult.error)
+    }
+
+    // In development mode, also return the reset link for easy testing
+    // (even if email was sent successfully)
+    const isDevelopment = process.env.NODE_ENV === "development"
 
     return NextResponse.json({
       message: "If an account exists with that email, a password reset link has been sent.",
-      // Only include this in development
-      ...(process.env.NODE_ENV === "development" && { resetUrl }),
+      // Include reset link in development mode for testing
+      ...(isDevelopment && { resetUrl }),
+      // Include email status in development for debugging
+      ...(isDevelopment && { emailSent: emailResult.success }),
     })
   } catch (error) {
     console.error("Forgot password error:", error)

@@ -72,7 +72,7 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-black dark:text-black">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -84,7 +84,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-black dark:text-black">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -98,7 +98,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between">
                 <label className="flex items-center space-x-2">
                   <input type="checkbox" className="rounded" />
-                  <span className="text-sm text-gray-600">Remember me</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-600">Remember me</span>
                 </label>
                 <Link href="/forgot-password" className="text-sm text-[#a6261c] hover:underline">
                   Forgot password?
@@ -111,7 +111,7 @@ export default function LoginPage() {
               >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-600">
                 Don&apos;t have an account?{" "}
                 <Link href="/signup" className="text-[#a6261c] hover:underline">
                   Sign up

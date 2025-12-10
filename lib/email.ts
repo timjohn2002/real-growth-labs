@@ -30,7 +30,7 @@ export async function sendPasswordResetEmail(
     
     const result = await resend.emails.send({
       from: fromEmail,
-      to: email,
+      to: [email], // Ensure it's an array
       subject: "Reset Your Password - Real Growth Labs",
       html: `
         <!DOCTYPE html>
@@ -78,17 +78,44 @@ export async function sendPasswordResetEmail(
       `,
     })
 
-    console.log("Email sent successfully:", result)
+    console.log("Email sent successfully:", JSON.stringify(result, null, 2))
+    
+    // Extract email ID from Resend response
+    const emailId = (result as any).data?.id || (result as any).id
+    console.log("Resend Email ID:", emailId)
+    
+    if (!emailId) {
+      console.warn("Warning: No email ID returned from Resend. Email may not have been sent.")
+    }
+    
     return { 
       success: true, 
       data: result,
-      emailId: (result as any).data?.id || (result as any).id,
+      emailId: emailId,
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error sending password reset email:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    const errorDetails = error instanceof Error ? error.stack : String(error)
-    console.error("Error details:", errorDetails)
+    
+    // Handle Resend-specific errors
+    let errorMessage = "Unknown error"
+    let errorDetails = String(error)
+    
+    if (error?.message) {
+      errorMessage = error.message
+    }
+    
+    if (error?.response?.body) {
+      // Resend API error response
+      const resendError = error.response.body
+      errorMessage = resendError.message || errorMessage
+      errorDetails = JSON.stringify(resendError, null, 2)
+      console.error("Resend API Error:", resendError)
+    } else if (error instanceof Error) {
+      errorDetails = error.stack || error.message
+    }
+    
+    console.error("Full error details:", errorDetails)
+    
     return {
       success: false,
       error: errorMessage,

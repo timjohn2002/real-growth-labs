@@ -65,10 +65,10 @@ export default function SignUpPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <Card className="border-gray-100">
+        <Card className="border-gray-100 bg-white dark:bg-white">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle className="text-2xl font-bold text-center text-black dark:text-black">Create Account</CardTitle>
+            <CardDescription className="text-center text-gray-600 dark:text-gray-600">
               Enter your information to get started
             </CardDescription>
           </CardHeader>

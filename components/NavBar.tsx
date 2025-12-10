@@ -124,7 +124,7 @@ export function NavBar() {
               <Link href="/login">
                 <Button
                   variant="outline"
-                  className="rounded-lg border border-black text-black bg-white hover:bg-gray-50 text-sm font-medium px-4 py-2"
+                  className="rounded-lg border border-black text-black bg-white hover:bg-gray-50 hover:text-black text-sm font-medium px-4 py-2"
                 >
                   Login
                 </Button>

@@ -57,10 +57,10 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <Card className="border-gray-100">
+        <Card className="border-gray-100 bg-white dark:bg-white">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle className="text-2xl font-bold text-center text-black dark:text-black">Sign In</CardTitle>
+            <CardDescription className="text-center text-gray-600 dark:text-gray-600">
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
@@ -106,7 +106,7 @@ export default function LoginPage() {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-[#a6261c] hover:bg-[#8e1e16]"
+                className="w-full bg-[#a6261c] hover:bg-[#8e1e16] text-white"
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Sign In"}

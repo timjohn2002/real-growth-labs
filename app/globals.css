@@ -119,5 +119,12 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Force light mode on landing page */
+  html:not(.dark) body {
+    @apply bg-white;
+  }
+  html.dark body {
+    @apply bg-white;
+  }
 }
 

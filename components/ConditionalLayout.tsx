@@ -13,11 +13,11 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <>
+    <div className="bg-white dark:bg-white">
       <NavBar />
-      <main className="min-h-screen">{children}</main>
+      <main className="min-h-screen bg-white dark:bg-white">{children}</main>
       <Footer />
-    </>
+    </div>
   )
 }
 

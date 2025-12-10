@@ -110,7 +110,7 @@ export function Benefits() {
   const smallBenefits = benefits.filter((b) => !b.isLarge)
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white dark:bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Title */}
@@ -121,7 +121,7 @@ export function Benefits() {
             transition={{ duration: 0.6 }}
             className="text-center mb-12"
           >
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black dark:text-black">
               What Real Growth Labs Gives You...
             </h2>
           </motion.div>
@@ -135,7 +135,7 @@ export function Benefits() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-8"
             >
-              <Card className="border-gray-300 shadow-sm">
+              <Card className="border-gray-300 shadow-sm bg-white dark:bg-white">
                 <CardContent className="p-8 md:p-12">
                   <div className="flex flex-col items-center text-center">
                     {/* Signature Icon */}
@@ -144,12 +144,12 @@ export function Benefits() {
                     </div>
 
                     {/* Headline */}
-                    <h3 className="text-3xl md:text-4xl font-bold text-black mb-4">
+                    <h3 className="text-3xl md:text-4xl font-bold text-black dark:text-black mb-4">
                       {largeBenefit.title}
                     </h3>
 
                     {/* Description */}
-                    <p className="text-lg text-gray-700 max-w-2xl">
+                    <p className="text-lg text-gray-700 dark:text-gray-700 max-w-2xl">
                       {largeBenefit.description}
                     </p>
                   </div>
@@ -172,15 +172,15 @@ export function Benefits() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-300 shadow-sm">
+                    <Card className="h-full border-gray-300 shadow-sm bg-white dark:bg-white">
                       <CardContent className="p-6">
                         <div className="mb-4 flex items-center">
                           <Icon />
                         </div>
-                        <h3 className="text-xl font-bold text-black mb-2">
+                        <h3 className="text-xl font-bold text-black dark:text-black mb-2">
                           {benefit.title}
                         </h3>
-                        <p className="text-gray-700 text-sm">{benefit.description}</p>
+                        <p className="text-gray-700 dark:text-gray-700 text-sm">{benefit.description}</p>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -200,15 +200,15 @@ export function Benefits() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-300 shadow-sm">
+                    <Card className="h-full border-gray-300 shadow-sm bg-white dark:bg-white">
                       <CardContent className="p-6">
                         <div className="mb-4 flex items-center">
                           <Icon />
                         </div>
-                        <h3 className="text-xl font-bold text-black mb-2">
+                        <h3 className="text-xl font-bold text-black dark:text-black mb-2">
                           {benefit.title}
                         </h3>
-                        <p className="text-gray-700 text-sm">{benefit.description}</p>
+                        <p className="text-gray-700 dark:text-gray-700 text-sm">{benefit.description}</p>
                       </CardContent>
                     </Card>
                   </motion.div>

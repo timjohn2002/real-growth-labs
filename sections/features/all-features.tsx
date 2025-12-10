@@ -72,7 +72,7 @@ const featureSets = [
 
 export function AllFeatures() {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white dark:bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Main Title */}
@@ -105,7 +105,7 @@ export function AllFeatures() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
                       <CardContent className="p-6">
                         {feature.hasIllustration ? (
                           <div className="mb-4">
@@ -135,8 +135,8 @@ export function AllFeatures() {
                           </div>
                         )}
 
-                        <h3 className="text-xl font-bold text-black mb-3">{feature.title}</h3>
-                        <p className="text-gray-700 text-sm leading-relaxed mb-4">
+                        <h3 className="text-xl font-bold text-black dark:text-black mb-3">{feature.title}</h3>
+                        <p className="text-gray-700 dark:text-gray-700 text-sm leading-relaxed mb-4">
                           {feature.description}
                         </p>
                         {feature.hasVisualization && (
@@ -167,7 +167,7 @@ export function AllFeatures() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
                       <CardContent className="p-6">
                         {feature.hasIcons ? (
                           <div className="mb-4">

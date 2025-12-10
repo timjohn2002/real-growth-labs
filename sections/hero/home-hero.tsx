@@ -10,7 +10,7 @@ const BRAND_COLOR = "#a6261c"
 
 export function HomeHero() {
   return (
-    <section className="bg-white py-12 lg:py-20">
+    <section className="bg-white dark:bg-white py-12 lg:py-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
           {/* Main Headline */}

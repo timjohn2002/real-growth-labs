@@ -32,7 +32,7 @@ export function PricingHeroSection() {
   const [isBasicSelected, setIsBasicSelected] = useState(false)
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white dark:bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
           {/* Main Headline */}
@@ -42,7 +42,7 @@ export function PricingHeroSection() {
             transition={{ duration: 0.6 }}
             className="text-center mb-6"
           >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black leading-tight">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black dark:text-black leading-tight">
               95% Less Than You're Currently Spending on Funnels
             </h1>
           </motion.div>
@@ -54,11 +54,11 @@ export function PricingHeroSection() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-center mb-8 space-y-3"
           >
-            <p className="text-lg md:text-xl text-black">
+            <p className="text-lg md:text-xl text-black dark:text-black">
               No writing. No design. No tech headaches. Just upload your content and watch the
               magic happen.
             </p>
-            <p className="text-lg md:text-xl text-black">
+            <p className="text-lg md:text-xl text-black dark:text-black">
               Your online business grows when you capture more leads -which means Real Growth Labs
               is a no-brainier for you.
             </p>
@@ -122,7 +122,7 @@ export function PricingHeroSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
             >
-              <Card className="h-full border-gray-200 shadow-sm">
+              <Card className="h-full border-gray-200 shadow-sm bg-white dark:bg-white">
                 <CardContent className="p-8">
                   <div className="text-black">
                     {/* Price */}

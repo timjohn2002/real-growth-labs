@@ -57,7 +57,7 @@ const plans = [
 
 export function PricingPlans() {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-gray-50 dark:bg-gray-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan, index) => (
@@ -68,7 +68,7 @@ export function PricingPlans() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <Card className={`h-full relative ${plan.popular ? "border-2 shadow-lg" : ""}`} style={plan.popular ? { borderColor: "#a6261c" } : {}}>
+              <Card className={`h-full relative bg-white dark:bg-white ${plan.popular ? "border-2 shadow-lg" : ""}`} style={plan.popular ? { borderColor: "#a6261c" } : {}}>
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <span className="text-white px-4 py-1 rounded-full text-sm font-semibold" style={{ backgroundColor: "#a6261c" }}>

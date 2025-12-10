@@ -47,7 +47,7 @@ const additionalFeatures = [
 
 export function HowItWorks() {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white dark:bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Main Title */}

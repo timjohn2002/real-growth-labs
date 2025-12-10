@@ -4,6 +4,7 @@
  */
 
 import { cookies } from "next/headers"
+import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 
 export interface User {
@@ -14,7 +15,7 @@ export interface User {
 }
 
 /**
- * Get the current user from session token
+ * Get the current user from session token (for server components)
  */
 export async function getCurrentUser(): Promise<User | null> {
   try {
@@ -48,11 +49,62 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * Get user ID from session (for API routes)
+ * Get user ID from session token (for API routes)
+ * Use this version that accepts NextRequest
+ */
+export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  try {
+    const token = request.cookies.get("session_token")?.value
+
+    if (!token) {
+      return null
+    }
+
+    // Find session in database
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    })
+
+    if (!session || session.expiresAt < new Date()) {
+      return null
+    }
+
+    return session.user.id
+  } catch (error) {
+    console.error("Error getting user ID from request:", error)
+    return null
+  }
+}
+
+/**
+ * Get user ID from session (for API routes - legacy support)
+ * This will try to use cookies() which may not work in all contexts
  */
 export async function getUserId(): Promise<string | null> {
-  const user = await getCurrentUser()
-  return user?.id || null
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session_token")?.value
+
+    if (!token) {
+      return null
+    }
+
+    // Find session in database
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    })
+
+    if (!session || session.expiresAt < new Date()) {
+      return null
+    }
+
+    return session.user.id
+  } catch (error) {
+    console.error("Error getting user ID:", error)
+    return null
+  }
 }
 
 /**

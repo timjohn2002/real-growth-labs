@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma"
 // Get all content items for a user
 export async function GET(request: NextRequest) {
   try {
-    const { getUserId } = await import("@/lib/auth")
-    const userId = await getUserId()
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
       return NextResponse.json(
@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
 // Create text content directly
 export async function POST(request: NextRequest) {
   try {
-    const { getUserId } = await import("@/lib/auth")
-    const userId = await getUserId()
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
       return NextResponse.json(

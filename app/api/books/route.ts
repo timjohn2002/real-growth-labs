@@ -5,8 +5,8 @@ import { bookSchema } from "@/lib/validations"
 // GET /api/books - Get all books for the user
 export async function GET(request: NextRequest) {
   try {
-    const { getUserId } = await import("@/lib/auth")
-    const userId = await getUserId()
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
       return NextResponse.json(
@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
 // POST /api/books - Create a new book
 export async function POST(request: NextRequest) {
   try {
-    const { getUserId } = await import("@/lib/auth")
-    const userId = await getUserId()
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
       return NextResponse.json(

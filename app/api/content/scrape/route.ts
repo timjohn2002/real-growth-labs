@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma"
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
   try {
-    const { getUserId } = await import("@/lib/auth")
-    const userId = await getUserId()
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
       return NextResponse.json(

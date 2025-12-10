@@ -214,7 +214,7 @@ export function AllFeatures() {
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: index * 0.1 }}
                     >
-                      <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                      <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
                         <CardContent className="p-6">
                           <div className="mb-4">
                             <div
@@ -225,8 +225,8 @@ export function AllFeatures() {
                             </div>
                           </div>
 
-                          <h3 className="text-xl font-bold text-black mb-3">{feature.title}</h3>
-                          <p className="text-gray-700 text-sm leading-relaxed">
+                          <h3 className="text-xl font-bold text-black dark:text-black mb-3">{feature.title}</h3>
+                          <p className="text-gray-700 dark:text-gray-700 text-sm leading-relaxed">
                             {feature.description}
                           </p>
                         </CardContent>

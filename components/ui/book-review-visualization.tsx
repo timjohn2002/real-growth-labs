@@ -115,7 +115,7 @@ export function Visual3({
         }
       />
 
-      <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg">
+      <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg bg-black dark:bg-black">
         <Layer4
           color={mainColor}
           secondaryColor={secondaryColor}

@@ -7,7 +7,7 @@ import { ArrowRight } from "lucide-react"
 
 export function CTASection() {
   return (
-    <section className="py-20 bg-[#a6261c]">
+    <section className="py-20 bg-[#a6261c] dark:bg-[#a6261c]">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <motion.h2

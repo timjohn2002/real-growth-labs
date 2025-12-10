@@ -39,11 +39,24 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate reset URL
-    // Try NEXT_PUBLIC_APP_URL first, then Vercel's automatic URL, then fallback to localhost
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+    // Prioritize Vercel's automatic URL, then NEXT_PUBLIC_APP_URL, then fallback to localhost
+    // VERCEL_URL is automatically set by Vercel and is more reliable
+    let baseUrl = "http://localhost:3000"
+    
+    if (process.env.VERCEL_URL) {
+      // Vercel automatically provides this - use it first
+      baseUrl = `https://${process.env.VERCEL_URL}`
+    } else if (process.env.NEXT_PUBLIC_APP_URL) {
+      // Only use NEXT_PUBLIC_APP_URL if it looks like a valid app URL (not a database URL)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      // Check if it's NOT a Supabase/database URL
+      if (!appUrl.includes("supabase") && !appUrl.includes("postgres")) {
+        baseUrl = appUrl
+      }
+    }
+    
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
+    console.log("Generated reset URL:", resetUrl)
 
     // Send email with reset link
     console.log("Attempting to send password reset email to:", email)

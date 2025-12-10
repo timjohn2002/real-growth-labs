@@ -46,11 +46,21 @@ export async function POST(request: NextRequest) {
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
     // Send email with reset link
+    console.log("Attempting to send password reset email to:", email)
+    console.log("Reset URL:", resetUrl)
+    console.log("RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY)
+    console.log("RESEND_FROM_EMAIL:", process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev")
+    
     const emailResult = await sendPasswordResetEmail(email, resetUrl)
 
-    // If email sending failed but we have RESEND_API_KEY, log the error
-    if (!emailResult.success && process.env.RESEND_API_KEY) {
-      console.error("Failed to send password reset email:", emailResult.error)
+    // Log email result
+    if (emailResult.success) {
+      console.log("✅ Password reset email sent successfully")
+    } else {
+      console.error("❌ Failed to send password reset email:", emailResult.error)
+      if (emailResult.details) {
+        console.error("Error details:", emailResult.details)
+      }
     }
 
     // In development mode, also return the reset link for easy testing
@@ -61,8 +71,10 @@ export async function POST(request: NextRequest) {
       message: "If an account exists with that email, a password reset link has been sent.",
       // Include reset link in development mode for testing
       ...(isDevelopment && { resetUrl }),
-      // Include email status in development for debugging
-      ...(isDevelopment && { emailSent: emailResult.success }),
+      // Include email status for debugging (in all environments)
+      emailSent: emailResult.success,
+      ...(emailResult.success && { emailId: emailResult.data?.id }),
+      ...(!emailResult.success && { emailError: emailResult.error }),
     })
   } catch (error) {
     console.error("Forgot password error:", error)

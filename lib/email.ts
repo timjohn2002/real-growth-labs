@@ -26,7 +26,9 @@ export async function sendPasswordResetEmail(
   try {
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
     
-    await resend.emails.send({
+    console.log("Sending password reset email:", { to: email, from: fromEmail })
+    
+    const result = await resend.emails.send({
       from: fromEmail,
       to: email,
       subject: "Reset Your Password - Real Growth Labs",
@@ -76,12 +78,17 @@ export async function sendPasswordResetEmail(
       `,
     })
 
-    return { success: true }
+    console.log("Email sent successfully:", result)
+    return { success: true, data: result }
   } catch (error) {
     console.error("Error sending password reset email:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const errorDetails = error instanceof Error ? error.stack : String(error)
+    console.error("Error details:", errorDetails)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: errorMessage,
+      details: errorDetails,
     }
   }
 }

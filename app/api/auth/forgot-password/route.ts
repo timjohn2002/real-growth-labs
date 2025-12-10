@@ -42,9 +42,7 @@ export async function POST(request: NextRequest) {
     // Try NEXT_PUBLIC_APP_URL first, then Vercel's automatic URL, then fallback to localhost
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000"
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
 
     // Send email with reset link

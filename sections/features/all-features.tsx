@@ -105,8 +105,8 @@ export function AllFeatures() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
-                      <CardContent className="p-6">
+                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow !bg-white dark:!bg-white">
+                      <CardContent className="p-6 !bg-white dark:!bg-white">
                         {feature.hasIllustration ? (
                           <div className="mb-4">
                             <PromptInputBox
@@ -141,7 +141,7 @@ export function AllFeatures() {
                         </p>
                         {feature.hasVisualization && (
                           <div className="mt-4">
-                            <AnimatedCard>
+                            <AnimatedCard className="!bg-white dark:!bg-white border-zinc-200 dark:border-zinc-200">
                               <CardVisual>
                                 <Visual3 mainColor={BRAND_COLOR} secondaryColor="#d43a2e" />
                               </CardVisual>
@@ -167,8 +167,8 @@ export function AllFeatures() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
-                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
-                      <CardContent className="p-6">
+                    <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow !bg-white dark:!bg-white">
+                      <CardContent className="p-6 !bg-white dark:!bg-white">
                         {feature.hasIcons ? (
                           <div className="mb-4">
                             {/* Icon for Organize Your Projects */}
@@ -214,8 +214,8 @@ export function AllFeatures() {
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: index * 0.1 }}
                     >
-                      <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
-                        <CardContent className="p-6">
+                      <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow !bg-white dark:!bg-white">
+                        <CardContent className="p-6 !bg-white dark:!bg-white">
                           <div className="mb-4">
                             <div
                               className="w-10 h-10 rounded-lg flex items-center justify-center"

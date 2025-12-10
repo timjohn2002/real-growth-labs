@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const wordCount = text.split(/\s+/).filter(Boolean).length
-    const summary = generateSummary(text)
+    const summary = await generateSummary(text)
 
     const contentItem = await prisma.contentItem.create({
       data: {
@@ -106,8 +106,15 @@ function formatTimeAgo(date: Date): string {
   return `${Math.floor(diffInSeconds / 604800)} weeks ago`
 }
 
-function generateSummary(text: string): string {
-  const sentences = text.split(/[.!?]+/).filter(Boolean)
-  return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+async function generateSummary(text: string): Promise<string> {
+  // Use AI-generated summary if available
+  try {
+    const { generateSummary } = await import("@/lib/openai")
+    return await generateSummary(text)
+  } catch (error) {
+    // Fallback to simple summary
+    const sentences = text.split(/[.!?]+/).filter(Boolean)
+    return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+  }
 }
 

@@ -117,8 +117,8 @@ async function processTextFile(contentItemId: string, file: File) {
     const text = await file.text()
     const wordCount = text.split(/\s+/).filter(Boolean).length
 
-    // Generate summary (simplified - in production use AI)
-    const summary = generateSummary(text)
+    // Generate summary using AI
+    const summary = await generateSummary(text)
 
     await prisma.contentItem.update({
       where: { id: contentItemId },
@@ -142,10 +142,15 @@ async function processTextFile(contentItemId: string, file: File) {
   }
 }
 
-function generateSummary(text: string): string {
-  // Simple summary - first 200 characters
-  // TODO: Replace with AI-generated summary
-  const sentences = text.split(/[.!?]+/).filter(Boolean)
-  return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+async function generateSummary(text: string): Promise<string> {
+  // Use AI-generated summary if available
+  try {
+    const { generateSummary } = await import("@/lib/openai")
+    return await generateSummary(text)
+  } catch (error) {
+    // Fallback to simple summary
+    const sentences = text.split(/[.!?]+/).filter(Boolean)
+    return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+  }
 }
 

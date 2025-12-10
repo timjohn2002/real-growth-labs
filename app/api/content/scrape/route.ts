@@ -77,7 +77,7 @@ async function scrapeUrl(contentItemId: string, url: string) {
     }
 
     const wordCount = text.split(/\s+/).filter(Boolean).length
-    const summary = generateSummary(text)
+    const summary = await generateSummary(text)
 
     // Extract metadata
     const title = extractTitle(html) || url
@@ -164,8 +164,15 @@ function extractThumbnail(html: string): string | null {
   return null
 }
 
-function generateSummary(text: string): string {
-  const sentences = text.split(/[.!?]+/).filter(Boolean)
-  return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+async function generateSummary(text: string): Promise<string> {
+  // Use AI-generated summary if available
+  try {
+    const { generateSummary } = await import("@/lib/openai")
+    return await generateSummary(text)
+  } catch (error) {
+    // Fallback to simple summary
+    const sentences = text.split(/[.!?]+/).filter(Boolean)
+    return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+  }
 }
 

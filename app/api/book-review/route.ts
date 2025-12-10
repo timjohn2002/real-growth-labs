@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { analyzeBookWithAI } from "@/lib/openai"
 
 // GET /api/book-review - Get reviews for a book
 export async function GET(request: NextRequest) {
@@ -67,8 +68,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Analyze book (basic logic without AI)
-    const analysis = analyzeBook(book)
+    // Analyze book with AI if available, otherwise use basic analysis
+    let analysis: any
+    try {
+      if (process.env.OPENAI_API_KEY) {
+        const aiAnalysis = await analyzeBookWithAI(book)
+        // Calculate read time and word count
+        const wordCount = book.chapters.reduce((total: number, ch: any) => {
+          if (!ch.content) return total
+          const text = ch.content.replace(/<[^>]*>/g, "")
+          return total + text.split(/\s+/).filter((w: string) => w.length > 0).length
+        }, 0)
+        analysis = {
+          ...aiAnalysis,
+          readTime: Math.ceil(wordCount / 200),
+          wordCount,
+        }
+      } else {
+        analysis = analyzeBook(book)
+      }
+    } catch (error) {
+      console.error("AI analysis failed, falling back to basic analysis:", error)
+      analysis = analyzeBook(book)
+    }
 
     // Create review record
     const review = await prisma.bookReview.create({

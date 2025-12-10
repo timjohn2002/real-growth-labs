@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { transcribeAudio, generateSummary } from "@/lib/openai"
 
 // Transcribe audio/video using Whisper API
 export async function POST(request: NextRequest) {
@@ -41,14 +42,14 @@ export async function POST(request: NextRequest) {
     // For video files, extract audio first using ffmpeg or similar
 
     // Call OpenAI Whisper API
-    const transcription = await transcribeWithWhisper(contentItem.fileUrl)
+    const transcription = await transcribeAudio(contentItem.fileUrl)
 
     if (!transcription) {
       throw new Error("Transcription failed")
     }
 
     const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
-    const summary = generateSummary(transcription.text)
+    const summary = await generateSummary(transcription.text)
 
     // Update content item with transcription
     const existingMetadata = contentItem.metadata ? JSON.parse(contentItem.metadata) : {}
@@ -97,60 +98,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function transcribeWithWhisper(fileUrl: string) {
-  // Check if OpenAI API key is configured
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn("OPENAI_API_KEY not configured. Using mock transcription.")
-    return {
-      text: "This is a placeholder transcription. Please configure OPENAI_API_KEY to enable real transcription.",
-      language: "en",
-      duration: 0,
-    }
-  }
-
-  try {
-    // Fetch the file (in production, this should be from your storage)
-    // For now, we'll assume the file is accessible
-    const fileResponse = await fetch(fileUrl)
-    if (!fileResponse.ok) {
-      throw new Error("Failed to fetch file")
-    }
-
-    const formData = new FormData()
-    const blob = await fileResponse.blob()
-    formData.append("file", blob, "audio.mp3")
-    formData.append("model", "whisper-1")
-    formData.append("language", "en")
-
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`OpenAI API error: ${error}`)
-    }
-
-    const data = await response.json()
-    return {
-      text: data.text,
-      language: data.language || "en",
-      duration: data.duration || 0,
-    }
-  } catch (error) {
-    console.error("Whisper API error:", error)
-    throw error
-  }
-}
-
-function generateSummary(text: string): string {
-  // Simple summary - first 200 characters
-  // TODO: Replace with AI-generated summary using GPT
-  const sentences = text.split(/[.!?]+/).filter(Boolean)
-  return sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
-}
 

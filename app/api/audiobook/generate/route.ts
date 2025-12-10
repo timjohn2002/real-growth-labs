@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { generateTTS } from "@/lib/openai"
+import { uploadFile } from "@/lib/storage"
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,20 +37,24 @@ export async function POST(request: NextRequest) {
       data: {
         bookId,
         voice,
-        options: options || { addIntro: false, addOutro: false },
-        status: "pending",
-        jobId: `job-${Date.now()}`, // Temporary job ID
+        options: JSON.stringify(options || { addIntro: false, addOutro: false }),
+        status: "generating",
+        jobId: `job-${Date.now()}`,
       },
     })
 
-    // TODO: In production, this would:
-    // 1. Queue a background job for TTS generation
-    // 2. Process chapters one by one
-    // 3. Combine audio files
-    // 4. Upload to storage
-    // 5. Update audiobook record with audioUrl and status
+    // Start generation in background (in production, use a job queue)
+    generateAudiobook(audiobook.id, book, voice, options || {}).catch((error) => {
+      console.error("Audiobook generation error:", error)
+      prisma.audiobook.update({
+        where: { id: audiobook.id },
+        data: {
+          status: "failed",
+          error: error instanceof Error ? error.message : "Generation failed",
+        },
+      }).catch(console.error)
+    })
 
-    // For now, return the audiobook ID so the frontend can track it
     return NextResponse.json({
       message: "Audiobook generation started",
       audiobookId: audiobook.id,
@@ -61,6 +67,94 @@ export async function POST(request: NextRequest) {
       { error: "Failed to start audiobook generation" },
       { status: 500 }
     )
+  }
+}
+
+// Generate audiobook audio
+async function generateAudiobook(
+  audiobookId: string,
+  book: { chapters: Array<{ title: string; content: string | null }> },
+  voice: string,
+  options: { addIntro?: boolean; addOutro?: boolean }
+) {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured")
+    }
+
+    // Combine all chapter content
+    let fullText = ""
+    
+    if (options.addIntro) {
+      fullText += `Welcome to ${book.chapters[0]?.title || "this book"}. Let's begin.\n\n`
+    }
+
+    for (const chapter of book.chapters) {
+      if (chapter.content) {
+        const cleanContent = chapter.content.replace(/<[^>]*>/g, "").trim()
+        fullText += `${chapter.title}\n\n${cleanContent}\n\n`
+      }
+    }
+
+    if (options.addOutro) {
+      fullText += "\n\nThank you for listening. We hope you enjoyed this book."
+    }
+
+    // Split into chunks (OpenAI TTS has limits)
+    const maxChunkLength = 4000 // characters
+    const chunks: string[] = []
+    
+    for (let i = 0; i < fullText.length; i += maxChunkLength) {
+      chunks.push(fullText.substring(i, i + maxChunkLength))
+    }
+
+    // Generate audio for each chunk
+    const audioBuffers: Buffer[] = []
+    
+    for (const chunk of chunks) {
+      const audioBuffer = await generateTTS(chunk, {
+        voice: voice as any,
+        model: "tts-1-hd", // Higher quality
+      })
+      audioBuffers.push(audioBuffer)
+    }
+
+    // Combine audio buffers (in production, use a proper audio library)
+    const combinedBuffer = Buffer.concat(audioBuffers)
+    
+    // Upload to storage
+    const filename = `audiobook-${audiobookId}-${Date.now()}.mp3`
+    const audioUrl = await uploadFile(combinedBuffer, filename, {
+      provider: (process.env.STORAGE_PROVIDER as any) || "local",
+      bucket: process.env.STORAGE_BUCKET,
+      folder: "audiobooks",
+    })
+
+    // Calculate duration (rough estimate: ~150 words per minute)
+    const wordCount = fullText.split(/\s+/).length
+    const estimatedDuration = Math.ceil((wordCount / 150) * 60) // seconds
+
+    // Update audiobook record
+    await prisma.audiobook.update({
+      where: { id: audiobookId },
+      data: {
+        status: "completed",
+        audioUrl,
+        duration: estimatedDuration,
+        fileSize: combinedBuffer.length,
+        updatedAt: new Date(),
+      },
+    })
+  } catch (error) {
+    console.error("Audiobook generation error:", error)
+    await prisma.audiobook.update({
+      where: { id: audiobookId },
+      data: {
+        status: "failed",
+        error: error instanceof Error ? error.message : "Generation failed",
+      },
+    }).catch(console.error)
+    throw error
   }
 }
 

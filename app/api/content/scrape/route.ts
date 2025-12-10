@@ -4,11 +4,21 @@ import { prisma } from "@/lib/prisma"
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
   try {
-    const { url, title, userId } = await request.json()
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
 
-    if (!url || !userId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "URL and userId are required" },
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
+    const { url, title } = await request.json()
+
+    if (!url) {
+      return NextResponse.json(
+        { error: "URL is required" },
         { status: 400 }
       )
     }

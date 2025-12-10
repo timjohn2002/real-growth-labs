@@ -4,13 +4,22 @@ import { prisma } from "@/lib/prisma"
 // Handle file uploads (audio, video, text)
 export async function POST(request: NextRequest) {
   try {
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
     const formData = await request.formData()
     const file = formData.get("file") as File
     const type = formData.get("type") as string // "audio" | "video" | "text"
     const title = formData.get("title") as string
-    const userId = formData.get("userId") as string // TODO: Get from session/auth
 
-    if (!file || !type || !title || !userId) {
+    if (!file || !type || !title) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }

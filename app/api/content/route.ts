@@ -4,17 +4,19 @@ import { prisma } from "@/lib/prisma"
 // Get all content items for a user
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get("userId") // TODO: Get from session/auth
-    const type = searchParams.get("type")
-    const status = searchParams.get("status")
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
 
     if (!userId) {
       return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
+        { error: "Unauthorized" },
+        { status: 401 }
       )
     }
+
+    const searchParams = request.nextUrl.searchParams
+    const type = searchParams.get("type")
+    const status = searchParams.get("status")
 
     const where: any = { userId }
     if (type) where.type = type
@@ -54,11 +56,21 @@ export async function GET(request: NextRequest) {
 // Create text content directly
 export async function POST(request: NextRequest) {
   try {
-    const { title, text, userId, tags } = await request.json()
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
 
-    if (!title || !text || !userId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "title, text, and userId are required" },
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
+    const { title, text, tags } = await request.json()
+
+    if (!title || !text) {
+      return NextResponse.json(
+        { error: "title and text are required" },
         { status: 400 }
       )
     }

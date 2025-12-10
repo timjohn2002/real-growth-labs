@@ -5,13 +5,13 @@ import { bookSchema } from "@/lib/validations"
 // GET /api/books - Get all books for the user
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get("userId") // TODO: Get from session/auth
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
 
     if (!userId) {
       return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
+        { error: "Unauthorized" },
+        { status: 401 }
       )
     }
 
@@ -53,12 +53,22 @@ export async function GET(request: NextRequest) {
 // POST /api/books - Create a new book
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { title, description, coverImage, userId, chapters } = body
+    const { getUserId } = await import("@/lib/auth")
+    const userId = await getUserId()
 
-    if (!title || !userId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "title and userId are required" },
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { title, description, coverImage, chapters } = body
+
+    if (!title) {
+      return NextResponse.json(
+        { error: "title is required" },
         { status: 400 }
       )
     }

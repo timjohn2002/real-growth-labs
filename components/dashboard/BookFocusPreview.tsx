@@ -8,7 +8,16 @@ import { Button } from "@/components/ui/button"
 
 const BRAND_COLOR = "#a6261c"
 
-export function BookFocusPreview() {
+interface BookFocusPreviewProps {
+  bookId?: string
+  bookTitle?: string
+}
+
+export function BookFocusPreview({ bookId, bookTitle }: BookFocusPreviewProps) {
+  if (!bookId || !bookTitle) {
+    return null
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -22,9 +31,9 @@ export function BookFocusPreview() {
             <h3 className="text-sm font-semibold text-foreground">Book Focus Mode</h3>
           </div>
           <p className="text-sm text-foreground mb-4">
-            You are closest to completing: <span className="font-semibold text-[#a6261c]">Marketing Guide</span>
+            You are closest to completing: <span className="font-semibold text-[#a6261c]">{bookTitle}</span>
           </p>
-          <Link href="/dashboard/book-editor?book=2">
+          <Link href={`/dashboard/book-editor?book=${bookId}`}>
             <Button
               className="w-full bg-[#a6261c] hover:bg-[#8e1e16] text-white"
               style={{ backgroundColor: BRAND_COLOR }}

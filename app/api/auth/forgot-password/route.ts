@@ -13,16 +13,20 @@ export async function POST(request: NextRequest) {
     const { email } = forgotPasswordSchema.parse(body)
 
     // Find user
+    console.log("Looking for user with email:", email)
     const user = await prisma.user.findUnique({
       where: { email },
     })
 
     // Always return success (don't reveal if email exists)
     if (!user) {
+      console.log("❌ User not found in database. Email will not be sent (security: don't reveal if email exists).")
       return NextResponse.json({
         message: "If an account exists with that email, a password reset link has been sent.",
       })
     }
+
+    console.log("✅ User found in database. Proceeding with password reset email.")
 
     // Generate reset token
     const resetToken = crypto.randomUUID()
@@ -59,10 +63,14 @@ export async function POST(request: NextRequest) {
     console.log("Generated reset URL:", resetUrl)
 
     // Send email with reset link
-    console.log("Attempting to send password reset email to:", email)
+    console.log("=".repeat(50))
+    console.log("📧 ATTEMPTING TO SEND PASSWORD RESET EMAIL")
+    console.log("=".repeat(50))
+    console.log("To:", email)
     console.log("Reset URL:", resetUrl)
     console.log("RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY)
     console.log("RESEND_FROM_EMAIL:", process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev")
+    console.log("=".repeat(50))
     
     const emailResult = await sendPasswordResetEmail(email, resetUrl)
 

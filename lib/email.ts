@@ -16,7 +16,7 @@ const resend = process.env.RESEND_API_KEY
 export async function sendPasswordResetEmail(
   email: string,
   resetLink: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; details?: string; data?: any; emailId?: string }> {
   if (!resend) {
     console.warn("RESEND_API_KEY not configured. Email not sent.")
     console.log("Password reset link:", resetLink)
@@ -82,7 +82,7 @@ export async function sendPasswordResetEmail(
     return { 
       success: true, 
       data: result,
-      emailId: result.data?.id || result.id,
+      emailId: (result as any).data?.id || (result as any).id,
     }
   } catch (error) {
     console.error("Error sending password reset email:", error)

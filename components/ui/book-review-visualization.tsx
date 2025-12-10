@@ -192,9 +192,9 @@ const Layer1: React.FC<LayerProps> = ({ color, secondaryColor }) => {
           +15,2%
         </span>
       </div>
-      <div className="flex shrink-0 items-center rounded-full border border-zinc-200 bg-white/25 px-1.5 py-0.5 backdrop-blur-sm transition-opacity duration-300 ease-in-out group-hover/animated-card:opacity-0 dark:border-zinc-800 dark:bg-black/25">
+      <div className="flex shrink-0 items-center rounded-full border border-zinc-200 bg-white/25 px-1.5 py-0.5 backdrop-blur-sm transition-opacity duration-300 ease-in-out group-hover/animated-card:opacity-0 dark:border-zinc-200 dark:bg-white/25">
         <div className="h-1.5 w-1.5 rounded-full bg-[var(--secondary-color)]" />
-        <span className="ml-1 text-[10px] text-black dark:text-white">
+        <span className="ml-1 text-[10px] text-black dark:text-black">
           +18,7%
         </span>
       </div>
@@ -399,7 +399,7 @@ const Layer4: React.FC<LayerProps> = ({ color, secondaryColor, hovered }) => {
   ];
 
   return (
-    <div className="ease-[cubic-bezier(0.6, 0.6, 0, 1)] absolute inset-0 z-[8] flex h-[180px] w-full items-center justify-center text-neutral-800/10 transition-transform duration-500 group-hover/animated-card:scale-150 dark:text-white/15">
+    <div className="ease-[cubic-bezier(0.6, 0.6, 0, 1)] absolute inset-0 z-[8] flex h-[180px] w-full items-center justify-center text-neutral-800/10 transition-transform duration-500 group-hover/animated-card:scale-150 dark:text-black/15">
       <svg width="356" height="180" xmlns="http://www.w3.org/2000/svg">
         <defs>
           {rectsData.map((rect, index) => {

@@ -71,6 +71,10 @@ export default function DashboardPage() {
         // Not authenticated, redirect to login
         router.push("/login")
         return
+      } else {
+        // Other error - log it
+        const errorData = await booksResponse.json().catch(() => ({}))
+        console.error("Failed to fetch books:", booksResponse.status, errorData)
       }
 
       // Get user name from localStorage (set during login)
@@ -88,6 +92,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
+      // Don't redirect on network errors, just show empty state
     } finally {
       setIsLoading(false)
     }

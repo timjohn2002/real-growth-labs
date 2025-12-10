@@ -73,6 +73,13 @@ export async function getUserIdFromRequest(request: NextRequest): Promise<string
     return session.user.id
   } catch (error) {
     console.error("Error getting user ID from request:", error)
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      })
+    }
     return null
   }
 }

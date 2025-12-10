@@ -43,8 +43,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ books: formatted })
   } catch (error) {
     console.error("Get books error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const errorStack = error instanceof Error ? error.stack : undefined
     return NextResponse.json(
-      { error: "Failed to fetch books" },
+      { 
+        error: "Failed to fetch books",
+        details: process.env.NODE_ENV === "development" ? errorMessage : undefined,
+        stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
+      },
       { status: 500 }
     )
   }
@@ -116,8 +122,14 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("Create book error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const errorStack = error instanceof Error ? error.stack : undefined
     return NextResponse.json(
-      { error: "Failed to create book" },
+      { 
+        error: "Failed to create book",
+        details: process.env.NODE_ENV === "development" ? errorMessage : undefined,
+        stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
+      },
       { status: 500 }
     )
   }

@@ -79,7 +79,11 @@ export async function sendPasswordResetEmail(
     })
 
     console.log("Email sent successfully:", result)
-    return { success: true, data: result }
+    return { 
+      success: true, 
+      data: result,
+      emailId: result.data?.id || result.id,
+    }
   } catch (error) {
     console.error("Error sending password reset email:", error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error"

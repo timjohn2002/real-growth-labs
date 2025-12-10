@@ -216,7 +216,7 @@ export function NavBar() {
                     <Link href="/login" onClick={() => setIsMobileOpen(false)}>
                       <Button
                         variant="outline"
-                        className="w-full rounded-lg border border-black text-black bg-white"
+                        className="w-full rounded-lg border border-black text-black bg-white hover:bg-gray-50 hover:text-black"
                       >
                         Login
                       </Button>

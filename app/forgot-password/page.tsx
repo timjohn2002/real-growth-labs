@@ -14,6 +14,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [resetLink, setResetLink] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,10 +36,13 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         setSuccess(true)
         // In development, show the reset link
-        if (data.resetUrl && typeof window !== "undefined") {
+        if (data.resetUrl) {
           console.log("Reset link:", data.resetUrl)
-          // Store it so user can copy it
-          localStorage.setItem("resetLink", data.resetUrl)
+          setResetLink(data.resetUrl)
+          // Also store it in localStorage for persistence
+          if (typeof window !== "undefined") {
+            localStorage.setItem("resetLink", data.resetUrl)
+          }
         }
       } else {
         setError(data.error || "Failed to send reset email. Please try again.")
@@ -82,26 +86,37 @@ export default function ForgotPasswordPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
-                    {typeof window !== "undefined" && localStorage.getItem("resetLink") 
-                      ? "Reset Link Generated" 
-                      : "Check your email"}
+                    {resetLink ? "Reset Link Generated" : "Check your email"}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {typeof window !== "undefined" && localStorage.getItem("resetLink")
+                    {resetLink
                       ? "Click the link below to reset your password:"
                       : `We've sent a password reset link to ${email}`}
                   </p>
-                  {typeof window !== "undefined" && localStorage.getItem("resetLink") && (
+                  {resetLink && (
                     <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                      <p className="text-xs text-blue-800 mb-2">Development Mode - Reset Link:</p>
-                      <a
-                        href={localStorage.getItem("resetLink") || ""}
-                        className="text-xs text-blue-600 hover:underline break-all"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {localStorage.getItem("resetLink")}
-                      </a>
+                      <p className="text-xs text-blue-800 mb-2 font-semibold">Development Mode - Reset Link:</p>
+                      <div className="space-y-2">
+                        <a
+                          href={resetLink}
+                          className="block text-xs text-blue-600 hover:underline break-all"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {resetLink}
+                        </a>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(resetLink)
+                            alert("Reset link copied to clipboard!")
+                          }}
+                        >
+                          Copy Link
+                        </Button>
+                      </div>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">

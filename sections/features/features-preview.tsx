@@ -39,7 +39,7 @@ const problemSolutions = [
 
 export function FeaturesPreview() {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white dark:bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Headline */}
@@ -50,7 +50,7 @@ export function FeaturesPreview() {
             transition={{ duration: 0.6 }}
             className="mb-16 text-center"
           >
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black leading-tight">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black dark:text-black leading-tight">
               Everything You Need to Build a <span style={{ color: BRAND_COLOR }}>High-Impact Book</span> That Grows Your Business.
             </h2>
           </motion.div>
@@ -67,7 +67,7 @@ export function FeaturesPreview() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
-                  <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <Card className="h-full border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-white">
                     <CardContent className="p-6">
                       {/* Icon */}
                       <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4" style={{ backgroundColor: BRAND_COLOR }}>
@@ -75,17 +75,17 @@ export function FeaturesPreview() {
                       </div>
 
                       {/* Problem Title */}
-                      <h3 className="text-xl font-bold text-black mb-3">{item.problemTitle}</h3>
+                      <h3 className="text-xl font-bold text-black dark:text-black mb-3">{item.problemTitle}</h3>
 
                       {/* Problem Description */}
-                      <p className="text-gray-700 text-sm mb-4 leading-relaxed">
+                      <p className="text-gray-700 dark:text-gray-700 text-sm mb-4 leading-relaxed">
                         {item.problemDescription}
                       </p>
 
                       {/* Solution */}
                       <div className="flex items-start gap-2">
                         <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-gray-700 text-sm leading-relaxed">{item.solution}</p>
+                        <p className="text-gray-700 dark:text-gray-700 text-sm leading-relaxed">{item.solution}</p>
                       </div>
                     </CardContent>
                   </Card>

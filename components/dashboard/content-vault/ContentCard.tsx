@@ -65,7 +65,6 @@ const getStatusColor = (status: string) => {
 }
 
 export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCardProps) {
-  const [showActions, setShowActions] = useState(false)
   const Icon = getTypeIcon(item.type)
 
   return (

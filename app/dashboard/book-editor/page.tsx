@@ -30,6 +30,7 @@ export default function FullBookEditorPage() {
   const [isAudiobookModalOpen, setIsAudiobookModalOpen] = useState(false)
   const [totalWordCount, setTotalWordCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedText, setSelectedText] = useState("")
 
   const [chapters, setChapters] = useState<Chapter[]>([])
 

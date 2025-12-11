@@ -59,15 +59,42 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     console.error("Signup error:", error)
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 400 }
-      )
+    
+    // Handle Prisma/database errors
+    if (error instanceof Error) {
+      // Database connection error
+      if (error.message.includes("Can't reach database") || error.message.includes("P1001")) {
+        console.error("Database connection failed:", error.message)
+        return NextResponse.json(
+          { error: "Database connection failed. Please try again in a moment." },
+          { status: 503 }
+        )
+      }
+      
+      // Unique constraint (email already exists)
+      if (error.message.includes("Unique constraint") || error.message.includes("P2002")) {
+        return NextResponse.json(
+          { error: "Email already registered" },
+          { status: 400 }
+        )
+      }
+      
+      // Validation errors
+      if (error.message.includes("Invalid") || error.message.includes("ZodError")) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        )
+      }
     }
+    
+    // Generic error
     return NextResponse.json(
-      { error: "Failed to create account" },
-      { status: 400 }
+      { 
+        error: "Failed to create account",
+        details: process.env.NODE_ENV === "development" ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
+      { status: 500 }
     )
   }
 }

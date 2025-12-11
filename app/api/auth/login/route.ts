@@ -58,6 +58,28 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     console.error("Login error:", error)
+    
+    // Handle Prisma/database errors
+    if (error instanceof Error) {
+      // Database connection error
+      if (error.message.includes("Can't reach database") || error.message.includes("P1001")) {
+        console.error("Database connection failed:", error.message)
+        return NextResponse.json(
+          { error: "Database connection failed. Please try again in a moment." },
+          { status: 503 }
+        )
+      }
+      
+      // Validation errors
+      if (error.message.includes("Invalid") || error.message.includes("ZodError")) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        )
+      }
+    }
+    
+    // Generic error - don't reveal if it's a database issue for security
     return NextResponse.json(
       { error: "Invalid credentials" },
       { status: 401 }

@@ -49,12 +49,8 @@ export function PerformanceOverview() {
         // Estimate reading time (average 200 words per minute)
         const readingTime = Math.round(wordsWritten / 200)
 
-        // Count audiobooks (books with audiobook status)
-        const audiobookCount = books.filter((book: any) => 
-          book.audiobooks && book.audiobooks.length > 0
-        ).length
-
         // Estimate audiobook length (rough estimate: 1 minute per 150 words)
+        // This is a general estimate - actual audiobook length would come from generated audiobooks
         const audiobookLength = Math.round(wordsWritten / 150)
 
         setMetrics({

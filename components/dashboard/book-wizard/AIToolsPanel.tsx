@@ -5,12 +5,6 @@ import {
   RefreshCw,
   Minus,
   Plus,
-  MessageSquare,
-  FileText,
-  Users,
-  Lightbulb,
-  Heading,
-  Target,
 } from "lucide-react"
 import {
   Select,
@@ -78,69 +72,6 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </div>
-
-        {/* Story & Examples */}
-        <div className="mb-6">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-            Story & Examples
-          </h4>
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("addStory")}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Add story example
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("addCaseStudy")}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Add client case study
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("addAnalogy")}
-            >
-              <Lightbulb className="h-4 w-4 mr-2" />
-              Add analogy
-            </Button>
-          </div>
-        </div>
-
-        {/* Structure */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-            Structure
-          </h4>
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("suggestHeading")}
-            >
-              <Heading className="h-4 w-4 mr-2" />
-              Suggest better heading
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("suggestCTA")}
-            >
-              <Target className="h-4 w-4 mr-2" />
-              Suggest CTA for this chapter
-            </Button>
           </div>
         </div>
       </div>

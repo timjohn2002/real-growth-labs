@@ -157,20 +157,26 @@ export default function ContentVaultPage() {
     if (improvingSummaryId) return // Already processing
     
     try {
+      console.log("Starting to improve summary for:", id)
       setImprovingSummaryId(id)
       
       const response = await fetch("/api/content/improve-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include cookies for authentication
         body: JSON.stringify({ contentItemId: id }),
       })
 
+      console.log("Response status:", response.status)
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to improve summary")
+        const data = await response.json().catch(() => ({ error: "Unknown error" }))
+        console.error("API error:", data)
+        throw new Error(data.error || `Failed to improve summary (${response.status})`)
       }
 
       const data = await response.json()
+      console.log("Summary improved successfully:", data)
       
       // Update the local state with the improved summary
       setContentItems((prev) =>
@@ -190,7 +196,8 @@ export default function ContentVaultPage() {
       console.log("Summary improved successfully")
     } catch (error) {
       console.error("Failed to improve summary:", error)
-      alert(error instanceof Error ? error.message : "Failed to improve summary")
+      const errorMessage = error instanceof Error ? error.message : "Failed to improve summary"
+      alert(errorMessage)
     } finally {
       setImprovingSummaryId(null)
     }

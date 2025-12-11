@@ -203,8 +203,14 @@ export function ContentDrawer({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onImproveSummary(item.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      console.log("Improve Summary button clicked for:", item.id)
+                      onImproveSummary(item.id)
+                    }}
                     disabled={isImprovingSummary}
+                    className={isImprovingSummary ? "opacity-50 cursor-not-allowed" : ""}
                   >
                     {isImprovingSummary ? (
                       <>

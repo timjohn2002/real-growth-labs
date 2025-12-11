@@ -5,35 +5,87 @@
 export function markdownToHTML(markdown: string): string {
   if (!markdown) return ""
 
-  let html = markdown
+  // Split by lines to process more carefully
+  const lines = markdown.split("\n")
+  const htmlLines: string[] = []
+  let inParagraph = false
 
-  // Convert headings
-  html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>")
-  html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>")
-  html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>")
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : ""
 
-  // Convert horizontal rules (---) to paragraph breaks
-  html = html.replace(/^---$/gim, "</p><p>")
+    // Check for headings
+    if (line.startsWith("# ")) {
+      if (inParagraph) {
+        htmlLines.push("</p>")
+        inParagraph = false
+      }
+      htmlLines.push(`<h1>${line.substring(2)}</h1>`)
+      continue
+    } else if (line.startsWith("## ")) {
+      if (inParagraph) {
+        htmlLines.push("</p>")
+        inParagraph = false
+      }
+      htmlLines.push(`<h2>${line.substring(3)}</h2>`)
+      continue
+    } else if (line.startsWith("### ")) {
+      if (inParagraph) {
+        htmlLines.push("</p>")
+        inParagraph = false
+      }
+      htmlLines.push(`<h3>${line.substring(4)}</h3>`)
+      continue
+    }
 
-  // Convert line breaks to <br> tags
-  html = html.replace(/\n\n/g, "</p><p>")
-  html = html.replace(/\n/g, "<br>")
+    // Check for horizontal rule (---)
+    if (line === "---") {
+      if (inParagraph) {
+        htmlLines.push("</p>")
+        inParagraph = false
+      }
+      htmlLines.push('<hr class="my-6" />')
+      continue
+    }
 
-  // Wrap in paragraph tags if not already wrapped
-  if (!html.startsWith("<")) {
-    html = `<p>${html}</p>`
+    // Handle empty lines
+    if (line === "") {
+      if (inParagraph && nextLine !== "" && !nextLine.startsWith("#") && nextLine !== "---") {
+        htmlLines.push("<br />")
+      } else if (inParagraph) {
+        htmlLines.push("</p>")
+        inParagraph = false
+      }
+      continue
+    }
+
+    // Regular text line
+    if (!inParagraph) {
+      htmlLines.push("<p>")
+      inParagraph = true
+    }
+    
+    // Add the line content
+    htmlLines.push(line)
+    
+    // Add line break if next line is not empty and not a heading
+    if (nextLine !== "" && !nextLine.startsWith("#") && nextLine !== "---") {
+      htmlLines.push("<br />")
+    }
   }
 
-  // Clean up empty paragraphs
-  html = html.replace(/<p><\/p>/g, "")
+  // Close any open paragraph
+  if (inParagraph) {
+    htmlLines.push("</p>")
+  }
+
+  let html = htmlLines.join("")
+
+  // Clean up empty paragraphs and excessive breaks
   html = html.replace(/<p>\s*<\/p>/g, "")
+  html = html.replace(/<br \/>\s*<br \/>/g, "<br />")
 
-  // Ensure proper structure
-  html = html.replace(/<p>(<h[1-3]>)/g, "$1")
-  html = html.replace(/(<\/h[1-3]>)<\/p>/g, "$1")
-  html = html.replace(/(<\/h[1-3]>)<p>/g, "$1<p>")
-
-  return html
+  return html || "<p></p>"
 }
 
 /**

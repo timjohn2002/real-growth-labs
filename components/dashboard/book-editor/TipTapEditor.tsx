@@ -71,10 +71,9 @@ export function TipTapEditor({
       const currentHTML = editor.getHTML()
       // Only update if content actually changed (avoid unnecessary updates)
       if (content !== currentHTML) {
-        // Use setContent with parseOptions to preserve formatting
-        editor.commands.setContent(content, false, {
-          preserveWhitespace: "full",
-        })
+        // Use setContent with emitUpdate set to false to avoid triggering updates
+        // TipTap setContent accepts: setContent(content: string | JSONContent, emitUpdate?: boolean)
+        editor.commands.setContent(content, false)
       }
     }
   }, [content, editor])

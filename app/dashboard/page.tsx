@@ -270,7 +270,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Continue button (primary) */}
-                        <Link href={`/dashboard/book-editor?book=${book.id}`}>
+                        <Link href={`/dashboard/book-editor?id=${book.id}`}>
                           <motion.div
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}

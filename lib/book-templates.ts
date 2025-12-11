@@ -25,7 +25,7 @@ export const REAL_GROWTH_BOOK_TEMPLATE: ChapterTemplate[] = [
     sections: [
       {
         id: "how-to-read",
-        title: "🟨 How to Read This Book",
+        title: "🟧 How to Read This Book",
         placeholder: "Guide your reader on how to get the most out of this book...",
         required: true,
       },
@@ -360,24 +360,31 @@ export const REAL_GROWTH_BOOK_TEMPLATE: ChapterTemplate[] = [
 ]
 
 // Helper function to generate chapter content from template
+// Generates structured format with headings, short placeholders, and separators
+// Matches the format shown in the book editor interface
 export function generateChapterContent(
   chapterTemplate: ChapterTemplate,
   answers: any,
   contentVaultItems?: any[]
 ): string {
+  // Start with chapter title as level 1 heading
   let content = `# ${chapterTemplate.title}\n\n`
   
+  // Generate each section with structured format
   chapterTemplate.sections.forEach((section, index) => {
+    // Add section heading as level 2 heading (preserves emojis if present)
     content += `## ${section.title}\n\n`
+    
+    // Add short placeholder text (not paragraphs - just instructional text)
     content += `${section.placeholder}\n\n`
     
-    // Add spacing between sections
+    // Add horizontal rule separator between sections (not after last section)
     if (index < chapterTemplate.sections.length - 1) {
       content += `---\n\n`
     }
   })
   
-  return content
+  return content.trim() + "\n"
 }
 
 // Generate all chapters from template

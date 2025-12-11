@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { generateSummary } from "@/lib/openai"
+import { callGPT } from "@/lib/openai"
 
 /**
  * Improve the summary of a content item using AI
@@ -58,8 +58,6 @@ export async function POST(request: NextRequest) {
 
     // Generate improved summary using AI
     // Create a more detailed prompt for better summary quality
-    const { generateText } = await import("@/lib/openai")
-    
     const prompt = `Create an improved, comprehensive summary of the following content. The summary should:
 - Be clear and concise (around 300-400 words)
 - Highlight the main points and key takeaways
@@ -69,7 +67,12 @@ export async function POST(request: NextRequest) {
 Content to summarize:
 ${textToSummarize.substring(0, 8000)}`
 
-    const improvedSummary = await generateText(prompt, "gpt-4o", 500)
+    const improvedSummary = await callGPT(prompt, {
+      model: "gpt-4o",
+      temperature: 0.3,
+      maxTokens: 500,
+      systemPrompt: "You are an expert at creating clear, engaging summaries that capture the essence of content while highlighting key insights.",
+    })
 
     // Update the content item with improved summary
     await prisma.contentItem.update({

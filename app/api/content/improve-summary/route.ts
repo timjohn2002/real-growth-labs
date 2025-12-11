@@ -68,7 +68,7 @@ Content to summarize:
 ${textToSummarize.substring(0, 8000)}`
 
     const improvedSummary = await callGPT(prompt, {
-      model: "gpt-4o",
+      model: "gpt-4-turbo",
       temperature: 0.3,
       maxTokens: 500,
       systemPrompt: "You are an expert at creating clear, engaging summaries that capture the essence of content while highlighting key insights.",

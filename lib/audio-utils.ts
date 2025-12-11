@@ -91,8 +91,12 @@ async function concatenateMP3BuffersWithFFmpeg(
         .inputOptions(["-f", "concat", "-safe", "0"])
         .outputOptions(["-c", "copy"]) // Copy codec (no re-encoding for speed)
         .output(outputFile)
-        .on("end", () => resolve())
-        .on("error", (err: Error) => reject(err))
+        .on("end", (_stdout: string, _stderr: string) => {
+          resolve()
+        })
+        .on("error", (err: Error) => {
+          reject(err)
+        })
         .run()
     })
 

@@ -23,6 +23,8 @@ interface BookEditorProps {
   onSubtitleChange: (subtitle: string) => void
   onContentChange: (content: string) => void
   onSelectionChange?: (selectedText: string) => void
+  insertContent?: string | null
+  onInsertComplete?: () => void
 }
 
 export function BookEditor({
@@ -33,6 +35,8 @@ export function BookEditor({
   onSubtitleChange,
   onContentChange,
   onSelectionChange,
+  insertContent,
+  onInsertComplete,
 }: BookEditorProps) {
   const [content, setContent] = useState(chapter?.content || "")
   const editorContentRef = useRef<HTMLDivElement>(null)
@@ -102,6 +106,35 @@ export function BookEditor({
 
   const canUndo = historyIndexRef.current > 0
   const canRedo = historyIndexRef.current < historyRef.current.length - 1
+
+  // Handle content insertion
+  useEffect(() => {
+    if (insertContent && textareaRef.current) {
+      const textarea = textareaRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const currentContent = content
+      
+      // Insert content at cursor position or append
+      const newContent = 
+        currentContent.substring(0, start) + 
+        insertContent + 
+        currentContent.substring(end)
+      
+      handleContentChange(newContent)
+      
+      // Set cursor position after inserted content
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newPosition = start + insertContent.length
+          textareaRef.current.setSelectionRange(newPosition, newPosition)
+          textareaRef.current.focus()
+        }
+      }, 0)
+      
+      onInsertComplete?.()
+    }
+  }, [insertContent, onInsertComplete])
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">

@@ -11,6 +11,7 @@ import { ChaptersSidebar } from "@/components/dashboard/book-wizard/ChaptersSide
 import { BookEditor } from "@/components/dashboard/book-wizard/BookEditor"
 import { AIToolsPanel } from "@/components/dashboard/book-wizard/AIToolsPanel"
 import { BookOverview } from "@/components/dashboard/book-wizard/BookOverview"
+import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { generateAllChapters, REAL_GROWTH_BOOK_TEMPLATE } from "@/lib/book-templates"
 import Link from "next/link"
 
@@ -35,6 +36,8 @@ export default function BookWizardPage() {
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null)
   const [selectedText, setSelectedText] = useState("")
+  const [isContentVaultOpen, setIsContentVaultOpen] = useState(false)
+  const [contentToInsert, setContentToInsert] = useState<string | null>(null)
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -136,6 +139,18 @@ export default function BookWizardPage() {
         prev.map((ch) => (ch.id === activeChapterId ? { ...ch, content } : ch))
       )
     }
+  }
+
+  const handleInsertContentVault = (contentItem: any) => {
+    // Get the content to insert (prefer rawText, then transcript, then summary)
+    const content = contentItem.rawText || contentItem.transcript || contentItem.summary || ""
+    
+    if (!content) {
+      alert("This content item has no text to insert.")
+      return
+    }
+
+    setContentToInsert(content)
   }
 
   const handleAIAction = async (action: string, params?: any) => {
@@ -332,6 +347,8 @@ export default function BookWizardPage() {
                   onSubtitleChange={setBookSubtitle}
                   onContentChange={handleContentChange}
                   onSelectionChange={setSelectedText}
+                  insertContent={contentToInsert}
+                  onInsertComplete={() => setContentToInsert(null)}
                 />
                 </div>
                 {/* Bottom Actions */}
@@ -353,7 +370,15 @@ export default function BookWizardPage() {
                   </div>
                 </div>
               </div>
-              <AIToolsPanel onAction={handleAIAction} />
+              <AIToolsPanel 
+                onAction={handleAIAction}
+                onOpenContentVault={() => setIsContentVaultOpen(true)}
+              />
+              <ContentVaultModal
+                isOpen={isContentVaultOpen}
+                onClose={() => setIsContentVaultOpen(false)}
+                onSelect={handleInsertContentVault}
+              />
             </motion.div>
           )}
         </AnimatePresence>

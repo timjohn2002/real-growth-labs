@@ -16,6 +16,8 @@ interface TipTapEditorProps {
   onUpdate: (content: string) => void
   onWordCountChange?: (count: number) => void
   onSelectionChange?: (selectedText: string) => void
+  insertContent?: string | null
+  onInsertComplete?: () => void
 }
 
 export function TipTapEditor({
@@ -24,6 +26,8 @@ export function TipTapEditor({
   onUpdate,
   onWordCountChange,
   onSelectionChange,
+  insertContent,
+  onInsertComplete,
 }: TipTapEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -67,6 +71,16 @@ export function TipTapEditor({
       editor.commands.setContent(content)
     }
   }, [content, editor])
+
+  // Handle content insertion
+  useEffect(() => {
+    if (editor && insertContent) {
+      // Insert content at cursor position
+      const text = insertContent.replace(/\n/g, "<br>")
+      editor.commands.insertContent(`<p>${text}</p>`)
+      onInsertComplete?.()
+    }
+  }, [insertContent, editor, onInsertComplete])
 
   if (!editor) {
     return null

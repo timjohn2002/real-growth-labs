@@ -5,6 +5,7 @@ import {
   RefreshCw,
   Minus,
   Plus,
+  FolderOpen,
 } from "lucide-react"
 import {
   Select,
@@ -18,9 +19,10 @@ const BRAND_COLOR = "#a6261c"
 
 interface AIToolsPanelProps {
   onAction: (action: string, params?: any) => void
+  onOpenContentVault?: () => void
 }
 
-export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
+export function AIToolsPanel({ onAction, onOpenContentVault }: AIToolsPanelProps) {
   return (
     <div className="w-64 bg-card border-l border-border h-full overflow-y-auto">
       <div className="p-4">
@@ -74,6 +76,21 @@ export function AIToolsPanel({ onAction }: AIToolsPanelProps) {
             </div>
           </div>
         </div>
+
+        {/* Content Vault */}
+        {onOpenContentVault && (
+          <div className="mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start bg-[#a6261c] hover:bg-[#8e1e16] text-white border-[#a6261c]"
+              onClick={onOpenContentVault}
+            >
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Add From Content Vault
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

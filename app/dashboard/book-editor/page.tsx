@@ -8,6 +8,7 @@ import { AIToolsPanel } from "@/components/dashboard/book-editor/AIToolsPanel"
 import { StatusBar } from "@/components/dashboard/book-editor/StatusBar"
 import { ExportModal } from "@/components/dashboard/book-editor/ExportModal"
 import { AudiobookModal } from "@/components/dashboard/audiobook/AudiobookModal"
+import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { useRouter } from "next/navigation"
 
 interface Chapter {
@@ -31,6 +32,8 @@ export default function FullBookEditorPage() {
   const [totalWordCount, setTotalWordCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedText, setSelectedText] = useState("")
+  const [isContentVaultOpen, setIsContentVaultOpen] = useState(false)
+  const [contentToInsert, setContentToInsert] = useState<string | null>(null)
 
   const [chapters, setChapters] = useState<Chapter[]>([])
 
@@ -307,10 +310,27 @@ export default function FullBookEditorPage() {
           onContentChange={handleChapterContentChange}
           onWordCountChange={handleChapterWordCountChange}
           onSelectionChange={setSelectedText}
+          insertContent={contentToInsert}
+          onInsertComplete={() => setContentToInsert(null)}
         />
 
         {/* Right: AI Tools */}
-        <AIToolsPanel onAction={handleAIAction} />
+        <AIToolsPanel 
+          onAction={handleAIAction}
+          onOpenContentVault={() => setIsContentVaultOpen(true)}
+        />
+        <ContentVaultModal
+          isOpen={isContentVaultOpen}
+          onClose={() => setIsContentVaultOpen(false)}
+          onSelect={(contentItem) => {
+            const contentToInsert = contentItem.rawText || contentItem.transcript || contentItem.summary || ""
+            if (contentToInsert) {
+              setContentToInsert(contentToInsert)
+            } else {
+              alert("This content item has no text to insert.")
+            }
+          }}
+        />
       </div>
 
       {/* Bottom Status Bar */}

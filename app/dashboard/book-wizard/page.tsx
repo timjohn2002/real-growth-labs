@@ -142,8 +142,9 @@ export default function BookWizardPage() {
   }
 
   const handleInsertContentVault = (contentItem: any) => {
-    // Get the content to insert (prefer rawText, then transcript, then summary)
-    const content = contentItem.rawText || contentItem.transcript || contentItem.summary || ""
+    // Get the content to insert (prefer summary first - this is the improved/latest version)
+    // Then fall back to rawText or transcript
+    const content = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
     
     if (!content) {
       alert("This content item has no text to insert.")

@@ -82,10 +82,10 @@ export function AIToolsPanel({ onAction, onOpenContentVault }: AIToolsPanelProps
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start bg-[#a6261c] hover:bg-[#8e1e16] text-white border-[#a6261c]"
+              className="w-full justify-start bg-[#a6261c] hover:bg-[#8e1e16] text-white hover:text-white border-[#a6261c]"
               onClick={onOpenContentVault}
             >
-              <FolderOpen className="h-4 w-4 mr-2" />
+              <FolderOpen className="h-4 w-4 mr-2 text-white" />
               Add From Content Vault
             </Button>
           </div>

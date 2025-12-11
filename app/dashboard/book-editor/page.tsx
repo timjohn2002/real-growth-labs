@@ -323,7 +323,9 @@ export default function FullBookEditorPage() {
           isOpen={isContentVaultOpen}
           onClose={() => setIsContentVaultOpen(false)}
           onSelect={(contentItem) => {
-            const contentToInsert = contentItem.rawText || contentItem.transcript || contentItem.summary || ""
+            // Prefer summary first - this is the improved/latest version
+            // Then fall back to rawText or transcript
+            const contentToInsert = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
             if (contentToInsert) {
               setContentToInsert(contentToInsert)
             } else {

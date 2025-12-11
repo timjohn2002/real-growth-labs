@@ -86,14 +86,15 @@ export function ContentVaultModal({ isOpen, onClose, onSelect }: ContentVaultMod
   }
 
   const getContentPreview = (item: ContentItem): string => {
+    // Show summary first (improved/latest version), then fall back to rawText/transcript
+    if (item.summary) {
+      return item.summary.substring(0, 200) + (item.summary.length > 200 ? "..." : "")
+    }
     if (item.rawText) {
       return item.rawText.substring(0, 200) + (item.rawText.length > 200 ? "..." : "")
     }
     if (item.transcript) {
       return item.transcript.substring(0, 200) + (item.transcript.length > 200 ? "..." : "")
-    }
-    if (item.summary) {
-      return item.summary
     }
     return "No content available"
   }

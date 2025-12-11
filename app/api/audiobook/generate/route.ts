@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             options: options || {},
           },
           {
-            jobId: audiobook.jobId,
+            jobId: audiobook.jobId || undefined,
             priority: 1,
           }
         )

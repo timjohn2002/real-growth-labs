@@ -256,6 +256,22 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
   let tempDir: string | null = null
   let audioPath: string | null = null
 
+  // Set overall timeout (30 minutes max)
+  const overallTimeout = setTimeout(async () => {
+    console.error(`Processing timeout for ${contentItemId} after 30 minutes`)
+    try {
+      await prisma.contentItem.update({
+        where: { id: contentItemId },
+        data: {
+          status: "error",
+          error: "Processing timeout - the video may be too long or the download failed. Please try a shorter video or check the URL.",
+        },
+      })
+    } catch (e) {
+      console.error("Failed to update timeout error:", e)
+    }
+  }, 30 * 60 * 1000) // 30 minutes
+
   try {
     const videoInfo = await getYouTubeVideoInfo(url)
     if (!videoInfo) {
@@ -305,8 +321,9 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     // -x: extract audio
     // --audio-format mp3: convert to mp3
     // -o: output template (yt-dlp will replace %(ext)s with actual extension)
+    // Add timeout for download (20 minutes max)
     try {
-      await ytDlpWrap.exec([
+      const downloadPromise = ytDlpWrap.exec([
         url,
         "-x",
         "--audio-format",
@@ -320,6 +337,16 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
         "--extract-flat",
         "false",
       ])
+
+      // Add timeout to download
+      const downloadTimeout = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Download timeout after 20 minutes. The video may be too long or unavailable."))
+        }, 20 * 60 * 1000) // 20 minutes
+      })
+
+      await Promise.race([downloadPromise, downloadTimeout])
+      console.log("Audio download completed successfully")
     } catch (execError) {
       console.error("yt-dlp execution error:", execError)
       const errorDetails = execError instanceof Error ? execError.message : String(execError)
@@ -472,11 +499,17 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
       throw new Error(`Failed to save transcript to database after 3 attempts: ${lastError?.message || "Unknown error"}`)
     }
 
+    // Clear timeout on success
+    clearTimeout(overallTimeout)
+
     console.log(`✅ YouTube video processed successfully: ${contentItemId}`)
     console.log(`   - Title: ${videoInfo.title}`)
     console.log(`   - Transcript length: ${transcription.text.length} characters`)
     console.log(`   - Word count: ${wordCount}`)
   } catch (error) {
+    // Clear timeout on error
+    clearTimeout(overallTimeout)
+    
     console.error("YouTube processing error:", error)
     
     const errorMessage = error instanceof Error 

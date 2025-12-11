@@ -10,7 +10,7 @@ import { ExportModal } from "@/components/dashboard/book-editor/ExportModal"
 import { AudiobookModal } from "@/components/dashboard/audiobook/AudiobookModal"
 import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { BookLibraryModal } from "@/components/dashboard/book-editor/BookLibraryModal"
-import { markdownToHTML } from "@/lib/markdown-to-html"
+import { markdownToHTML, htmlToMarkdown } from "@/lib/markdown-to-html"
 import { useRouter } from "next/navigation"
 
 interface Chapter {

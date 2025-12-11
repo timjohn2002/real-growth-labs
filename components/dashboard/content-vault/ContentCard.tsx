@@ -4,7 +4,6 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
 
 const BRAND_COLOR = "#a6261c"
 

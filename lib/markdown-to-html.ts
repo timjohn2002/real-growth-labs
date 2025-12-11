@@ -38,14 +38,14 @@ export function markdownToHTML(markdown: string): string {
       continue
     }
 
-    // Check for horizontal rule (---) - convert to paragraph spacing
+    // Check for horizontal rule (---) - TipTap StarterKit includes horizontalRule
     if (line === "---") {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
-      // Add spacing paragraph for visual separation
-      htmlLines.push('<p style="margin-top: 2em; margin-bottom: 2em;"></p>')
+      // Use horizontal rule (TipTap StarterKit supports this)
+      htmlLines.push("<hr />")
       continue
     }
 

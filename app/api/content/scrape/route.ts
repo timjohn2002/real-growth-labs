@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isYouTubeUrl, getYouTubeVideoInfo, extractYouTubeVideoId } from "@/lib/youtube"
+import { YTDlpWrap } from "yt-dlp-wrap"
+import { transcribeAudioFromBuffer } from "@/lib/openai"
+import fs from "fs/promises"
+import path from "path"
+import os from "os"
 
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
@@ -239,79 +244,110 @@ function extractThumbnail(html: string): string | null {
 }
 
 async function processYouTubeVideo(contentItemId: string, url: string) {
+  let tempDir: string | null = null
+  let audioPath: string | null = null
+
   try {
     const videoInfo = await getYouTubeVideoInfo(url)
     if (!videoInfo) {
       throw new Error("Failed to fetch YouTube video information")
     }
 
-    // TODO: Implement actual YouTube transcription
-    // For production, you would:
-    // 1. Install yt-dlp-wrap: npm install yt-dlp-wrap
-    // 2. Download video/audio using yt-dlp
-    // 3. Extract audio to a temporary file
-    // 4. Use OpenAI Whisper API to transcribe the audio
-    // 5. Process the transcript and generate summary
+    // Create temporary directory
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-"))
+    audioPath = path.join(tempDir, `${contentItemId}.mp3`)
+
+    // Initialize yt-dlp
+    const ytDlpWrap = new YTDlpWrap()
+
+    console.log(`Downloading audio from YouTube: ${url}`)
     
-    // For now, we'll provide a helpful error message
-    // In the future, this can be replaced with actual transcription logic
+    // Download audio only (extract audio, format mp3)
+    // -x: extract audio
+    // --audio-format mp3: convert to mp3
+    // -o: output path
+    await ytDlpWrap.exec([
+      url,
+      "-x",
+      "--audio-format",
+      "mp3",
+      "--audio-quality",
+      "0", // best quality
+      "-o",
+      audioPath,
+      "--no-playlist",
+      "--quiet",
+    ])
+
+    // Check if file was created
+    try {
+      await fs.access(audioPath)
+    } catch {
+      throw new Error("Failed to download audio file")
+    }
+
+    // Read audio file
+    console.log(`Reading audio file: ${audioPath}`)
+    const audioBuffer = await fs.readFile(audioPath)
+
+    // Transcribe using OpenAI Whisper
+    console.log(`Transcribing audio...`)
+    const transcription = await transcribeAudioFromBuffer(
+      audioBuffer,
+      `${contentItemId}.mp3`,
+      { language: "en" }
+    )
+
+    console.log(`Transcription complete. Text length: ${transcription.text.length}`)
+
+    // Generate summary
+    const summary = await generateSummary(transcription.text)
+    const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
+
+    // Update content item with transcript
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcription.text,
+        rawText: transcription.text,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+      },
+    })
+
+    console.log(`YouTube video processed successfully: ${contentItemId}`)
+  } catch (error) {
+    console.error("YouTube processing error:", error)
     
-    const errorMessage = "YouTube transcription is currently being set up. For now, please download the video and upload it directly using the 'Video Upload' option, or use a service like AssemblyAI or Deepgram for transcription."
-    
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : "Failed to process YouTube video"
+
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
         status: "error",
         error: errorMessage,
-        summary: "YouTube video transcription requires additional configuration. Please upload the video file directly for transcription.",
       },
     })
-
-    // Example of what the actual implementation would look like:
-    /*
-    import { YTDlpWrap } from 'yt-dlp-wrap'
-    import { transcribeAudio } from '@/lib/openai'
-    import fs from 'fs'
-    import path from 'path'
-    import { promisify } from 'util'
-    
-    const ytDlpWrap = new YTDlpWrap()
-    const tempDir = path.join(process.cwd(), 'temp')
-    const audioPath = path.join(tempDir, `${contentItemId}.mp3`)
-    
-    // Download audio
-    await ytDlpWrap.exec([url, '-x', '--audio-format', 'mp3', '-o', audioPath])
-    
-    // Read audio file
-    const audioBuffer = await fs.promises.readFile(audioPath)
-    
-    // Transcribe
-    const transcription = await transcribeAudio(audioBuffer, 'audio.mp3')
-    
-    // Clean up
-    await fs.promises.unlink(audioPath)
-    
-    // Update content item
-    await prisma.contentItem.update({
-      where: { id: contentItemId },
-      data: {
-        status: 'ready',
-        transcript: transcription.text,
-        wordCount: transcription.text.split(/\s+/).length,
-        summary: await generateSummary(transcription.text),
-        processedAt: new Date(),
-      },
-    })
-    */
-    
-  } catch (error) {
-    await prisma.contentItem.update({
-      where: { id: contentItemId },
-      data: {
-        status: "error",
-        error: error instanceof Error ? error.message : "Failed to process YouTube video",
-      },
-    })
+  } finally {
+    // Clean up temporary files
+    if (audioPath) {
+      try {
+        await fs.unlink(audioPath)
+      } catch (e) {
+        console.error("Failed to delete audio file:", e)
+      }
+    }
+    if (tempDir) {
+      try {
+        await fs.rmdir(tempDir)
+      } catch (e) {
+        console.error("Failed to delete temp directory:", e)
+      }
+    }
   }
 }
 

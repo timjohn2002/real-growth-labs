@@ -72,6 +72,70 @@ export async function callGPT(
 /**
  * Transcribe audio/video using Whisper API
  */
+/**
+ * Transcribe audio from a Buffer (for local files)
+ * Works in Node.js environment
+ */
+export async function transcribeAudioFromBuffer(
+  audioBuffer: Buffer,
+  filename: string = "audio.mp3",
+  options: {
+    language?: string
+    prompt?: string
+  } = {}
+): Promise<{
+  text: string
+  language: string
+  duration?: number
+}> {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured")
+  }
+
+  const { language = "en", prompt } = options
+
+  try {
+    // Create FormData for Node.js environment
+    const FormData = (await import("form-data")).default
+    const formData = new FormData()
+    
+    // Append the audio buffer as a file
+    formData.append("file", audioBuffer, {
+      filename,
+      contentType: "audio/mpeg",
+    })
+    formData.append("model", "whisper-1")
+    formData.append("language", language)
+    if (prompt) {
+      formData.append("prompt", prompt)
+    }
+
+    const response = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        ...formData.getHeaders(), // Get proper headers for multipart/form-data
+      },
+      body: formData as any, // FormData from form-data package
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`OpenAI API error: ${error}`)
+    }
+
+    const data = await response.json()
+    return {
+      text: data.text,
+      language: data.language || language,
+      duration: undefined, // Whisper API doesn't return duration
+    }
+  } catch (error) {
+    console.error("Transcription error:", error)
+    throw error
+  }
+}
+
 export async function transcribeAudio(
   fileUrl: string,
   options: {

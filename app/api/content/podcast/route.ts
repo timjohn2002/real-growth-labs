@@ -74,29 +74,65 @@ async function processPodcast(contentItemId: string, url: string) {
       audioUrl = metadata.audioUrl || ""
     }
 
-    // If we have an audio URL, transcribe it
+    // If we have an audio URL, download and transcribe it
     if (audioUrl) {
-      // Download and transcribe
-      // For now, we'll mark it for transcription
-      await prisma.contentItem.update({
-        where: { id: contentItemId },
-        data: {
-          metadata: JSON.stringify({
-            ...metadata,
-            audioUrl,
-          }),
-        },
-      })
+      try {
+        // Download audio file
+        const audioResponse = await fetch(audioUrl)
+        if (!audioResponse.ok) {
+          throw new Error(`Failed to download audio: ${audioResponse.statusText}`)
+        }
 
-      // Queue transcription
-      const transcribeResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/content/transcribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentItemId, audioUrl }),
-      })
+        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer())
+        
+        // Update status to processing
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "processing",
+            metadata: JSON.stringify({
+              ...metadata,
+              audioUrl,
+            }),
+          },
+        })
 
-      if (!transcribeResponse.ok) {
-        throw new Error("Transcription failed")
+        // Transcribe using OpenAI Whisper
+        const { transcribeAudioFromBuffer } = await import("@/lib/openai")
+        const { generateSummary } = await import("@/lib/openai")
+        
+        const transcription = await transcribeAudioFromBuffer(
+          audioBuffer,
+          `${contentItemId}.mp3`,
+          { language: "en" }
+        )
+
+        if (!transcription.text || transcription.text.trim().length === 0) {
+          throw new Error("Transcription returned empty text")
+        }
+
+        // Generate summary
+        const summary = await generateSummary(transcription.text)
+        const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
+
+        // Update content item with transcription
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "ready",
+            title: metadata.title || "Podcast Episode",
+            transcript: transcription.text,
+            rawText: transcription.text,
+            wordCount,
+            summary,
+            thumbnail: metadata.thumbnail,
+            duration: metadata.duration,
+            processedAt: new Date(),
+          },
+        })
+      } catch (transcribeError) {
+        console.error("Podcast transcription error:", transcribeError)
+        throw new Error(`Failed to transcribe podcast: ${transcribeError instanceof Error ? transcribeError.message : "Unknown error"}`)
       }
     } else if (metadata.transcript) {
       // Use existing transcript

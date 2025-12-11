@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import fs from "fs/promises"
+import path from "path"
+import os from "os"
 
 // Handle file uploads (audio, video, text)
 export async function POST(request: NextRequest) {
@@ -40,18 +43,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Upload file to storage (S3, Supabase Storage, etc.)
-    // For now, we'll store the file info and process it
-    const fileUrl = `/uploads/${Date.now()}-${file.name}`
+    // Read file buffer
+    const fileBuffer = Buffer.from(await file.arrayBuffer())
 
-    // Create content item in database
+    // Create content item in database first
     const contentItem = await prisma.contentItem.create({
       data: {
         userId,
         title,
         type,
         status: "pending",
-        fileUrl,
+        fileUrl: `/uploads/${Date.now()}-${file.name}`, // Placeholder URL
         metadata: JSON.stringify({
           filename: file.name,
           size: file.size,
@@ -63,9 +65,8 @@ export async function POST(request: NextRequest) {
 
     // Start processing based on type
     if (type === "audio" || type === "video") {
-      // Queue transcription job
-      // In production, use a job queue (Bull, BullMQ, etc.)
-      processTranscription(contentItem.id).catch(console.error)
+      // Process transcription with file buffer directly
+      processTranscription(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
     } else if (type === "text") {
       // Process text file immediately
       processTextFile(contentItem.id, file).catch(console.error)
@@ -86,32 +87,77 @@ export async function POST(request: NextRequest) {
 }
 
 // Process transcription (audio/video)
-async function processTranscription(contentItemId: string) {
+async function processTranscription(contentItemId: string, fileBuffer: Buffer, filename: string, mimeType: string) {
+  let tempPath: string | null = null
+  
   try {
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: { status: "processing" },
     })
 
-    // TODO: Call transcription API
-    // This will be implemented in the transcribe route
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/content/transcribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contentItemId }),
+    // Use OpenAI Whisper API to transcribe
+    const { transcribeAudioFromBuffer } = await import("@/lib/openai")
+    const { generateSummary } = await import("@/lib/openai")
+    
+    console.log(`Transcribing ${mimeType} file: ${filename}`)
+    
+    // Determine file extension and content type
+    // Whisper API can handle both audio and video files
+    const extension = filename.split('.').pop() || (mimeType.includes('video') ? 'mp4' : 'mp3')
+    const contentType = mimeType.includes('video') ? 'video/mp4' : 'audio/mpeg'
+    
+    const transcription = await transcribeAudioFromBuffer(
+      fileBuffer,
+      `${contentItemId}.${extension}`,
+      { language: "en" }
+    )
+
+    if (!transcription.text || transcription.text.trim().length === 0) {
+      throw new Error("Transcription returned empty text")
+    }
+
+    console.log(`Transcription complete. Text length: ${transcription.text.length}`)
+
+    // Generate summary
+    const summary = await generateSummary(transcription.text)
+    const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
+
+    // Update content item
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcription.text,
+        rawText: transcription.text,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+      },
     })
 
-    if (!response.ok) {
-      throw new Error("Transcription failed")
-    }
+    console.log(`✅ ${mimeType} file processed successfully: ${contentItemId}`)
   } catch (error) {
+    console.error("Transcription error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Processing failed"
+    
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
         status: "error",
-        error: error instanceof Error ? error.message : "Processing failed",
+        error: errorMessage,
       },
     })
+  } finally {
+    // Clean up temp file
+    if (tempPath) {
+      try {
+        await fs.unlink(tempPath)
+      } catch (e) {
+        console.error("Failed to delete temp file:", e)
+      }
+    }
   }
 }
 

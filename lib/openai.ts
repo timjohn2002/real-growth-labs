@@ -99,10 +99,15 @@ export async function transcribeAudioFromBuffer(
     const FormData = (await import("form-data")).default
     const formData = new FormData()
     
-    // Append the audio buffer as a file
+    // Append the audio/video buffer as a file
+    // Whisper API supports: mp3, mp4, mpeg, mpga, m4a, wav, webm
+    const contentType = filename.endsWith('.mp4') || filename.endsWith('.webm') 
+      ? "video/mp4" 
+      : "audio/mpeg"
+    
     formData.append("file", audioBuffer, {
       filename,
-      contentType: "audio/mpeg",
+      contentType,
     })
     formData.append("model", "whisper-1")
     formData.append("language", language)

@@ -18,6 +18,7 @@ interface ContentItem {
   source?: string
   duration?: string
   tags?: string[]
+  error?: string
   uploadedAt: string
 }
 
@@ -126,8 +127,16 @@ export function ContentDrawer({
                       )}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Status:</span>
-                        <span className="text-gray-900 capitalize">{item.status}</span>
+                        <span className={`capitalize ${item.status === "error" ? "text-red-600 font-semibold" : "text-gray-900"}`}>
+                          {item.status}
+                        </span>
                       </div>
+                      {item.error && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm font-semibold text-red-800 mb-1">Error Details:</p>
+                          <p className="text-sm text-red-700">{item.error}</p>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Uploaded:</span>
                         <span className="text-gray-900">{item.uploadedAt}</span>

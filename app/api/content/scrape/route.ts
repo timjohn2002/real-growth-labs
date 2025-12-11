@@ -40,31 +40,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if it's a YouTube URL
-    if (isYouTubeUrl(url)) {
+    // Check if it's a YouTube URL or any video URL
+    const isYouTube = isYouTubeUrl(url)
+    
+    if (isYouTube) {
       // Get YouTube video info
       const videoInfo = await getYouTubeVideoInfo(url)
+      
+      if (!videoInfo) {
+        return NextResponse.json(
+          { error: "Failed to fetch YouTube video information. Please check the URL is valid." },
+          { status: 400 }
+        )
+      }
       
       // Process YouTube video for transcription
       const contentItem = await prisma.contentItem.create({
         data: {
           userId,
-          title: title || videoInfo?.title || "YouTube Video",
+          title: title || videoInfo.title || "YouTube Video",
           type: "video",
           status: "processing",
           source: url,
-          thumbnail: videoInfo?.thumbnail || null,
+          thumbnail: videoInfo.thumbnail || null,
           metadata: JSON.stringify({ 
             url, 
             platform: "youtube",
-            videoId: videoInfo?.videoId,
-            channelName: videoInfo?.channelName,
+            videoId: videoInfo.videoId,
+            channelName: videoInfo.channelName,
           }),
           tags: "[]",
         },
       })
 
-      // Start YouTube processing
+      // Start YouTube processing (don't await - process in background)
       processYouTubeVideo(contentItem.id, url).catch((error) => {
         console.error("YouTube processing error:", error)
       })
@@ -258,32 +267,58 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     audioPath = path.join(tempDir, `${contentItemId}.mp3`)
 
     // Initialize yt-dlp
-    const ytDlpWrap = new YTDlpWrap()
+    // Try to find yt-dlp in common locations
+    let ytDlpPath: string | undefined
+    try {
+      const { execSync } = await import("child_process")
+      ytDlpPath = execSync("which yt-dlp", { encoding: "utf-8" }).trim()
+    } catch (e) {
+      // yt-dlp not in PATH, yt-dlp-wrap will try to find it
+      console.log("yt-dlp not found in PATH, yt-dlp-wrap will attempt to locate it")
+    }
+
+    const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
 
     console.log(`Downloading audio from YouTube: ${url}`)
+    console.log(`Using yt-dlp at: ${ytDlpPath || "auto-detect"}`)
     
     // Download audio only (extract audio, format mp3)
     // -x: extract audio
     // --audio-format mp3: convert to mp3
     // -o: output path
-    await ytDlpWrap.exec([
-      url,
-      "-x",
-      "--audio-format",
-      "mp3",
-      "--audio-quality",
-      "0", // best quality
-      "-o",
-      audioPath,
-      "--no-playlist",
-      "--quiet",
-    ])
-
-    // Check if file was created
     try {
-      await fs.access(audioPath)
-    } catch {
-      throw new Error("Failed to download audio file")
+      await ytDlpWrap.exec([
+        url,
+        "-x",
+        "--audio-format",
+        "mp3",
+        "--audio-quality",
+        "0", // best quality
+        "-o",
+        audioPath,
+        "--no-playlist",
+        "--quiet",
+        "--no-warnings",
+      ])
+    } catch (execError) {
+      console.error("yt-dlp execution error:", execError)
+      throw new Error(`Failed to download audio: ${execError instanceof Error ? execError.message : "Unknown error"}`)
+    }
+
+    // Check if file was created and wait a bit for file system
+    let fileExists = false
+    for (let i = 0; i < 10; i++) {
+      try {
+        await fs.access(audioPath)
+        fileExists = true
+        break
+      } catch {
+        await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms
+      }
+    }
+    
+    if (!fileExists) {
+      throw new Error("Audio file was not created after download. The video may be unavailable or restricted.")
     }
 
     // Read audio file

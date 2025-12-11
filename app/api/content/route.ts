@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         source: item.source,
         duration: item.duration,
         transcript: item.transcript,
+        error: item.error,
         tags,
         uploadedAt: formatTimeAgo(item.createdAt),
         createdAt: item.createdAt,

@@ -16,7 +16,7 @@ const BRAND_COLOR = "#a6261c"
 interface ContentItem {
   id: string
   title: string
-  type: "podcast" | "video" | "audio" | "url" | "text"
+  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
   wordCount?: number
   status: "pending" | "processing" | "ready" | "error"
   summary?: string
@@ -35,7 +35,7 @@ export default function ContentVaultPage() {
   const [activeFilter, setActiveFilter] = useState("all")
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [uploadType, setUploadType] = useState<"podcast" | "video" | "audio" | "url" | "text" | null>(null)
+  const [uploadType, setUploadType] = useState<"podcast" | "video" | "audio" | "url" | "text" | "image" | null>(null)
   const [improvingSummaryId, setImprovingSummaryId] = useState<string | null>(null)
   
   // TODO: Get userId from auth context/session
@@ -89,12 +89,13 @@ export default function ContentVaultPage() {
   const handleAddContent = (type: string) => {
     setIsModalOpen(false)
     // Map modal type names to our type system
-    const typeMap: Record<string, "podcast" | "video" | "audio" | "url" | "text"> = {
+    const typeMap: Record<string, "podcast" | "video" | "audio" | "url" | "text" | "image"> = {
       "Podcast Link": "podcast",
       "Video Upload": "video",
       "Audio Upload": "audio",
       "Paste URL": "url",
       "Paste Text / Notes": "text",
+      "Images": "image",
     }
     setUploadType(typeMap[type] || "text")
   }
@@ -210,6 +211,7 @@ export default function ContentVaultPage() {
     if (activeFilter === "video") return item.type === "video"
     if (activeFilter === "links") return item.type === "url"
     if (activeFilter === "text") return item.type === "text"
+    if (activeFilter === "image") return item.type === "image"
     if (activeFilter === "processed") return item.status === "ready"
     if (activeFilter === "pending") return item.status === "pending" || item.status === "processing"
     return true

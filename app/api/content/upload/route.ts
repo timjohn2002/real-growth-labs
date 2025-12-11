@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       audio: ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-m4a"],
       video: ["video/mp4", "video/webm", "video/quicktime"],
       text: ["text/plain"],
+      image: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg"],
     }
 
     if (!allowedTypes[type]?.includes(file.type)) {
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
     if (type === "audio" || type === "video") {
       // Process transcription with file buffer directly
       processTranscription(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
+    } else if (type === "image") {
+      // Process image with OCR
+      processImage(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
     } else if (type === "text") {
       // Process text file immediately
       processTextFile(contentItem.id, file).catch(console.error)
@@ -158,6 +162,59 @@ async function processTranscription(contentItemId: string, fileBuffer: Buffer, f
         console.error("Failed to delete temp file:", e)
       }
     }
+  }
+}
+
+// Process image with OCR
+async function processImage(contentItemId: string, fileBuffer: Buffer, filename: string, mimeType: string) {
+  try {
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: { status: "processing" },
+    })
+
+    console.log(`Processing image with OCR: ${filename}`)
+    
+    // Use OpenAI Vision API to extract text from image
+    const { extractTextFromImage } = await import("@/lib/openai")
+    const extractedText = await extractTextFromImage(fileBuffer, filename)
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error("No text could be extracted from the image")
+    }
+
+    console.log(`Text extraction complete. Text length: ${extractedText.length}`)
+
+    // Generate summary
+    const summary = await generateSummary(extractedText)
+    const wordCount = extractedText.split(/\s+/).filter(Boolean).length
+
+    // Update content item
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: extractedText,
+        rawText: extractedText,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+      },
+    })
+
+    console.log(`✅ Image processed successfully: ${contentItemId}`)
+  } catch (error) {
+    console.error("Image processing error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Processing failed"
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "error",
+        error: errorMessage,
+      },
+    })
   }
 }
 

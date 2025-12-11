@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Mic, Video, Headphones, Link as LinkIcon, FileText } from "lucide-react"
+import { X, Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 
@@ -36,6 +36,12 @@ const contentTypes = [
     name: "Paste Text / Notes",
     icon: FileText,
     description: "Add text content",
+    color: "#a6261c",
+  },
+  {
+    name: "Images",
+    icon: ImageIcon,
+    description: "Upload and extract text from images",
     color: "#a6261c",
   },
 ]

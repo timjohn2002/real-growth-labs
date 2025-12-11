@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mic, Video, Headphones, Link as LinkIcon, FileText, MoreVertical, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
+import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, MoreVertical, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
@@ -11,7 +11,7 @@ const BRAND_COLOR = "#a6261c"
 interface ContentItem {
   id: string
   title: string
-  type: "podcast" | "video" | "audio" | "url" | "text"
+  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
   wordCount?: number
   status: "pending" | "processing" | "ready" | "error"
   summary?: string
@@ -39,6 +39,8 @@ const getTypeIcon = (type: string) => {
       return LinkIcon
     case "text":
       return FileText
+    case "image":
+      return ImageIcon
     default:
       return FileText
   }

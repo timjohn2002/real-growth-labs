@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { X, Upload, FileText, Link as LinkIcon, Mic, Video, Headphones } from "lucide-react"
+import { X, Upload, FileText, Link as LinkIcon, Mic, Video, Headphones, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +12,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 const BRAND_COLOR = "#a6261c"
 
 interface UploadFormProps {
-  type: "podcast" | "video" | "audio" | "url" | "text"
+  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
@@ -113,7 +113,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
           throw new Error(data.error || "Failed to create text content")
         }
       } else if (file) {
-        // Upload file (audio/video)
+        // Upload file (audio/video/image)
         const formData = new FormData()
         formData.append("file", file)
         formData.append("type", type)
@@ -167,6 +167,10 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         return LinkIcon
       case "text":
         return FileText
+      case "image":
+        return ImageIcon
+      default:
+        return Upload
     }
   }
 
@@ -182,6 +186,10 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         return "Paste URL"
       case "text":
         return "Paste Text / Notes"
+      case "image":
+        return "Image Upload"
+      default:
+        return "Upload"
     }
   }
 
@@ -230,8 +238,8 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
               />
             </div>
 
-            {/* File Upload (Audio/Video) */}
-            {(type === "audio" || type === "video") && (
+            {/* File Upload (Audio/Video/Image) */}
+            {(type === "audio" || type === "video" || type === "image") && (
               <div>
                 <Label>File</Label>
                 <div className="mt-2">
@@ -241,7 +249,9 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                     accept={
                       type === "audio"
                         ? "audio/mpeg,audio/wav,audio/mp3,audio/x-m4a"
-                        : "video/mp4,video/webm,video/quicktime"
+                        : type === "video"
+                        ? "video/mp4,video/webm,video/quicktime"
+                        : "image/jpeg,image/png,image/gif,image/webp,image/jpg"
                     }
                     onChange={handleFileSelect}
                     className="hidden"
@@ -253,6 +263,13 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                   >
                     {file ? (
                       <div>
+                        {type === "image" && file.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt="Preview"
+                            className="max-h-48 mx-auto rounded-lg mb-2"
+                          />
+                        ) : null}
                         <p className="text-sm font-medium text-gray-900">{file.name}</p>
                         <p className="text-xs text-gray-500 mt-1">
                           {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -262,12 +279,14 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                       <div>
                         <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          Click to upload {type === "audio" ? "audio" : "video"} file
+                          Click to upload {type === "audio" ? "audio" : type === "video" ? "video" : "image"} file
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {type === "audio"
                             ? "MP3, WAV, M4A"
-                            : "MP4, WebM, QuickTime"}
+                            : type === "video"
+                            ? "MP4, WebM, QuickTime"
+                            : "JPEG, PNG, GIF, WebP"}
                         </p>
                       </div>
                     )}

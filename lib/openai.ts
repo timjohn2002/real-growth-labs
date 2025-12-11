@@ -141,6 +141,78 @@ export async function transcribeAudioFromBuffer(
   }
 }
 
+/**
+ * Extract text from image using OpenAI Vision API
+ */
+export async function extractTextFromImage(
+  imageBuffer: Buffer,
+  filename: string = "image.jpg"
+): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured")
+  }
+
+  try {
+    // Convert buffer to base64
+    const base64Image = imageBuffer.toString("base64")
+    
+    // Determine content type from filename
+    const contentType = filename.endsWith(".png") 
+      ? "image/png" 
+      : filename.endsWith(".gif")
+      ? "image/gif"
+      : filename.endsWith(".webp")
+      ? "image/webp"
+      : "image/jpeg"
+
+    const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o", // GPT-4o has vision capabilities
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extract all text from this image. If there's no text, describe what you see in the image. Return only the extracted text or description, no additional commentary.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${contentType};base64,${base64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`OpenAI Vision API error: ${error}`)
+    }
+
+    const data = await response.json()
+    const extractedText = data.choices[0]?.message?.content || ""
+    
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error("No text could be extracted from the image")
+    }
+
+    return extractedText.trim()
+  } catch (error) {
+    console.error("Image text extraction error:", error)
+    throw error
+  }
+}
+
 export async function transcribeAudio(
   fileUrl: string,
   options: {

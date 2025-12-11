@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 import { ConditionalLayout } from "@/components/ConditionalLayout"
+import { ErrorBoundaryWrapper } from "@/components/ErrorBoundaryWrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -58,9 +59,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <Providers>
-          <ConditionalLayout>{children}</ConditionalLayout>
-        </Providers>
+        <ErrorBoundaryWrapper>
+          <Providers>
+            <ConditionalLayout>{children}</ConditionalLayout>
+          </Providers>
+        </ErrorBoundaryWrapper>
       </body>
     </html>
   )

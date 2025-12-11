@@ -46,19 +46,35 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
     try {
       if (type === "url") {
+        // Validate URL before submitting
+        if (!url.trim()) {
+          throw new Error("Please enter a URL")
+        }
+
+        try {
+          new URL(url)
+        } catch {
+          throw new Error("Invalid URL format. Please enter a valid URL (e.g., https://example.com)")
+        }
+
         // Scrape URL
         const response = await fetch("/api/content/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            url,
+            url: url.trim(),
             title: title || url,
             userId,
           }),
         })
 
+        const data = await response.json()
+
         if (!response.ok) {
-          const data = await response.json()
+          // Check if it's a YouTube URL error
+          if (data.isYouTube) {
+            throw new Error("YouTube URLs cannot be scraped directly. Please use the 'Video Upload' option to upload a YouTube video, or provide a direct link to the video file.")
+          }
           throw new Error(data.error || "Failed to scrape URL")
         }
       } else if (type === "podcast") {
@@ -128,7 +144,10 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      const errorMessage = err instanceof Error ? err.message : "An error occurred"
+      console.error("Upload error:", err)
+      setError(errorMessage)
+      // Keep the form open so user can fix the error
     } finally {
       setIsUploading(false)
     }
@@ -166,8 +185,14 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
   const Icon = getTypeIcon()
 
+  if (!isOpen) return null
+
   return (
-    <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
+    <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        onClose()
+      }
+    }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
         <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 border border-gray-200 bg-white p-8 shadow-xl rounded-2xl">

@@ -24,11 +24,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate URL
+    let parsedUrl: URL
     try {
-      new URL(url)
+      parsedUrl = new URL(url)
     } catch {
       return NextResponse.json(
         { error: "Invalid URL format" },
+        { status: 400 }
+      )
+    }
+
+    // Check if it's a YouTube URL
+    const isYouTube = parsedUrl.hostname.includes("youtube.com") || parsedUrl.hostname.includes("youtu.be")
+    
+    if (isYouTube) {
+      return NextResponse.json(
+        { 
+          error: "YouTube URLs require special processing. Please use the 'Video Upload' option or provide a direct video link. YouTube video pages cannot be scraped directly.",
+          isYouTube: true
+        },
         { status: 400 }
       )
     }
@@ -47,7 +61,10 @@ export async function POST(request: NextRequest) {
     })
 
     // Start scraping
-    scrapeUrl(contentItem.id, url).catch(console.error)
+    scrapeUrl(contentItem.id, url).catch((error) => {
+      console.error("Scraping error:", error)
+      // Error is already handled in scrapeUrl function
+    })
 
     return NextResponse.json({
       id: contentItem.id,
@@ -65,15 +82,38 @@ export async function POST(request: NextRequest) {
 
 async function scrapeUrl(contentItemId: string, url: string) {
   try {
-    // Fetch the URL
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; RealGrowthLabs/1.0)",
-      },
-    })
+    // Check if it's a YouTube URL (double-check)
+    const parsedUrl = new URL(url)
+    const isYouTube = parsedUrl.hostname.includes("youtube.com") || parsedUrl.hostname.includes("youtu.be")
+    
+    if (isYouTube) {
+      throw new Error("YouTube URLs cannot be scraped directly. Please use a different method to extract content.")
+    }
+
+    // Fetch the URL with timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        throw new Error("Request timed out. The URL may be unreachable or taking too long to respond.")
+      }
+      throw new Error(`Failed to fetch URL: ${fetchError instanceof Error ? fetchError.message : "Unknown error"}`)
+    }
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch URL: ${response.statusText}`)
+      throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`)
     }
 
     const html = await response.text()

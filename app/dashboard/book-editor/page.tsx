@@ -10,6 +10,7 @@ import { ExportModal } from "@/components/dashboard/book-editor/ExportModal"
 import { AudiobookModal } from "@/components/dashboard/audiobook/AudiobookModal"
 import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { BookLibraryModal } from "@/components/dashboard/book-editor/BookLibraryModal"
+import { markdownToHTML } from "@/lib/markdown-to-html"
 import { useRouter } from "next/navigation"
 
 interface Chapter {
@@ -78,13 +79,20 @@ export default function FullBookEditorPage() {
         const data = await response.json()
         setBookTitle(data.title)
         setBookStatus(data.status as "draft" | "published")
-        setChapters(data.chapters || [])
-        if (data.chapters && data.chapters.length > 0) {
-          setActiveChapterId(data.chapters[0].id)
+        
+        // Convert markdown content to HTML for TipTap editor
+        const formattedChapters = (data.chapters || []).map((ch: any) => ({
+          ...ch,
+          content: markdownToHTML(ch.content || ""),
+        }))
+        
+        setChapters(formattedChapters)
+        if (formattedChapters.length > 0) {
+          setActiveChapterId(formattedChapters[0].id)
         }
         
         // Calculate total word count
-        const total = data.chapters.reduce(
+        const total = formattedChapters.reduce(
           (sum: number, ch: Chapter) => sum + (ch.wordCount || 0),
           0
         )

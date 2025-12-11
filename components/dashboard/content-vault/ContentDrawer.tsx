@@ -264,15 +264,6 @@ export function ContentDrawer({
                     )}
                   </Button>
                   <Button
-                    size="sm"
-                    className="flex-1"
-                    style={{ backgroundColor: BRAND_COLOR }}
-                    onClick={() => onAddToBook(item.id)}
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Add to Book Wizard
-                  </Button>
-                  <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {

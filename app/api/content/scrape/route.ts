@@ -433,20 +433,44 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
     console.log(`Word count: ${wordCount}`)
 
-    // Update content item with transcript
+    // Update content item with transcript (with retry logic)
     console.log(`Saving transcript to database...`)
-    await prisma.contentItem.update({
-      where: { id: contentItemId },
-      data: {
-        status: "ready",
-        transcript: transcription.text,
-        rawText: transcription.text,
-        wordCount,
-        summary,
-        processedAt: new Date(),
-        error: null, // Clear any previous errors
-      },
-    })
+    let updateSuccess = false
+    let lastError: Error | null = null
+    
+    // Retry database update up to 3 times
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "ready",
+            transcript: transcription.text,
+            rawText: transcription.text,
+            wordCount,
+            summary,
+            processedAt: new Date(),
+            error: null, // Clear any previous errors
+          },
+        })
+        updateSuccess = true
+        break
+      } catch (dbError) {
+        lastError = dbError instanceof Error ? dbError : new Error(String(dbError))
+        console.error(`Database update attempt ${attempt} failed:`, lastError.message)
+        
+        if (attempt < 3) {
+          // Wait before retrying (exponential backoff)
+          const waitTime = attempt * 1000 // 1s, 2s, 3s
+          console.log(`Retrying database update in ${waitTime}ms...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
+      }
+    }
+    
+    if (!updateSuccess) {
+      throw new Error(`Failed to save transcript to database after 3 attempts: ${lastError?.message || "Unknown error"}`)
+    }
 
     console.log(`✅ YouTube video processed successfully: ${contentItemId}`)
     console.log(`   - Title: ${videoInfo.title}`)
@@ -459,13 +483,30 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
       ? error.message 
       : "Failed to process YouTube video"
 
-    await prisma.contentItem.update({
-      where: { id: contentItemId },
-      data: {
-        status: "error",
-        error: errorMessage,
-      },
-    })
+    // Try to update error status with retry logic
+    let errorUpdateSuccess = false
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "error",
+            error: errorMessage,
+          },
+        })
+        errorUpdateSuccess = true
+        break
+      } catch (dbError) {
+        console.error(`Failed to update error status (attempt ${attempt}):`, dbError)
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000))
+        }
+      }
+    }
+    
+    if (!errorUpdateSuccess) {
+      console.error("CRITICAL: Could not update error status in database. Error:", errorMessage)
+    }
   } finally {
     // Clean up temporary files
     if (audioPath) {

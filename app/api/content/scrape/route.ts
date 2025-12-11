@@ -252,6 +252,30 @@ function extractThumbnail(html: string): string | null {
   return null
 }
 
+async function updateProgress(contentItemId: string, stage: string, progress: number) {
+  try {
+    const existingMetadata = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    
+    const metadata = existingMetadata?.metadata ? JSON.parse(existingMetadata.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        metadata: JSON.stringify({
+          ...metadata,
+          processingStage: stage,
+          processingProgress: progress,
+        }),
+      },
+    })
+  } catch (error) {
+    console.error("Failed to update progress:", error)
+  }
+}
+
 async function processYouTubeVideo(contentItemId: string, url: string) {
   let tempDir: string | null = null
   let audioPath: string | null = null
@@ -273,6 +297,8 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
   }, 30 * 60 * 1000) // 30 minutes
 
   try {
+    // Stage 1: Fetching video info (10%)
+    await updateProgress(contentItemId, "Fetching video information...", 10)
     const videoInfo = await getYouTubeVideoInfo(url)
     if (!videoInfo) {
       throw new Error("Failed to fetch YouTube video information")
@@ -314,6 +340,9 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
 
     const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
 
+    // Stage 2: Downloading audio (20%)
+    await updateProgress(contentItemId, "Downloading audio from YouTube...", 20)
+    
     console.log(`Downloading audio from YouTube: ${url}`)
     console.log(`Output template: ${outputTemplate}`)
     
@@ -347,6 +376,9 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
 
       await Promise.race([downloadPromise, downloadTimeout])
       console.log("Audio download completed successfully")
+      
+      // Stage 3: Audio downloaded (40%)
+      await updateProgress(contentItemId, "Audio downloaded, preparing for transcription...", 40)
     } catch (execError) {
       console.error("yt-dlp execution error:", execError)
       const errorDetails = execError instanceof Error ? execError.message : String(execError)
@@ -426,6 +458,9 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     const audioBuffer = await fs.readFile(audioPath)
     console.log(`Audio buffer size: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`)
 
+    // Stage 4: Transcribing (60%)
+    await updateProgress(contentItemId, "Transcribing audio with AI...", 60)
+    
     // Transcribe using OpenAI Whisper
     console.log(`Transcribing audio with Whisper API...`)
     let transcription
@@ -445,6 +480,9 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
       throw new Error("Transcription returned empty text. The audio may be too quiet or contain no speech.")
     }
 
+    // Stage 5: Generating summary (80%)
+    await updateProgress(contentItemId, "Generating summary...", 80)
+    
     // Generate summary
     console.log(`Generating summary...`)
     let summary: string
@@ -460,10 +498,20 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
     console.log(`Word count: ${wordCount}`)
 
+    // Stage 6: Saving to database (90%)
+    await updateProgress(contentItemId, "Saving to database...", 90)
+    
     // Update content item with transcript (with retry logic)
     console.log(`Saving transcript to database...`)
     let updateSuccess = false
     let lastError: Error | null = null
+    
+    // Get existing metadata
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
     
     // Retry database update up to 3 times
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -478,6 +526,11 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
             summary,
             processedAt: new Date(),
             error: null, // Clear any previous errors
+            metadata: JSON.stringify({
+              ...existingMetadata,
+              processingStage: "Complete",
+              processingProgress: 100,
+            }),
           },
         })
         updateSuccess = true

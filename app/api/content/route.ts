@@ -41,6 +41,16 @@ export async function GET(request: NextRequest) {
         tags = []
       }
 
+      // Parse metadata to get progress info
+      let metadata: any = {}
+      try {
+        if (item.metadata) {
+          metadata = typeof item.metadata === "string" ? JSON.parse(item.metadata) : item.metadata
+        }
+      } catch (e) {
+        console.error("Error parsing metadata:", e)
+      }
+
       return {
         id: item.id,
         title: item.title,
@@ -54,6 +64,7 @@ export async function GET(request: NextRequest) {
         transcript: item.transcript || item.rawText || undefined, // Use rawText as fallback
         error: item.error,
         tags,
+        metadata, // Include metadata for progress tracking
         uploadedAt: formatTimeAgo(item.createdAt),
         createdAt: item.createdAt,
       }

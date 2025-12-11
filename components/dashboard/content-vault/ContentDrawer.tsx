@@ -20,6 +20,11 @@ interface ContentItem {
   tags?: string[]
   error?: string
   uploadedAt: string
+  metadata?: {
+    processingStage?: string
+    processingProgress?: number
+    [key: string]: any
+  }
 }
 
 interface ContentDrawerProps {
@@ -116,6 +121,40 @@ export function ContentDrawer({
                       ) : (
                         <p className="text-sm text-gray-700 leading-relaxed">{item.summary}</p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Processing Progress Section */}
+                  {item.status === "processing" && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">Processing Status</h3>
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-700">
+                              {item.metadata?.processingStage || "Processing video..."}
+                            </span>
+                            {item.metadata?.processingProgress !== undefined && (
+                              <span className="text-blue-600 font-medium">
+                                {item.metadata.processingProgress}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full bg-blue-600"
+                              initial={{ width: "0%" }}
+                              animate={{
+                                width: `${item.metadata?.processingProgress || 0}%`,
+                              }}
+                              transition={{ duration: 0.5 }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            This may take a few minutes depending on video length...
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 

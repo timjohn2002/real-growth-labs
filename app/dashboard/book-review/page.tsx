@@ -104,7 +104,9 @@ export default function BookReviewPage() {
   const loadBooks = async () => {
     try {
       setIsLoadingBooks(true)
-      const response = await fetch("/api/books?userId=user-1") // TODO: Get from auth
+      const response = await fetch("/api/books", {
+        credentials: "include",
+      })
       if (response.ok) {
         const data = await response.json()
         setBooks(data.books || [])
@@ -125,7 +127,50 @@ export default function BookReviewPage() {
         if (data.reviews && data.reviews.length > 0) {
           // Use the most recent review
           const latestReview = data.reviews[0]
-          setReview(latestReview as any)
+          
+          // Parse JSON strings from database with safe defaults
+          const safeParseJSON = (value: any, defaultValue: any) => {
+            if (!value) return defaultValue
+            if (typeof value === "string") {
+              try {
+                return JSON.parse(value)
+              } catch (e) {
+                console.error("Failed to parse JSON:", e)
+                return defaultValue
+              }
+            }
+            return value || defaultValue
+          }
+
+          const parsedReview: ReviewData = {
+            scores: safeParseJSON(latestReview.scores, {
+              proficiency: 0,
+              value: 0,
+              offerAlignment: 0,
+              structure: 0,
+              leadMagnet: 0,
+            }),
+            readTime: latestReview.readTime || 0,
+            wordCount: latestReview.wordCount || 0,
+            complexity: latestReview.complexity || "Beginner-friendly",
+            structure: safeParseJSON(latestReview.structure, {
+              sections: [],
+            }),
+            offerAlignment: safeParseJSON(latestReview.offerAlignment, {
+              overallScore: 0,
+              metrics: [],
+              recommendation: "No recommendation available",
+            }),
+            proficiency: safeParseJSON(latestReview.proficiency, {
+              metrics: [],
+            }),
+            value: safeParseJSON(latestReview.value, {
+              metrics: [],
+            }),
+            recommendations: safeParseJSON(latestReview.recommendations, []),
+          }
+          
+          setReview(parsedReview)
           
           // Format last analyzed time
           const reviewedAt = new Date(latestReview.createdAt)
@@ -163,11 +208,56 @@ export default function BookReviewPage() {
       
       if (response.ok) {
         const data = await response.json()
-        setReview(data.review as any)
+        const reviewData = data.review
+        
+        // Parse JSON strings from database with safe defaults
+        const safeParseJSON = (value: any, defaultValue: any) => {
+          if (!value) return defaultValue
+          if (typeof value === "string") {
+            try {
+              return JSON.parse(value)
+            } catch (e) {
+              console.error("Failed to parse JSON:", e)
+              return defaultValue
+            }
+          }
+          return value || defaultValue
+        }
+
+        const parsedReview: ReviewData = {
+          scores: safeParseJSON(reviewData.scores, {
+            proficiency: 0,
+            value: 0,
+            offerAlignment: 0,
+            structure: 0,
+            leadMagnet: 0,
+          }),
+          readTime: reviewData.readTime || 0,
+          wordCount: reviewData.wordCount || 0,
+          complexity: reviewData.complexity || "Beginner-friendly",
+          structure: safeParseJSON(reviewData.structure, {
+            sections: [],
+          }),
+          offerAlignment: safeParseJSON(reviewData.offerAlignment, {
+            overallScore: 0,
+            metrics: [],
+            recommendation: "No recommendation available",
+          }),
+          proficiency: safeParseJSON(reviewData.proficiency, {
+            metrics: [],
+          }),
+          value: safeParseJSON(reviewData.value, {
+            metrics: [],
+          }),
+          recommendations: safeParseJSON(reviewData.recommendations, []),
+        }
+        
+        setReview(parsedReview)
         setLastAnalyzed("just now")
       }
     } catch (error) {
       console.error("Failed to analyze book:", error)
+      alert(`Failed to analyze book: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setIsAnalyzing(false)
     }
@@ -254,7 +344,7 @@ export default function BookReviewPage() {
   if (!review) {
     return (
       <div className="min-h-screen bg-background">
-        <ReviewHeader lastAnalyzed="never" onRunAgain={handleRunAgain} />
+        <ReviewHeader lastAnalyzed="never" onRunAgain={handleRunAgain} bookId={bookId} />
         <div className="p-8">
           <div className="max-w-4xl mx-auto">
             <Card className="border-border">
@@ -283,23 +373,23 @@ export default function BookReviewPage() {
     )
   }
 
-  // Extract data from review
+  // Extract data from review with safe defaults
   const scores = [
-    { label: "Proficiency Score", value: review.scores.proficiency },
-    { label: "Value Score", value: review.scores.value },
-    { label: "Offer Alignment", value: review.scores.offerAlignment },
-    { label: "Structure Score", value: review.scores.structure },
-    { label: "Lead Magnet Readiness", value: review.scores.leadMagnet },
+    { label: "Proficiency Score", value: review.scores?.proficiency || 0 },
+    { label: "Value Score", value: review.scores?.value || 0 },
+    { label: "Offer Alignment", value: review.scores?.offerAlignment || 0 },
+    { label: "Structure Score", value: review.scores?.structure || 0 },
+    { label: "Lead Magnet Readiness", value: review.scores?.leadMagnet || 0 },
   ]
 
-  const structureSections = review.structure.sections
-  const offerAlignmentMetrics = review.offerAlignment.metrics.map((m: any) => ({
+  const structureSections = review.structure?.sections || []
+  const offerAlignmentMetrics = (review.offerAlignment?.metrics || []).map((m: any) => ({
     ...m,
     value: (m.value === "Low" ? "Weak" : m.value) as "High" | "Medium" | "Weak"
   }))
-  const proficiencyMetrics = review.proficiency.metrics
-  const valueMetrics = review.value.metrics
-  const recommendations = review.recommendations
+  const proficiencyMetrics = review.proficiency?.metrics || []
+  const valueMetrics = review.value?.metrics || []
+  const recommendations = review.recommendations || []
 
   return (
     <div className="min-h-screen bg-background">
@@ -307,6 +397,7 @@ export default function BookReviewPage() {
         lastAnalyzed={lastAnalyzed} 
         onRunAgain={handleRunAgain}
         isAnalyzing={isAnalyzing}
+        bookId={bookId}
       />
 
       <div className="p-8">
@@ -328,9 +419,9 @@ export default function BookReviewPage() {
 
           {/* Offer Alignment */}
           <OfferAlignmentCard
-            overallScore={review.offerAlignment.overallScore}
+            overallScore={review.offerAlignment?.overallScore || 0}
             metrics={offerAlignmentMetrics}
-            recommendation={review.offerAlignment.recommendation}
+            recommendation={review.offerAlignment?.recommendation || "No recommendation available"}
           />
 
           {/* Proficiency Breakdown */}

@@ -7,26 +7,37 @@ import { Check } from "lucide-react"
 
 const BRAND_COLOR = "#a6261c"
 
+// OpenAI TTS voices: alloy, echo, fable, onyx, nova, shimmer
 const voices = [
   {
-    id: "default",
-    name: "Real Growth Labs Default",
-    description: "Neutral male voice",
+    id: "alloy",
+    name: "Alloy",
+    description: "Neutral, balanced voice",
   },
   {
-    id: "premium-female",
-    name: "Premium Female Narrator",
+    id: "echo",
+    name: "Echo",
+    description: "Clear and confident male voice",
+  },
+  {
+    id: "fable",
+    name: "Fable",
+    description: "Warm and expressive voice",
+  },
+  {
+    id: "onyx",
+    name: "Onyx",
+    description: "Deep and authoritative male voice",
+  },
+  {
+    id: "nova",
+    name: "Nova",
     description: "Professional female voice",
   },
   {
-    id: "deep-authority",
-    name: "Deep Authority Voice",
-    description: "Confident and authoritative",
-  },
-  {
-    id: "conversational",
-    name: "Conversational Friendly Voice",
-    description: "Warm and approachable",
+    id: "shimmer",
+    name: "Shimmer",
+    description: "Soft and friendly female voice",
   },
 ]
 

@@ -11,7 +11,11 @@ interface ScoreGaugesRowProps {
   scores: Score[]
 }
 
-export function ScoreGaugesRow({ scores }: ScoreGaugesRowProps) {
+export function ScoreGaugesRow({ scores = [] }: ScoreGaugesRowProps) {
+  if (!scores || scores.length === 0) {
+    return null
+  }
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8">
       {scores.map((score, index) => (

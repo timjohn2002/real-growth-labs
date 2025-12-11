@@ -13,7 +13,18 @@ interface ProficiencyBreakdownProps {
   metrics: ProficiencyMetric[]
 }
 
-export function ProficiencyBreakdown({ metrics }: ProficiencyBreakdownProps) {
+export function ProficiencyBreakdown({ metrics = [] }: ProficiencyBreakdownProps) {
+  if (!metrics || metrics.length === 0) {
+    return (
+      <Card className="border-gray-200 shadow-sm">
+        <CardContent className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Proficiency Breakdown</h3>
+          <p className="text-sm text-gray-500">No proficiency data available</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

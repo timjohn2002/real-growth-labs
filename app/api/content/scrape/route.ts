@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isYouTubeUrl, getYouTubeVideoInfo, extractYouTubeVideoId } from "@/lib/youtube"
-import { YTDlpWrap } from "yt-dlp-wrap"
+import YTDlpWrap from "yt-dlp-wrap"
 import { transcribeAudioFromBuffer } from "@/lib/openai"
 import fs from "fs/promises"
 import path from "path"

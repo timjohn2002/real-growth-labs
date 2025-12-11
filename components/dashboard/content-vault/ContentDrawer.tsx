@@ -96,7 +96,7 @@ export function ContentDrawer({
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold text-gray-900">Summary</h3>
                         {isImprovingSummary && (
-                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                          <div className="flex items-center gap-2 text-xs" style={{ color: BRAND_COLOR }}>
                             <Loader2 className="h-3 w-3 animate-spin" />
                             <span>Improving summary...</span>
                           </div>
@@ -106,7 +106,8 @@ export function ContentDrawer({
                         <div className="space-y-2">
                           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
-                              className="h-full bg-blue-600"
+                              className="h-full"
+                              style={{ backgroundColor: BRAND_COLOR }}
                               initial={{ width: "0%" }}
                               animate={{ width: "100%" }}
                               transition={{

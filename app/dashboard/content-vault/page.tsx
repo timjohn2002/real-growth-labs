@@ -36,6 +36,7 @@ export default function ContentVaultPage() {
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [uploadType, setUploadType] = useState<"podcast" | "video" | "audio" | "url" | "text" | null>(null)
+  const [improvingSummaryId, setImprovingSummaryId] = useState<string | null>(null)
   
   // TODO: Get userId from auth context/session
   const userId = "user-1" // Placeholder - replace with actual auth
@@ -153,7 +154,11 @@ export default function ContentVaultPage() {
   }
 
   const handleImproveSummary = async (id: string) => {
+    if (improvingSummaryId) return // Already processing
+    
     try {
+      setImprovingSummaryId(id)
+      
       const response = await fetch("/api/content/improve-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,11 +186,13 @@ export default function ContentVaultPage() {
         setSelectedItem({ ...selectedItem, summary: data.summary })
       }
 
-      // Show success message (optional - you could add a toast notification here)
+      // Show success message
       console.log("Summary improved successfully")
     } catch (error) {
       console.error("Failed to improve summary:", error)
       alert(error instanceof Error ? error.message : "Failed to improve summary")
+    } finally {
+      setImprovingSummaryId(null)
     }
   }
 
@@ -278,6 +285,7 @@ export default function ContentVaultPage() {
         onImproveSummary={handleImproveSummary}
         onAddToBook={handleAddToBook}
         onDelete={handleDelete}
+        isImprovingSummary={improvingSummaryId === selectedItem?.id}
       />
     </div>
   )

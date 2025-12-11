@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, MoreVertical, RefreshCw, Sparkles, BookOpen, Trash2 } from "lucide-react"
+import { X, MoreVertical, RefreshCw, Sparkles, BookOpen, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -30,6 +30,7 @@ interface ContentDrawerProps {
   onImproveSummary: (id: string) => void
   onAddToBook: (id: string) => void
   onDelete: (id: string) => void
+  isImprovingSummary?: boolean
 }
 
 export function ContentDrawer({
@@ -40,6 +41,7 @@ export function ContentDrawer({
   onImproveSummary,
   onAddToBook,
   onDelete,
+  isImprovingSummary = false,
 }: ContentDrawerProps) {
   if (!item) return null
 
@@ -86,8 +88,34 @@ export function ContentDrawer({
                   {/* Summary Section */}
                   {item.summary && (
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-2">Summary</h3>
-                      <p className="text-sm text-gray-700 leading-relaxed">{item.summary}</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900">Summary</h3>
+                        {isImprovingSummary && (
+                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Improving summary...</span>
+                          </div>
+                        )}
+                      </div>
+                      {isImprovingSummary ? (
+                        <div className="space-y-2">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full bg-blue-600"
+                              initial={{ width: "0%" }}
+                              animate={{ width: "100%" }}
+                              transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
+                            />
+                          </div>
+                          <p className="text-sm text-gray-500 italic">Generating improved summary with AI...</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700 leading-relaxed">{item.summary}</p>
+                      )}
                     </div>
                   )}
 
@@ -176,9 +204,19 @@ export function ContentDrawer({
                     variant="outline"
                     size="sm"
                     onClick={() => onImproveSummary(item.id)}
+                    disabled={isImprovingSummary}
                   >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Improve Summary
+                    {isImprovingSummary ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Improving...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Improve Summary
+                      </>
+                    )}
                   </Button>
                   <Button
                     size="sm"

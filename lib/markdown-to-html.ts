@@ -38,13 +38,14 @@ export function markdownToHTML(markdown: string): string {
       continue
     }
 
-    // Check for horizontal rule (---)
+    // Check for horizontal rule (---) - convert to paragraph spacing
     if (line === "---") {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
-      htmlLines.push('<hr class="my-6" />')
+      // Add spacing paragraph for visual separation
+      htmlLines.push('<p style="margin-top: 2em; margin-bottom: 2em;"></p>')
       continue
     }
 

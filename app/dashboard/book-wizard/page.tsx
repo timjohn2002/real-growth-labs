@@ -34,6 +34,7 @@ export default function BookWizardPage() {
   const [outline, setOutline] = useState<string[]>([])
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null)
+  const [selectedText, setSelectedText] = useState("")
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -137,9 +138,64 @@ export default function BookWizardPage() {
     }
   }
 
-  const handleAIAction = (action: string, params?: any) => {
-    console.log("AI Action:", action, params)
-    // TODO: Implement AI actions
+  const handleAIAction = async (action: string, params?: any) => {
+    if (!activeChapter) {
+      console.warn("No active chapter selected")
+      return
+    }
+
+    try {
+      // Get selected text or full content
+      const textToUse = selectedText || params?.selectedText || ""
+      const content = activeChapter.content || ""
+      const textToProcess = textToUse || content
+
+      if (!textToProcess.trim()) {
+        console.warn("No content to process")
+        return
+      }
+
+      // Call AI API
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          content,
+          selectedText: textToUse,
+          tone: params?.tone,
+          context: params?.context,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("AI action failed")
+      }
+
+      const data = await response.json()
+
+      // Update chapter content based on action
+      if (action === "suggestHeading" || action === "improveHeading") {
+        // For heading suggestions, we might want to show a modal or update the title
+        // For now, just log it
+        console.log("Suggested heading:", data.content)
+        alert(`Suggested heading: ${data.content}`)
+      } else if (action === "suggestCTA" || action === "addCTA") {
+        // For CTA suggestions, append to content
+        const newContent = content + "\n\n" + data.content
+        handleContentChange(newContent)
+      } else if (textToUse && content.includes(textToUse)) {
+        // If text was selected, replace it
+        const newContent = content.replace(textToUse, data.content)
+        handleContentChange(newContent)
+      } else {
+        // Replace entire content
+        handleContentChange(data.content)
+      }
+    } catch (error) {
+      console.error("AI action error:", error)
+      alert("Failed to process AI action. Please try again.")
+    }
   }
 
   const handleAddChapter = () => {
@@ -268,14 +324,15 @@ export default function BookWizardPage() {
                   />
                 </div>
                 <div ref={editorRef}>
-                  <BookEditor
-                    chapter={activeChapter || null}
-                    bookTitle={bookTitle}
-                    bookSubtitle={bookSubtitle}
-                    onTitleChange={setBookTitle}
-                    onSubtitleChange={setBookSubtitle}
-                    onContentChange={handleContentChange}
-                  />
+                <BookEditor
+                  chapter={activeChapter || null}
+                  bookTitle={bookTitle}
+                  bookSubtitle={bookSubtitle}
+                  onTitleChange={setBookTitle}
+                  onSubtitleChange={setBookSubtitle}
+                  onContentChange={handleContentChange}
+                  onSelectionChange={setSelectedText}
+                />
                 </div>
                 {/* Bottom Actions */}
                 <div className="border-t border-border p-6 bg-background">

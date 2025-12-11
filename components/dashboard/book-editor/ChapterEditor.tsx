@@ -21,6 +21,7 @@ interface ChapterEditorProps {
   onTitleChange: (title: string) => void
   onContentChange: (content: string) => void
   onWordCountChange: (count: number) => void
+  onSelectionChange?: (selectedText: string) => void
 }
 
 export function ChapterEditor({
@@ -28,6 +29,7 @@ export function ChapterEditor({
   onTitleChange,
   onContentChange,
   onWordCountChange,
+  onSelectionChange,
 }: ChapterEditorProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(chapter?.title || "")
@@ -89,6 +91,7 @@ export function ChapterEditor({
           onWordCountChange={(count) => {
             onWordCountChange(count)
           }}
+          onSelectionChange={onSelectionChange}
         />
       </div>
     </div>

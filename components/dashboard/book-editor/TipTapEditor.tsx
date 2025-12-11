@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
 import CharacterCount from "@tiptap/extension-character-count"
-import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Sparkles } from "lucide-react"
+import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Sparkles, Undo2, Redo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 
@@ -15,6 +15,7 @@ interface TipTapEditorProps {
   placeholder?: string
   onUpdate: (content: string) => void
   onWordCountChange?: (count: number) => void
+  onSelectionChange?: (selectedText: string) => void
 }
 
 export function TipTapEditor({
@@ -22,6 +23,7 @@ export function TipTapEditor({
   placeholder = "Start writing...",
   onUpdate,
   onWordCountChange,
+  onSelectionChange,
 }: TipTapEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -43,6 +45,15 @@ export function TipTapEditor({
       const text = editor.getText()
       const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length
       onWordCountChange?.(wordCount)
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection
+      if (from !== to) {
+        const selectedText = editor.state.doc.textBetween(from, to, " ")
+        onSelectionChange?.(selectedText)
+      } else {
+        onSelectionChange?.("")
+      }
     },
     editorProps: {
       attributes: {
@@ -68,6 +79,25 @@ export function TipTapEditor({
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="border-b border-border bg-muted px-4 py-2 flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 className={`h-4 w-4 ${editor.can().undo() ? "" : "opacity-50"}`} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo2 className={`h-4 w-4 ${editor.can().redo() ? "" : "opacity-50"}`} />
+        </Button>
+        <div className="w-px h-6 bg-border mx-1" />
         <Button
           variant="ghost"
           size="sm"

@@ -195,9 +195,62 @@ export default function FullBookEditorPage() {
     // TODO: Implement section addition
   }
 
-  const handleAIAction = (action: string, params?: any) => {
-    console.log("AI Action:", action, params)
-    // TODO: Implement AI actions with inline suggestions
+  const handleAIAction = async (action: string, params?: any) => {
+    if (!activeChapter) {
+      console.warn("No active chapter selected")
+      return
+    }
+
+    try {
+      // Get selected text or full content
+      const textToUse = selectedText || params?.selectedText || ""
+      const content = activeChapter.content || ""
+      const textToProcess = textToUse || content
+
+      if (!textToProcess.trim()) {
+        console.warn("No content to process")
+        return
+      }
+
+      // Call AI API
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          content,
+          selectedText: textToUse,
+          tone: params?.tone,
+          context: params?.context,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("AI action failed")
+      }
+
+      const data = await response.json()
+
+      // Update chapter content based on action
+      if (action === "suggestHeading" || action === "improveHeading") {
+        // Update chapter title
+        handleChapterTitleChange(data.content.trim())
+      } else if (action === "suggestCTA" || action === "addCTA") {
+        // Append CTA to content
+        const newContent = content + "\n\n" + data.content
+        handleChapterContentChange(newContent)
+      } else if (textToUse && content.includes(textToUse)) {
+        // If text was selected, replace it
+        const newContent = content.replace(textToUse, data.content)
+        handleChapterContentChange(newContent)
+      } else {
+        // Replace entire content
+        handleChapterContentChange(data.content)
+      }
+    } catch (error) {
+      console.error("AI action error:", error)
+      alert("Failed to process AI action. Please try again.")
+    }
   }
 
   const handlePreview = () => {
@@ -252,6 +305,7 @@ export default function FullBookEditorPage() {
           onTitleChange={handleChapterTitleChange}
           onContentChange={handleChapterContentChange}
           onWordCountChange={handleChapterWordCountChange}
+          onSelectionChange={setSelectedText}
         />
 
         {/* Right: AI Tools */}

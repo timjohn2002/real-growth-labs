@@ -31,22 +31,76 @@ export function BookEditor({
   onTitleChange,
   onSubtitleChange,
   onContentChange,
+  onSelectionChange,
 }: BookEditorProps) {
   const [content, setContent] = useState(chapter?.content || "")
   const editorContentRef = useRef<HTMLDivElement>(null)
+  const historyRef = useRef<string[]>([])
+  const historyIndexRef = useRef<number>(-1)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Initialize history when chapter changes
   useEffect(() => {
-    setContent(chapter?.content || "")
-    // Scroll to top when chapter changes
-    if (editorContentRef.current) {
-      editorContentRef.current.scrollTop = 0
+    if (chapter) {
+      const initialContent = chapter.content || ""
+      setContent(initialContent)
+      historyRef.current = [initialContent]
+      historyIndexRef.current = 0
+      // Scroll to top when chapter changes
+      if (editorContentRef.current) {
+        editorContentRef.current.scrollTop = 0
+      }
     }
-  }, [chapter])
+  }, [chapter?.id])
 
   const handleContentChange = (value: string) => {
     setContent(value)
     onContentChange(value)
+    
+    // Add to history (only if different from last entry)
+    const history = historyRef.current
+    const index = historyIndexRef.current
+    
+    if (value !== history[index]) {
+      // Remove any future history if we're not at the end
+      history.splice(index + 1)
+      history.push(value)
+      historyIndexRef.current = history.length - 1
+      
+      // Limit history to 50 entries
+      if (history.length > 50) {
+        history.shift()
+        historyIndexRef.current = history.length - 1
+      }
+    }
   }
+
+  const handleUndo = () => {
+    const history = historyRef.current
+    const index = historyIndexRef.current
+    
+    if (index > 0) {
+      historyIndexRef.current = index - 1
+      const previousContent = history[index - 1]
+      setContent(previousContent)
+      onContentChange(previousContent)
+    }
+  }
+
+  const handleRedo = () => {
+    const history = historyRef.current
+    const index = historyIndexRef.current
+    
+    if (index < history.length - 1) {
+      historyIndexRef.current = index + 1
+      const nextContent = history[index + 1]
+      setContent(nextContent)
+      onContentChange(nextContent)
+    }
+  }
+
+  const canUndo = historyIndexRef.current > 0
+  const canRedo = historyIndexRef.current < historyRef.current.length - 1
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -56,13 +110,25 @@ export function BookEditor({
           {chapter ? chapter.title : "Book Editor"}
         </h2>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm">
-            <Undo2 className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className={`h-4 w-4 ${canUndo ? "" : "opacity-50"}`} />
           </Button>
-          <Button variant="ghost" size="sm">
-            <Redo2 className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={handleRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+          >
+            <Redo2 className={`h-4 w-4 ${canRedo ? "" : "opacity-50"}`} />
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" title="Version history (coming soon)">
             <History className="h-4 w-4 mr-2" />
             Version
           </Button>
@@ -101,8 +167,29 @@ export function BookEditor({
 
         {/* Chapter Content Editor */}
         <Textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
+          onSelect={(e) => {
+            const textarea = e.target as HTMLTextAreaElement
+            const selected = textarea.value.substring(
+              textarea.selectionStart,
+              textarea.selectionEnd
+            )
+            onSelectionChange?.(selected)
+          }}
+          onKeyDown={(e) => {
+            // Handle Ctrl+Z (undo) and Ctrl+Y (redo)
+            if (e.ctrlKey || e.metaKey) {
+              if (e.key === "z" && !e.shiftKey) {
+                e.preventDefault()
+                handleUndo()
+              } else if ((e.key === "y") || (e.key === "z" && e.shiftKey)) {
+                e.preventDefault()
+                handleRedo()
+              }
+            }
+          }}
           className="min-h-[500px] border-none shadow-none resize-none text-base leading-relaxed focus-visible:ring-0 p-0"
           placeholder="Start writing your chapter content..."
         />

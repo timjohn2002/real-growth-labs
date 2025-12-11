@@ -152,9 +152,41 @@ export default function ContentVaultPage() {
     }
   }
 
-  const handleImproveSummary = (id: string) => {
-    console.log("Improving summary for:", id)
-    // TODO: Implement AI summary improvement
+  const handleImproveSummary = async (id: string) => {
+    try {
+      const response = await fetch("/api/content/improve-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentItemId: id }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to improve summary")
+      }
+
+      const data = await response.json()
+      
+      // Update the local state with the improved summary
+      setContentItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, summary: data.summary }
+            : item
+        )
+      )
+
+      // Update selected item if it's the one being improved
+      if (selectedItem?.id === id) {
+        setSelectedItem({ ...selectedItem, summary: data.summary })
+      }
+
+      // Show success message (optional - you could add a toast notification here)
+      console.log("Summary improved successfully")
+    } catch (error) {
+      console.error("Failed to improve summary:", error)
+      alert(error instanceof Error ? error.message : "Failed to improve summary")
+    }
   }
 
   // Filter content based on active filter

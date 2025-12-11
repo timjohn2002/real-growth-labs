@@ -5,55 +5,59 @@
 export function markdownToHTML(markdown: string): string {
   if (!markdown) return ""
 
+  // Check if content is already HTML (starts with <)
+  if (markdown.trim().startsWith("<")) {
+    return markdown
+  }
+
   // Split by lines to process more carefully
   const lines = markdown.split("\n")
   const htmlLines: string[] = []
   let inParagraph = false
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    const line = lines[i]
+    const trimmedLine = line.trim()
     const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : ""
 
-    // Check for headings
-    if (line.startsWith("# ")) {
+    // Check for headings (must be at start of line)
+    if (trimmedLine.startsWith("# ")) {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
-      htmlLines.push(`<h1>${line.substring(2)}</h1>`)
+      htmlLines.push(`<h1>${trimmedLine.substring(2).trim()}</h1>`)
       continue
-    } else if (line.startsWith("## ")) {
+    } else if (trimmedLine.startsWith("## ")) {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
-      htmlLines.push(`<h2>${line.substring(3)}</h2>`)
+      htmlLines.push(`<h2>${trimmedLine.substring(3).trim()}</h2>`)
       continue
-    } else if (line.startsWith("### ")) {
+    } else if (trimmedLine.startsWith("### ")) {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
-      htmlLines.push(`<h3>${line.substring(4)}</h3>`)
+      htmlLines.push(`<h3>${trimmedLine.substring(4).trim()}</h3>`)
       continue
     }
 
     // Check for horizontal rule (---) - TipTap StarterKit includes horizontalRule
-    if (line === "---") {
+    if (trimmedLine === "---") {
       if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
       // Use horizontal rule (TipTap StarterKit supports this)
-      htmlLines.push("<hr />")
+      htmlLines.push("<hr>")
       continue
     }
 
     // Handle empty lines
-    if (line === "") {
-      if (inParagraph && nextLine !== "" && !nextLine.startsWith("#") && nextLine !== "---") {
-        htmlLines.push("<br />")
-      } else if (inParagraph) {
+    if (trimmedLine === "") {
+      if (inParagraph) {
         htmlLines.push("</p>")
         inParagraph = false
       }
@@ -66,12 +70,16 @@ export function markdownToHTML(markdown: string): string {
       inParagraph = true
     }
     
-    // Add the line content
+    // Add the line content (preserve original line, not trimmed)
     htmlLines.push(line)
     
-    // Add line break if next line is not empty and not a heading
-    if (nextLine !== "" && !nextLine.startsWith("#") && nextLine !== "---") {
-      htmlLines.push("<br />")
+    // If next line is empty or a heading/separator, close paragraph
+    if (nextLine === "" || nextLine.startsWith("#") || nextLine === "---") {
+      htmlLines.push("</p>")
+      inParagraph = false
+    } else {
+      // Add line break for continuation
+      htmlLines.push("<br>")
     }
   }
 
@@ -82,9 +90,16 @@ export function markdownToHTML(markdown: string): string {
 
   let html = htmlLines.join("")
 
-  // Clean up empty paragraphs and excessive breaks
+  // Clean up empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, "")
-  html = html.replace(/<br \/>\s*<br \/>/g, "<br />")
+  html = html.replace(/<p><\/p>/g, "")
+  
+  // Clean up excessive breaks
+  html = html.replace(/(<br>\s*){3,}/g, "<br><br>")
+
+  // Ensure proper spacing around headings
+  html = html.replace(/(<\/h[1-3]>)(<p>)/g, "$1<p>")
+  html = html.replace(/(<\/p>)(<h[1-3]>)/g, "$1$2")
 
   return html || "<p></p>"
 }

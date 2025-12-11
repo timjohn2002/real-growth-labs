@@ -67,8 +67,15 @@ export function TipTapEditor({
   })
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content)
+    if (editor) {
+      const currentHTML = editor.getHTML()
+      // Only update if content actually changed (avoid unnecessary updates)
+      if (content !== currentHTML) {
+        // Use setContent with parseOptions to preserve formatting
+        editor.commands.setContent(content, false, {
+          preserveWhitespace: "full",
+        })
+      }
     }
   }, [content, editor])
 

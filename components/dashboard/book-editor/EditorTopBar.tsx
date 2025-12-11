@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Eye, Download, MoreVertical, CheckCircle2, Clock, Headphones, BarChart3 } from "lucide-react"
+import { ArrowLeft, Eye, Download, MoreVertical, CheckCircle2, Clock, Headphones, BarChart3, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ interface EditorTopBarProps {
   onExport: () => void
   onGenerateAudiobook?: () => void
   onRunBookReview?: () => void
+  onImportBook?: () => void
 }
 
 export function EditorTopBar({
@@ -33,6 +34,7 @@ export function EditorTopBar({
   onExport,
   onGenerateAudiobook,
   onRunBookReview,
+  onImportBook,
 }: EditorTopBarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(bookTitle)
@@ -93,6 +95,12 @@ export function EditorTopBar({
 
         {/* Right Side */}
         <div className="flex items-center gap-2">
+          {onImportBook && (
+            <Button variant="ghost" size="sm" onClick={onImportBook}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Import Book
+            </Button>
+          )}
           {onRunBookReview && (
             <Button variant="ghost" size="sm" onClick={onRunBookReview}>
               <BarChart3 className="h-4 w-4 mr-2" />

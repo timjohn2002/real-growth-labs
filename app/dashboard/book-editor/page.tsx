@@ -9,6 +9,7 @@ import { StatusBar } from "@/components/dashboard/book-editor/StatusBar"
 import { ExportModal } from "@/components/dashboard/book-editor/ExportModal"
 import { AudiobookModal } from "@/components/dashboard/audiobook/AudiobookModal"
 import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
+import { BookLibraryModal } from "@/components/dashboard/book-editor/BookLibraryModal"
 import { useRouter } from "next/navigation"
 
 interface Chapter {
@@ -34,6 +35,7 @@ export default function FullBookEditorPage() {
   const [selectedText, setSelectedText] = useState("")
   const [isContentVaultOpen, setIsContentVaultOpen] = useState(false)
   const [contentToInsert, setContentToInsert] = useState<string | null>(null)
+  const [isBookLibraryOpen, setIsBookLibraryOpen] = useState(false)
 
   const [chapters, setChapters] = useState<Chapter[]>([])
 
@@ -47,6 +49,15 @@ export default function FullBookEditorPage() {
       setBookId(id)
     }
   }, [])
+
+  const handleImportBook = (selectedBookId: string) => {
+    // Update URL with new book ID and reload
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("id", selectedBookId)
+      window.location.href = url.toString()
+    }
+  }
 
   // Load book data
   useEffect(() => {
@@ -386,6 +397,7 @@ export default function FullBookEditorPage() {
         onExport={() => setIsExportModalOpen(true)}
         onGenerateAudiobook={() => setIsAudiobookModalOpen(true)}
         onRunBookReview={() => router.push(`/dashboard/book-review?id=${bookId}`)}
+        onImportBook={() => setIsBookLibraryOpen(true)}
       />
 
       {/* Main Content */}
@@ -454,6 +466,13 @@ export default function FullBookEditorPage() {
         onClose={() => setIsAudiobookModalOpen(false)}
         bookId={bookId}
         bookTitle={bookTitle}
+      />
+
+      {/* Book Library Modal */}
+      <BookLibraryModal
+        isOpen={isBookLibraryOpen}
+        onClose={() => setIsBookLibraryOpen(false)}
+        onSelect={handleImportBook}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -33,9 +33,14 @@ export function BookEditor({
   onContentChange,
 }: BookEditorProps) {
   const [content, setContent] = useState(chapter?.content || "")
+  const editorContentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setContent(chapter?.content || "")
+    // Scroll to top when chapter changes
+    if (editorContentRef.current) {
+      editorContentRef.current.scrollTop = 0
+    }
   }, [chapter])
 
   const handleContentChange = (value: string) => {
@@ -65,7 +70,7 @@ export function BookEditor({
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div ref={editorContentRef} className="flex-1 overflow-y-auto p-8">
         {/* Info Bar (first time) */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
           <p className="text-sm text-blue-800 dark:text-blue-300">

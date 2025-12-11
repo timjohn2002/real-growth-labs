@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { WizardStepper } from "@/components/dashboard/book-wizard/WizardStepper"
@@ -108,9 +108,26 @@ export default function BookWizardPage() {
     setCurrentStep("template")
   }
 
+  const editorRef = useRef<HTMLDivElement>(null)
+
   const handleChapterSelect = (chapterId: string) => {
     setActiveChapterId(chapterId)
+    // Scroll to editor when chapter is selected
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }, 100)
   }
+
+  // Scroll to editor when active chapter changes
+  useEffect(() => {
+    if (activeChapterId && editorRef.current) {
+      setTimeout(() => {
+        editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 100)
+    }
+  }, [activeChapterId])
 
   const handleContentChange = (content: string) => {
     if (activeChapterId) {
@@ -250,14 +267,16 @@ export default function BookWizardPage() {
                     onRegenerateOutline={handleRegenerateOutline}
                   />
                 </div>
-                <BookEditor
-                  chapter={activeChapter || null}
-                  bookTitle={bookTitle}
-                  bookSubtitle={bookSubtitle}
-                  onTitleChange={setBookTitle}
-                  onSubtitleChange={setBookSubtitle}
-                  onContentChange={handleContentChange}
-                />
+                <div ref={editorRef}>
+                  <BookEditor
+                    chapter={activeChapter || null}
+                    bookTitle={bookTitle}
+                    bookSubtitle={bookSubtitle}
+                    onTitleChange={setBookTitle}
+                    onSubtitleChange={setBookSubtitle}
+                    onContentChange={handleContentChange}
+                  />
+                </div>
                 {/* Bottom Actions */}
                 <div className="border-t border-border p-6 bg-background">
                   <div className="flex items-center justify-end gap-4">

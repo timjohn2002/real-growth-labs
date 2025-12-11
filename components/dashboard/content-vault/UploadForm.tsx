@@ -71,11 +71,13 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         const data = await response.json()
 
         if (!response.ok) {
-          // Check if it's a YouTube URL error
-          if (data.isYouTube) {
-            throw new Error("YouTube URLs cannot be scraped directly. Please use the 'Video Upload' option to upload a YouTube video, or provide a direct link to the video file.")
-          }
           throw new Error(data.error || "Failed to scrape URL")
+        }
+
+        // Success - YouTube videos will be processed
+        if (data.message && data.message.includes("YouTube")) {
+          // Show success message for YouTube
+          console.log("YouTube video processing started")
         }
       } else if (type === "podcast") {
         // Process podcast

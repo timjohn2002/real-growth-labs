@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { isYouTubeUrl, getYouTubeVideoInfo, extractYouTubeVideoId } from "@/lib/youtube"
 
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
@@ -35,16 +36,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if it's a YouTube URL
-    const isYouTube = parsedUrl.hostname.includes("youtube.com") || parsedUrl.hostname.includes("youtu.be")
-    
-    if (isYouTube) {
-      return NextResponse.json(
-        { 
-          error: "YouTube URLs require special processing. Please use the 'Video Upload' option or provide a direct video link. YouTube video pages cannot be scraped directly.",
-          isYouTube: true
+    if (isYouTubeUrl(url)) {
+      // Get YouTube video info
+      const videoInfo = await getYouTubeVideoInfo(url)
+      
+      // Process YouTube video for transcription
+      const contentItem = await prisma.contentItem.create({
+        data: {
+          userId,
+          title: title || videoInfo?.title || "YouTube Video",
+          type: "video",
+          status: "processing",
+          source: url,
+          thumbnail: videoInfo?.thumbnail || null,
+          metadata: JSON.stringify({ 
+            url, 
+            platform: "youtube",
+            videoId: videoInfo?.videoId,
+            channelName: videoInfo?.channelName,
+          }),
+          tags: "[]",
         },
-        { status: 400 }
-      )
+      })
+
+      // Start YouTube processing
+      processYouTubeVideo(contentItem.id, url).catch((error) => {
+        console.error("YouTube processing error:", error)
+      })
+
+      return NextResponse.json({
+        id: contentItem.id,
+        status: "processing",
+        message: "YouTube video processing started",
+      })
     }
 
     // Create content item
@@ -212,6 +236,83 @@ function extractThumbnail(html: string): string | null {
   }
 
   return null
+}
+
+async function processYouTubeVideo(contentItemId: string, url: string) {
+  try {
+    const videoInfo = await getYouTubeVideoInfo(url)
+    if (!videoInfo) {
+      throw new Error("Failed to fetch YouTube video information")
+    }
+
+    // TODO: Implement actual YouTube transcription
+    // For production, you would:
+    // 1. Install yt-dlp-wrap: npm install yt-dlp-wrap
+    // 2. Download video/audio using yt-dlp
+    // 3. Extract audio to a temporary file
+    // 4. Use OpenAI Whisper API to transcribe the audio
+    // 5. Process the transcript and generate summary
+    
+    // For now, we'll provide a helpful error message
+    // In the future, this can be replaced with actual transcription logic
+    
+    const errorMessage = "YouTube transcription is currently being set up. For now, please download the video and upload it directly using the 'Video Upload' option, or use a service like AssemblyAI or Deepgram for transcription."
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "error",
+        error: errorMessage,
+        summary: "YouTube video transcription requires additional configuration. Please upload the video file directly for transcription.",
+      },
+    })
+
+    // Example of what the actual implementation would look like:
+    /*
+    import { YTDlpWrap } from 'yt-dlp-wrap'
+    import { transcribeAudio } from '@/lib/openai'
+    import fs from 'fs'
+    import path from 'path'
+    import { promisify } from 'util'
+    
+    const ytDlpWrap = new YTDlpWrap()
+    const tempDir = path.join(process.cwd(), 'temp')
+    const audioPath = path.join(tempDir, `${contentItemId}.mp3`)
+    
+    // Download audio
+    await ytDlpWrap.exec([url, '-x', '--audio-format', 'mp3', '-o', audioPath])
+    
+    // Read audio file
+    const audioBuffer = await fs.promises.readFile(audioPath)
+    
+    // Transcribe
+    const transcription = await transcribeAudio(audioBuffer, 'audio.mp3')
+    
+    // Clean up
+    await fs.promises.unlink(audioPath)
+    
+    // Update content item
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: 'ready',
+        transcript: transcription.text,
+        wordCount: transcription.text.split(/\s+/).length,
+        summary: await generateSummary(transcription.text),
+        processedAt: new Date(),
+      },
+    })
+    */
+    
+  } catch (error) {
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "error",
+        error: error instanceof Error ? error.message : "Failed to process YouTube video",
+      },
+    })
+  }
 }
 
 async function generateSummary(text: string): Promise<string> {

@@ -28,20 +28,35 @@ export async function GET(request: NextRequest) {
     })
 
     // Format response
-    const formatted = contentItems.map((item) => ({
-      id: item.id,
-      title: item.title,
-      type: item.type,
-      status: item.status,
-      wordCount: item.wordCount,
-      summary: item.summary,
-      thumbnail: item.thumbnail,
-      source: item.source,
-      duration: item.duration,
-      tags: item.tags,
-      uploadedAt: formatTimeAgo(item.createdAt),
-      createdAt: item.createdAt,
-    }))
+    const formatted = contentItems.map((item) => {
+      // Parse tags from JSON string to array
+      let tags: string[] = []
+      try {
+        if (item.tags) {
+          const parsed = typeof item.tags === "string" ? JSON.parse(item.tags) : item.tags
+          tags = Array.isArray(parsed) ? parsed : []
+        }
+      } catch (e) {
+        console.error("Error parsing tags:", e)
+        tags = []
+      }
+
+      return {
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        status: item.status,
+        wordCount: item.wordCount,
+        summary: item.summary,
+        thumbnail: item.thumbnail,
+        source: item.source,
+        duration: item.duration,
+        transcript: item.transcript,
+        tags,
+        uploadedAt: formatTimeAgo(item.createdAt),
+        createdAt: item.createdAt,
+      }
+    })
 
     return NextResponse.json({ items: formatted })
   } catch (error) {

@@ -141,6 +141,44 @@ export default function BookWizardPage() {
     }
   }
 
+  const handleSave = async () => {
+    if (!bookId) {
+      alert("Book not yet created. Please wait for generation to complete.")
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: bookTitle,
+          description: bookSubtitle,
+          chapters: chapters.map((ch) => ({
+            id: ch.id,
+            number: ch.number,
+            title: ch.title,
+            content: ch.content,
+          })),
+        }),
+      })
+
+      if (response.ok) {
+        alert("Book saved successfully!")
+      } else {
+        throw new Error("Save failed")
+      }
+    } catch (error) {
+      console.error("Save error:", error)
+      alert("Failed to save book. Please try again.")
+    }
+  }
+
+  const handleExport = () => {
+    // Open export modal or show export options
+    alert("Export feature - Choose format:\n- PDF (Entire book)\n- PDF (Page by page)\n\nFeature coming soon!")
+  }
+
   const handleInsertContentVault = (contentItem: any) => {
     // Get the content to insert (prefer summary first - this is the improved/latest version)
     // Then fall back to rawText or transcript

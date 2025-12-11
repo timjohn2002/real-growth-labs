@@ -262,9 +262,18 @@ export default function FullBookEditorPage() {
     // TODO: Open preview modal/page
   }
 
+  const handleManualSave = async () => {
+    if (!bookId) {
+      alert("No book to save. Please create a book first.")
+      return
+    }
+    await autoSave()
+  }
+
   const handleExport = (format: string, scope: string) => {
     console.log("Export:", format, scope)
     // TODO: Implement export logic
+    alert(`Exporting as ${format} (${scope}) - Feature coming soon!`)
   }
 
   if (isLoading) {
@@ -318,6 +327,8 @@ export default function FullBookEditorPage() {
         <AIToolsPanel 
           onAction={handleAIAction}
           onOpenContentVault={() => setIsContentVaultOpen(true)}
+          onSave={handleManualSave}
+          onExport={() => setIsExportModalOpen(true)}
         />
         <ContentVaultModal
           isOpen={isContentVaultOpen}

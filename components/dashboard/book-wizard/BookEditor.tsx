@@ -22,6 +22,7 @@ interface BookEditorProps {
   onTitleChange: (title: string) => void
   onSubtitleChange: (subtitle: string) => void
   onContentChange: (content: string) => void
+  onSelectionChange?: (selectedText: string) => void
 }
 
 export function BookEditor({

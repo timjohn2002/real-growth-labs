@@ -270,10 +270,98 @@ export default function FullBookEditorPage() {
     await autoSave()
   }
 
-  const handleExport = (format: string, scope: string) => {
-    console.log("Export:", format, scope)
-    // TODO: Implement export logic
-    alert(`Exporting as ${format} (${scope}) - Feature coming soon!`)
+  const handleExport = async (format: string, scope: string) => {
+    if (!bookId) {
+      alert("No book to export. Please create a book first.")
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/books/${bookId}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          format: format.toLowerCase(),
+          scope,
+          chapterId: scope === "chapter" && activeChapterId ? activeChapterId : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Export failed")
+      }
+
+      const data = await response.json()
+
+      if (format.toLowerCase() === "pdf") {
+        // Create a blob with the HTML content
+        const blob = new Blob([data.html], { type: "text/html" })
+        const url = URL.createObjectURL(blob)
+        
+        // Open in new window and trigger print (user can save as PDF)
+        const printWindow = window.open(url, "_blank")
+        if (printWindow) {
+          printWindow.addEventListener("load", () => {
+            setTimeout(() => {
+              printWindow.print()
+            }, 500)
+          })
+        } else {
+          // Fallback: download as HTML file
+          const a = document.createElement("a")
+          a.href = url
+          a.download = data.filename.replace(".pdf", ".html")
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        }
+      } else if (format.toLowerCase() === "epub") {
+        // For EPUB, we'll create a downloadable file
+        // In a production environment, you'd generate the actual EPUB file server-side
+        const epubContent = generateEPUBFile(data.content)
+        const blob = new Blob([epubContent], { type: "application/epub+zip" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = data.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error("Export error:", error)
+      alert("Failed to export book. Please try again.")
+    }
+  }
+
+  const generateEPUBFile = (epubData: any): string => {
+    // Generate basic EPUB structure (simplified)
+    // In production, use a proper EPUB library
+    const content = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+  <metadata>
+    <dc:title>${epubData.title}</dc:title>
+    <dc:creator>${epubData.author || "Author"}</dc:creator>
+    <dc:description>${epubData.description || ""}</dc:description>
+    <dc:identifier id="book-id">book-${bookId}</dc:identifier>
+    <meta property="dcterms:modified">${new Date().toISOString()}</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    ${epubData.chapters.map((ch: any, i: number) => 
+      `<item id="chapter-${i}" href="chapter-${i}.xhtml" media-type="application/xhtml+xml"/>`
+    ).join("\n    ")}
+  </manifest>
+  <spine toc="nav">
+    ${epubData.chapters.map((ch: any, i: number) => 
+      `<itemref idref="chapter-${i}"/>`
+    ).join("\n    ")}
+  </spine>
+</package>`
+    return content
   }
 
   if (isLoading) {

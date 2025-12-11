@@ -18,6 +18,11 @@ interface ContentItem {
   thumbnail?: string
   tags?: string[]
   uploadedAt: string
+  metadata?: {
+    processingStage?: string
+    processingProgress?: number
+    [key: string]: any
+  }
 }
 
 interface ContentCardProps {
@@ -143,17 +148,42 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground capitalize">{item.status}</span>
               {item.status === "processing" && (
-                <motion.span
-                  className="text-xs text-[#a6261c]"
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  Processing...
-                </motion.span>
+                <>
+                  {item.metadata?.processingProgress !== undefined ? (
+                    <span className="text-xs text-[#a6261c] font-medium">
+                      {item.metadata.processingProgress}%
+                    </span>
+                  ) : (
+                    <motion.span
+                      className="text-xs text-[#a6261c]"
+                      animate={{ opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      Processing...
+                    </motion.span>
+                  )}
+                </>
               )}
             </div>
             <span className="text-xs text-muted-foreground">{item.uploadedAt}</span>
           </div>
+
+          {/* Progress Bar for Processing Items */}
+          {item.status === "processing" && item.metadata?.processingProgress !== undefined && (
+            <div className="mb-4">
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-[#a6261c]"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${item.metadata.processingProgress}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+              {item.metadata.processingStage && (
+                <p className="text-xs text-muted-foreground mt-1">{item.metadata.processingStage}</p>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2">

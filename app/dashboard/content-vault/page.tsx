@@ -26,6 +26,11 @@ interface ContentItem {
   duration?: string
   tags?: string[]
   uploadedAt: string
+  metadata?: {
+    processingStage?: string
+    processingProgress?: number
+    [key: string]: any
+  }
 }
 
 export default function ContentVaultPage() {

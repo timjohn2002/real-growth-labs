@@ -412,6 +412,8 @@ export default function BookWizardPage() {
               <AIToolsPanel 
                 onAction={handleAIAction}
                 onOpenContentVault={() => setIsContentVaultOpen(true)}
+                onSave={handleSave}
+                onExport={handleExport}
               />
               <ContentVaultModal
                 isOpen={isContentVaultOpen}

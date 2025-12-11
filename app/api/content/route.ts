@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         thumbnail: item.thumbnail,
         source: item.source,
         duration: item.duration,
-        transcript: item.transcript,
+        transcript: item.transcript || item.rawText || undefined, // Use rawText as fallback
         error: item.error,
         tags,
         uploadedAt: formatTimeAgo(item.createdAt),

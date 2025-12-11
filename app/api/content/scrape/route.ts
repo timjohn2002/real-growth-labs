@@ -264,7 +264,8 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
 
     // Create temporary directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-"))
-    audioPath = path.join(tempDir, `${contentItemId}.mp3`)
+    // Use a template for output filename - yt-dlp will add extension
+    const outputTemplate = path.join(tempDir, `${contentItemId}.%(ext)s`)
 
     // Initialize yt-dlp
     // Try to find yt-dlp in common locations
@@ -272,20 +273,38 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     try {
       const { execSync } = await import("child_process")
       ytDlpPath = execSync("which yt-dlp", { encoding: "utf-8" }).trim()
+      console.log(`Found yt-dlp at: ${ytDlpPath}`)
     } catch (e) {
-      // yt-dlp not in PATH, yt-dlp-wrap will try to find it
-      console.log("yt-dlp not found in PATH, yt-dlp-wrap will attempt to locate it")
+      // Try common installation paths
+      const commonPaths = [
+        "/opt/homebrew/bin/yt-dlp",
+        "/usr/local/bin/yt-dlp",
+        "/usr/bin/yt-dlp",
+      ]
+      for (const commonPath of commonPaths) {
+        try {
+          await fs.access(commonPath)
+          ytDlpPath = commonPath
+          console.log(`Found yt-dlp at: ${ytDlpPath}`)
+          break
+        } catch {
+          // Continue searching
+        }
+      }
+      if (!ytDlpPath) {
+        console.log("yt-dlp not found, yt-dlp-wrap will attempt to locate it")
+      }
     }
 
     const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
 
     console.log(`Downloading audio from YouTube: ${url}`)
-    console.log(`Using yt-dlp at: ${ytDlpPath || "auto-detect"}`)
+    console.log(`Output template: ${outputTemplate}`)
     
     // Download audio only (extract audio, format mp3)
     // -x: extract audio
     // --audio-format mp3: convert to mp3
-    // -o: output path
+    // -o: output template (yt-dlp will replace %(ext)s with actual extension)
     try {
       await ytDlpWrap.exec([
         url,
@@ -295,51 +314,127 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
         "--audio-quality",
         "0", // best quality
         "-o",
-        audioPath,
+        outputTemplate,
         "--no-playlist",
-        "--quiet",
         "--no-warnings",
+        "--extract-flat",
+        "false",
       ])
     } catch (execError) {
       console.error("yt-dlp execution error:", execError)
-      throw new Error(`Failed to download audio: ${execError instanceof Error ? execError.message : "Unknown error"}`)
+      const errorDetails = execError instanceof Error ? execError.message : String(execError)
+      throw new Error(`Failed to download audio: ${errorDetails}`)
     }
 
-    // Check if file was created and wait a bit for file system
-    let fileExists = false
-    for (let i = 0; i < 10; i++) {
+    // Find the actual downloaded file (yt-dlp may have added extension)
+    const possibleExtensions = ["mp3", "m4a", "webm", "opus"]
+    let downloadedFile: string | null = null
+    
+    for (const ext of possibleExtensions) {
+      const testPath = path.join(tempDir, `${contentItemId}.${ext}`)
       try {
-        await fs.access(audioPath)
-        fileExists = true
+        await fs.access(testPath)
+        downloadedFile = testPath
+        audioPath = testPath
+        console.log(`Found downloaded file: ${downloadedFile}`)
         break
       } catch {
-        await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms
+        // Continue searching
+      }
+    }
+
+    // Also check for files without extension in the temp dir
+    if (!downloadedFile) {
+      try {
+        const files = await fs.readdir(tempDir)
+        const audioFile = files.find(f => f.startsWith(contentItemId))
+        if (audioFile) {
+          downloadedFile = path.join(tempDir, audioFile)
+          audioPath = downloadedFile
+          console.log(`Found downloaded file: ${downloadedFile}`)
+        }
+      } catch (e) {
+        console.error("Error reading temp directory:", e)
+      }
+    }
+
+    // Wait a bit and check again if file wasn't found
+    if (!downloadedFile) {
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+      for (const ext of possibleExtensions) {
+        const testPath = path.join(tempDir, `${contentItemId}.${ext}`)
+        try {
+          await fs.access(testPath)
+          downloadedFile = testPath
+          audioPath = testPath
+          console.log(`Found downloaded file after wait: ${downloadedFile}`)
+          break
+        } catch {
+          // Continue searching
+        }
       }
     }
     
-    if (!fileExists) {
-      throw new Error("Audio file was not created after download. The video may be unavailable or restricted.")
+    if (!downloadedFile || !audioPath) {
+      // List files in temp dir for debugging
+      try {
+        const files = await fs.readdir(tempDir)
+        console.error(`Files in temp dir: ${files.join(", ")}`)
+      } catch (e) {
+        console.error("Could not list temp dir files:", e)
+      }
+      throw new Error("Audio file was not created after download. The video may be unavailable, restricted, or the download failed.")
     }
 
     // Read audio file
     console.log(`Reading audio file: ${audioPath}`)
+    const stats = await fs.stat(audioPath)
+    console.log(`Audio file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
+    
+    // Check file size limit (Whisper API has 25MB limit)
+    if (stats.size > 25 * 1024 * 1024) {
+      throw new Error(`Audio file is too large (${(stats.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 25MB. Please use a shorter video or split it.`)
+    }
+
     const audioBuffer = await fs.readFile(audioPath)
+    console.log(`Audio buffer size: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`)
 
     // Transcribe using OpenAI Whisper
-    console.log(`Transcribing audio...`)
-    const transcription = await transcribeAudioFromBuffer(
-      audioBuffer,
-      `${contentItemId}.mp3`,
-      { language: "en" }
-    )
+    console.log(`Transcribing audio with Whisper API...`)
+    let transcription
+    try {
+      transcription = await transcribeAudioFromBuffer(
+        audioBuffer,
+        path.basename(audioPath),
+        { language: "en" }
+      )
+      console.log(`Transcription complete. Text length: ${transcription.text.length} characters`)
+    } catch (transcribeError) {
+      console.error("Transcription error:", transcribeError)
+      throw new Error(`Failed to transcribe audio: ${transcribeError instanceof Error ? transcribeError.message : "Unknown error"}`)
+    }
 
-    console.log(`Transcription complete. Text length: ${transcription.text.length}`)
+    if (!transcription.text || transcription.text.trim().length === 0) {
+      throw new Error("Transcription returned empty text. The audio may be too quiet or contain no speech.")
+    }
 
     // Generate summary
-    const summary = await generateSummary(transcription.text)
+    console.log(`Generating summary...`)
+    let summary: string
+    try {
+      summary = await generateSummary(transcription.text)
+    } catch (summaryError) {
+      console.error("Summary generation error:", summaryError)
+      // Use a simple fallback summary
+      const sentences = transcription.text.split(/[.!?]+/).filter(Boolean)
+      summary = sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
+    }
+
     const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
+    console.log(`Word count: ${wordCount}`)
 
     // Update content item with transcript
+    console.log(`Saving transcript to database...`)
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
@@ -349,10 +444,14 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
         wordCount,
         summary,
         processedAt: new Date(),
+        error: null, // Clear any previous errors
       },
     })
 
-    console.log(`YouTube video processed successfully: ${contentItemId}`)
+    console.log(`✅ YouTube video processed successfully: ${contentItemId}`)
+    console.log(`   - Title: ${videoInfo.title}`)
+    console.log(`   - Transcript length: ${transcription.text.length} characters`)
+    console.log(`   - Word count: ${wordCount}`)
   } catch (error) {
     console.error("YouTube processing error:", error)
     

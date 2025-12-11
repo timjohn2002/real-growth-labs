@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, MoreVertical, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
+import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
@@ -107,15 +107,6 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {/* Status Dot */}
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(item.status)}`} />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowActions(!showActions)
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
               {item.wordCount && (

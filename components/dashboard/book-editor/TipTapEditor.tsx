@@ -72,8 +72,8 @@ export function TipTapEditor({
       // Only update if content actually changed (avoid unnecessary updates)
       if (content !== currentHTML) {
         // Use setContent with emitUpdate set to false to avoid triggering updates
-        // TipTap setContent accepts: setContent(content: string | JSONContent, emitUpdate?: boolean)
-        editor.commands.setContent(content, false)
+        // TipTap setContent accepts: setContent(content: string | JSONContent, options?: SetContentOptions)
+        editor.commands.setContent(content, { emitUpdate: false })
       }
     }
   }, [content, editor])

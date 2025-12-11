@@ -103,8 +103,8 @@ export function ContentDrawer({
                         )}
                       </div>
                       {isImprovingSummary ? (
-                        <div className="space-y-2">
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="space-y-2 rounded-lg p-3" style={{ backgroundColor: `${BRAND_COLOR}10` }}>
+                          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${BRAND_COLOR}20` }}>
                             <motion.div
                               className="h-full"
                               style={{ backgroundColor: BRAND_COLOR }}
@@ -117,7 +117,7 @@ export function ContentDrawer({
                               }}
                             />
                           </div>
-                          <p className="text-sm text-gray-500 italic">Generating improved summary with AI...</p>
+                          <p className="text-sm text-gray-600 italic">Generating improved summary with AI...</p>
                         </div>
                       ) : (
                         <p className="text-sm text-gray-700 leading-relaxed">{item.summary}</p>

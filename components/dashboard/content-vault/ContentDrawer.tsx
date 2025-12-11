@@ -128,21 +128,22 @@ export function ContentDrawer({
                   {item.status === "processing" && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-2">Processing Status</h3>
-                      <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="rounded-lg p-4" style={{ backgroundColor: `${BRAND_COLOR}10` }}>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-700">
                               {item.metadata?.processingStage || "Processing video..."}
                             </span>
                             {item.metadata?.processingProgress !== undefined && (
-                              <span className="text-blue-600 font-medium">
+                              <span className="font-medium" style={{ color: BRAND_COLOR }}>
                                 {item.metadata.processingProgress}%
                               </span>
                             )}
                           </div>
-                          <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${BRAND_COLOR}20` }}>
                             <motion.div
-                              className="h-full bg-blue-600"
+                              className="h-full"
+                              style={{ backgroundColor: BRAND_COLOR }}
                               initial={{ width: "0%" }}
                               animate={{
                                 width: `${item.metadata?.processingProgress || 0}%`,

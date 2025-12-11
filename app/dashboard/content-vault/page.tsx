@@ -107,15 +107,34 @@ export default function ContentVaultPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      // TODO: Add DELETE API endpoint
-      // await fetch(`/api/content/${id}`, { method: "DELETE" })
+      // Confirm deletion
+      if (!confirm("Are you sure you want to delete this content item? This action cannot be undone.")) {
+        return
+      }
+
+      const response = await fetch(`/api/content/${id}`, {
+        method: "DELETE",
+        credentials: "include", // Include cookies for authentication
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: "Failed to delete" }))
+        throw new Error(data.error || `Failed to delete content (${response.status})`)
+      }
+
+      // Remove from local state only after successful deletion
       setContentItems((prev) => prev.filter((item) => item.id !== id))
+      
+      // Close drawer if the deleted item was selected
       if (selectedItem?.id === id) {
         setIsDrawerOpen(false)
         setSelectedItem(null)
       }
+
+      console.log("Content item deleted successfully")
     } catch (error) {
       console.error("Failed to delete content:", error)
+      alert(error instanceof Error ? error.message : "Failed to delete content item")
     }
   }
 

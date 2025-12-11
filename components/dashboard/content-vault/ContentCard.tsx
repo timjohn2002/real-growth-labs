@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, BookOpen, Loader2 } from "lucide-react"
+import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const BRAND_COLOR = "#a6261c"
@@ -28,7 +28,6 @@ interface ContentCardProps {
   item: ContentItem
   onView: (item: ContentItem) => void
   onDelete: (id: string) => void
-  onAddToBook: (id: string) => void
 }
 
 const getTypeIcon = (type: string) => {
@@ -63,7 +62,7 @@ const getStatusColor = (status: string) => {
   }
 }
 
-export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCardProps) {
+export function ContentCard({ item, onView, onDelete }: ContentCardProps) {
   const Icon = getTypeIcon(item.type)
 
   return (
@@ -187,18 +186,6 @@ export function ContentCard({ item, onView, onDelete, onAddToBook }: ContentCard
             >
               <Eye className="h-3 w-3 mr-1" />
               View
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={(e) => {
-                e.stopPropagation()
-                onAddToBook(item.id)
-              }}
-            >
-              <BookOpen className="h-3 w-3 mr-1" />
-              Add to Book
             </Button>
             <Button
               variant="outline"

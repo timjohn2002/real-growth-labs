@@ -143,10 +143,6 @@ export default function ContentVaultPage() {
     }
   }
 
-  const handleAddToBook = (id: string) => {
-    console.log("Adding content to book:", id)
-    // TODO: Implement add to book logic
-  }
 
   const handleReprocess = async (id: string) => {
     try {
@@ -279,7 +275,6 @@ export default function ContentVaultPage() {
               item={item}
               onView={handleView}
               onDelete={handleDelete}
-              onAddToBook={handleAddToBook}
             />
           ))}
         </div>
@@ -316,7 +311,6 @@ export default function ContentVaultPage() {
         }}
         onReprocess={handleReprocess}
         onImproveSummary={handleImproveSummary}
-        onAddToBook={handleAddToBook}
         onDelete={handleDelete}
         isImprovingSummary={improvingSummaryId === selectedItem?.id}
       />

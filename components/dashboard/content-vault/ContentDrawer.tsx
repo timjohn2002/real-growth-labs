@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, MoreVertical, RefreshCw, Sparkles, BookOpen, Trash2, Loader2 } from "lucide-react"
+import { X, MoreVertical, RefreshCw, Sparkles, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -33,7 +33,6 @@ interface ContentDrawerProps {
   onClose: () => void
   onReprocess: (id: string) => void
   onImproveSummary: (id: string) => void
-  onAddToBook: (id: string) => void
   onDelete: (id: string) => void
   isImprovingSummary?: boolean
 }
@@ -44,7 +43,6 @@ export function ContentDrawer({
   onClose,
   onReprocess,
   onImproveSummary,
-  onAddToBook,
   onDelete,
   isImprovingSummary = false,
 }: ContentDrawerProps) {

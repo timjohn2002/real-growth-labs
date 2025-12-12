@@ -20,6 +20,8 @@ interface ContentItem {
   tags?: string[]
   error?: string
   uploadedAt: string
+  fileUrl?: string
+  thumbnail?: string
   metadata?: {
     processingStage?: string
     processingProgress?: number
@@ -158,8 +160,22 @@ export function ContentDrawer({
                     </div>
                   )}
 
+                  {/* Image Display Section */}
+                  {item.type === "image" && item.fileUrl && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">Image</h3>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <img
+                          src={item.fileUrl}
+                          alt={item.title}
+                          className="max-w-full h-auto rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Transcript Section */}
-                  {item.transcript && (
+                  {item.transcript && item.type !== "image" && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-2">Transcript</h3>
                       <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">

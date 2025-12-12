@@ -442,13 +442,20 @@ export default function FullBookEditorPage() {
           isOpen={isContentVaultOpen}
           onClose={() => setIsContentVaultOpen(false)}
           onSelect={(contentItem) => {
-            // Prefer summary first - this is the improved/latest version
-            // Then fall back to rawText or transcript
-            const contentToInsert = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
-            if (contentToInsert) {
-              setContentToInsert(contentToInsert)
+            // Handle images differently - insert image markdown
+            if (contentItem.type === "image" && contentItem.fileUrl) {
+              // Insert image markdown: ![alt text](image-url)
+              const imageMarkdown = `![${contentItem.title}](${contentItem.fileUrl})`
+              setContentToInsert(imageMarkdown)
             } else {
-              alert("This content item has no text to insert.")
+              // For text content, prefer summary first - this is the improved/latest version
+              // Then fall back to rawText or transcript
+              const contentToInsert = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
+              if (contentToInsert) {
+                setContentToInsert(contentToInsert)
+              } else {
+                alert("This content item has no text to insert.")
+              }
             }
           }}
         />

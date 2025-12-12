@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       // Process transcription with file buffer directly
       processTranscription(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
     } else if (type === "image") {
-      // Process image with OCR
+      // Process image - upload and store as image (no OCR)
       processImage(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
     } else if (type === "text") {
       // Process text file immediately
@@ -165,45 +165,65 @@ async function processTranscription(contentItemId: string, fileBuffer: Buffer, f
   }
 }
 
-// Process image with OCR
+// Process image - upload and store as image (no OCR)
 async function processImage(contentItemId: string, fileBuffer: Buffer, filename: string, mimeType: string) {
+  let tempPath: string | null = null
+  
   try {
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: { status: "processing" },
     })
 
-    console.log(`Processing image with OCR: ${filename}`)
+    console.log(`Processing image upload: ${filename}`)
     
-    // Use OpenAI Vision API to extract text from image
-    const { extractTextFromImage } = await import("@/lib/openai")
-    const extractedText = await extractTextFromImage(fileBuffer, filename)
+    // Upload image to storage
+    const { uploadFile } = await import("@/lib/storage")
+    
+    // Create a File-like object from buffer for uploadFile
+    const imageFile = new File([fileBuffer], filename, { type: mimeType })
+    
+    // Generate unique filename
+    const timestamp = Date.now()
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "-")
+    const storagePath = `content/${contentItemId}-${timestamp}-${sanitizedFilename}`
+    
+    // Upload to storage
+    const imageUrl = await uploadFile(imageFile, storagePath, {
+      provider: (process.env.STORAGE_PROVIDER as any) || "local",
+      bucket: process.env.STORAGE_BUCKET,
+      folder: "content-vault",
+    })
 
-    if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error("No text could be extracted from the image")
-    }
+    console.log(`Image uploaded successfully. URL: ${imageUrl}`)
 
-    console.log(`Text extraction complete. Text length: ${extractedText.length}`)
+    // Get the content item to use its title for summary
+    const contentItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { title: true },
+    })
 
-    // Generate summary
-    const summary = await generateSummary(extractedText)
-    const wordCount = extractedText.split(/\s+/).filter(Boolean).length
+    // Generate a simple summary based on filename/title
+    const summary = contentItem?.title 
+      ? `Image: ${contentItem.title}`
+      : `Image: ${filename}`
 
-    // Update content item
+    // Update content item with image URL (no text extraction)
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
         status: "ready",
-        transcript: extractedText,
-        rawText: extractedText,
-        wordCount,
+        fileUrl: imageUrl, // Store the image URL
+        thumbnail: imageUrl, // Use same URL as thumbnail
         summary,
+        wordCount: 0, // Images don't have word count
         processedAt: new Date(),
         error: null,
+        // Don't set transcript or rawText - keep image as image
       },
     })
 
-    console.log(`✅ Image processed successfully: ${contentItemId}`)
+    console.log(`✅ Image processed and stored successfully: ${contentItemId}`)
   } catch (error) {
     console.error("Image processing error:", error)
     const errorMessage = error instanceof Error ? error.message : "Processing failed"
@@ -215,6 +235,15 @@ async function processImage(contentItemId: string, fileBuffer: Buffer, filename:
         error: errorMessage,
       },
     })
+  } finally {
+    // Clean up temp file if any
+    if (tempPath) {
+      try {
+        await fs.unlink(tempPath)
+      } catch (e) {
+        console.error("Failed to delete temp file:", e)
+      }
+    }
   }
 }
 

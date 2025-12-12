@@ -59,9 +59,11 @@ export async function GET(request: NextRequest) {
         wordCount: item.wordCount,
         summary: item.summary,
         thumbnail: item.thumbnail,
+        fileUrl: item.fileUrl, // Include fileUrl for images and other file types
         source: item.source,
         duration: item.duration,
         transcript: item.transcript || item.rawText || undefined, // Use rawText as fallback
+        rawText: item.rawText, // Include rawText for ContentVaultModal
         error: item.error,
         tags,
         metadata, // Include metadata for progress tracking

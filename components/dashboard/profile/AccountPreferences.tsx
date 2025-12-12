@@ -12,17 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Moon, Sun, Monitor, Save, Bell, Link as LinkIcon } from "lucide-react"
+import { Moon, Sun, Bell, Link as LinkIcon } from "lucide-react"
 
 interface AccountPreferencesProps {
-  theme: "light" | "dark" | "system"
+  theme: "light" | "dark"
   autosaveFrequency: string
   notifications: {
     audiobookReady: boolean
     bookReviewReady: boolean
     weeklyProgress: boolean
   }
-  onThemeChange: (theme: "light" | "dark" | "system") => void
+  onThemeChange: (theme: "light" | "dark") => void
   onAutosaveChange: (frequency: string) => void
   onNotificationChange: (key: string, value: boolean) => void
 }
@@ -73,18 +73,6 @@ export function AccountPreferences({
                   />
                   <Moon className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">Dark</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="theme"
-                    value="system"
-                    checked={theme === "system"}
-                    onChange={() => onThemeChange("system")}
-                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
-                  />
-                  <Monitor className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">System</span>
                 </label>
               </div>
             </div>
@@ -156,18 +144,6 @@ export function AccountPreferences({
                   <div className="flex items-center gap-2">
                     <LinkIcon className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-foreground">Google Drive</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Not Connected</span>
-                    <Button variant="outline" size="sm">
-                      Connect
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-foreground">Calendar</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Not Connected</span>

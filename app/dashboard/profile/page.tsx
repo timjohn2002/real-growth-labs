@@ -20,12 +20,12 @@ export default function ProfilePage() {
   })
 
   // Initialize theme from current document state to preserve theme across navigation
-  const getInitialTheme = (): "light" | "dark" | "system" => {
+  const getInitialTheme = (): "light" | "dark" => {
     if (typeof window === "undefined") return "light"
     
     // Check if theme is stored in localStorage
-    const storedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null
-    if (storedTheme) {
+    const storedTheme = localStorage.getItem("theme") as "light" | "dark" | null
+    if (storedTheme && (storedTheme === "light" || storedTheme === "dark")) {
       return storedTheme
     }
     
@@ -38,12 +38,11 @@ export default function ProfilePage() {
       return "light"
     }
     
-    // Default to system preference
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-    return prefersDark ? "dark" : "light"
+    // Default to light
+    return "light"
   }
 
-  const [theme, setTheme] = useState<"light" | "dark" | "system">(getInitialTheme)
+  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme)
   const [autosaveFrequency, setAutosaveFrequency] = useState("5")
   const [notifications, setNotifications] = useState({
     audiobookReady: true,
@@ -58,12 +57,7 @@ export default function ProfilePage() {
       const currentTheme = getInitialTheme()
       
       html.classList.remove("light", "dark")
-      if (currentTheme === "system") {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        html.classList.add(prefersDark ? "dark" : "light")
-      } else {
-        html.classList.add(currentTheme)
-      }
+      html.classList.add(currentTheme)
     }
   }, [])
 
@@ -83,19 +77,23 @@ export default function ProfilePage() {
             
             // Load preferences
             if (data.user.preferences) {
-              const prefs = data.user.preferences as any
-              if (prefs.theme) {
+              let prefs: any
+              try {
+                prefs = typeof data.user.preferences === "string" 
+                  ? JSON.parse(data.user.preferences) 
+                  : data.user.preferences
+              } catch (e) {
+                console.error("Failed to parse preferences:", e)
+                prefs = {}
+              }
+              
+              if (prefs.theme && (prefs.theme === "light" || prefs.theme === "dark")) {
                 setTheme(prefs.theme)
                 // Apply theme immediately
                 if (typeof window !== "undefined") {
                   const html = document.documentElement
                   html.classList.remove("light", "dark")
-                  if (prefs.theme === "system") {
-                    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-                    html.classList.add(prefersDark ? "dark" : "light")
-                  } else {
-                    html.classList.add(prefs.theme)
-                  }
+                  html.classList.add(prefs.theme)
                   // Store in localStorage for persistence
                   localStorage.setItem("theme", prefs.theme)
                 }
@@ -145,20 +143,14 @@ export default function ProfilePage() {
     }
   }
 
-  const handleThemeChange = async (newTheme: "light" | "dark" | "system") => {
+  const handleThemeChange = async (newTheme: "light" | "dark") => {
     setTheme(newTheme)
     
     // Apply theme to document immediately
     if (typeof window !== "undefined") {
       const html = document.documentElement
       html.classList.remove("light", "dark")
-      
-      if (newTheme === "system") {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        html.classList.add(prefersDark ? "dark" : "light")
-      } else {
-        html.classList.add(newTheme)
-      }
+      html.classList.add(newTheme)
       
       // Store in localStorage for persistence across navigation
       localStorage.setItem("theme", newTheme)
@@ -173,22 +165,7 @@ export default function ProfilePage() {
     if (typeof window !== "undefined") {
       const html = document.documentElement
       html.classList.remove("light", "dark")
-      
-      if (theme === "system") {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        html.classList.add(prefersDark ? "dark" : "light")
-        
-        // Listen for system theme changes
-        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-        const handleChange = (e: MediaQueryListEvent) => {
-          html.classList.remove("light", "dark")
-          html.classList.add(e.matches ? "dark" : "light")
-        }
-        mediaQuery.addEventListener("change", handleChange)
-        return () => mediaQuery.removeEventListener("change", handleChange)
-      } else {
-        html.classList.add(theme)
-      }
+      html.classList.add(theme)
       
       // Store in localStorage for persistence
       localStorage.setItem("theme", theme)
@@ -207,7 +184,7 @@ export default function ProfilePage() {
   }
 
   const savePreferences = async (
-    themeValue: "light" | "dark" | "system",
+    themeValue: "light" | "dark",
     autosaveValue: string,
     notificationsValue: typeof notifications
   ) => {

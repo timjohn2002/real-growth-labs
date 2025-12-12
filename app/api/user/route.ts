@@ -4,9 +4,15 @@ import { prisma } from "@/lib/prisma"
 // GET /api/user - Get current user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get userId from session/auth token
-    // For now, using a placeholder
-    const userId = request.headers.get("x-user-id") || "user-1"
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -41,14 +47,29 @@ export async function GET(request: NextRequest) {
 // PUT /api/user - Update user profile
 export async function PUT(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id") || "user-1"
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
-    const { name, avatar, preferences } = body
+    const { name, email, avatar, preferences } = body
 
     const updateData: any = {}
     if (name !== undefined) updateData.name = name
+    if (email !== undefined) updateData.email = email
     if (avatar !== undefined) updateData.avatar = avatar
-    if (preferences !== undefined) updateData.preferences = preferences
+    if (preferences !== undefined) {
+      // Store preferences as JSON string
+      updateData.preferences = typeof preferences === "string" 
+        ? preferences 
+        : JSON.stringify(preferences)
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -59,6 +80,7 @@ export async function PUT(request: NextRequest) {
         name: true,
         avatar: true,
         preferences: true,
+        createdAt: true,
         updatedAt: true,
       },
     })

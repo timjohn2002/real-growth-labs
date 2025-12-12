@@ -891,66 +891,6 @@ async function processYouTubeVideoWithYtDlp(
     }
   }
 }
-    // Clear timeout on error
-    clearTimeout(overallTimeout)
-    
-    console.error(`[${contentItemId}] YouTube processing error:`, error)
-    
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : "Failed to process YouTube video"
-
-    console.log(`[${contentItemId}] Saving error to database: ${errorMessage}`)
-
-    // Try to update error status with retry logic
-    let errorUpdateSuccess = false
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await prisma.contentItem.update({
-          where: { id: contentItemId },
-          data: {
-            status: "error",
-            error: errorMessage,
-            metadata: JSON.stringify({
-              processingStage: "Error",
-              processingProgress: 0,
-              errorDetails: errorMessage,
-              failedAt: new Date().toISOString(),
-            }),
-          },
-        })
-        errorUpdateSuccess = true
-        console.log(`[${contentItemId}] Error status saved successfully`)
-        break
-      } catch (dbError) {
-        console.error(`[${contentItemId}] Failed to update error status (attempt ${attempt}):`, dbError)
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, attempt * 1000))
-        }
-      }
-    }
-    
-    if (!errorUpdateSuccess) {
-      console.error(`[${contentItemId}] CRITICAL: Could not update error status in database. Error: ${errorMessage}`)
-    }
-  } finally {
-    // Clean up temporary files
-    if (audioPath) {
-      try {
-        await fs.unlink(audioPath)
-      } catch (e) {
-        console.error("Failed to delete audio file:", e)
-      }
-    }
-    if (tempDir) {
-      try {
-        await fs.rmdir(tempDir)
-      } catch (e) {
-        console.error("Failed to delete temp directory:", e)
-      }
-    }
-  }
-}
 
 async function generateSummary(text: string): Promise<string> {
   // Use AI-generated summary if available

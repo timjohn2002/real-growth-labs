@@ -50,10 +50,44 @@ export default function ContentVaultPage() {
   const fetchContent = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/content?userId=${userId}`)
+      const response = await fetch(`/api/content?userId=${userId}`, {
+        credentials: "include",
+      })
       if (response.ok) {
         const data = await response.json()
         setContentItems(data.items || [])
+        
+        // Check for stuck processing items (processing for more than 25 minutes)
+        const stuckItems = data.items?.filter((item: ContentItem) => {
+          if (item.status !== "processing") return false
+          // Parse uploadedAt to check time
+          const uploadedMatch = item.uploadedAt?.match(/(\d+)\s*(minute|hour|day)/)
+          if (uploadedMatch) {
+            const value = parseInt(uploadedMatch[1])
+            const unit = uploadedMatch[2]
+            if (unit === "minute" && value > 25) return true
+            if (unit === "hour" || unit === "day") return true
+          }
+          return false
+        })
+        
+        // Check status for stuck items
+        if (stuckItems && stuckItems.length > 0) {
+          for (const stuckItem of stuckItems) {
+            try {
+              await fetch("/api/content/check-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ contentItemId: stuckItem.id }),
+              })
+            } catch (e) {
+              console.error("Failed to check stuck item status:", e)
+            }
+          }
+          // Refresh after checking
+          setTimeout(() => fetchContent(), 2000)
+        }
       }
     } catch (error) {
       console.error("Failed to fetch content:", error)

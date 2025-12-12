@@ -434,9 +434,24 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     // -x: extract audio
     // --audio-format mp3: convert to mp3
     // -o: output template (yt-dlp will replace %(ext)s with actual extension)
-    // Add timeout for download (20 minutes max)
+    // Add timeout for download (5 minutes max for serverless, 20 minutes for workers)
     try {
       console.log(`[${contentItemId}] Starting yt-dlp download...`)
+      
+      // Check if yt-dlp is actually available by testing it
+      try {
+        const { execSync } = await import("child_process")
+        execSync("yt-dlp --version", { encoding: "utf-8", timeout: 5000 })
+        console.log(`[${contentItemId}] yt-dlp is available`)
+      } catch (testError) {
+        console.error(`[${contentItemId}] yt-dlp availability test failed:`, testError)
+        throw new Error(
+          "yt-dlp is not available in this environment. " +
+          "YouTube video processing requires yt-dlp to be installed. " +
+          "Please use a dedicated worker process with yt-dlp installed, or use a service that supports YouTube processing."
+        )
+      }
+      
       const downloadPromise = ytDlpWrap.exec([
         url,
         "-x",
@@ -453,11 +468,18 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
         "--verbose", // Add verbose logging
       ])
 
-      // Add timeout to download
+      // Shorter timeout for serverless (5 minutes), longer for workers (20 minutes)
+      const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
+      const downloadTimeoutMs = isServerless ? 5 * 60 * 1000 : 20 * 60 * 1000 // 5 min for serverless, 20 min for workers
+      
       const downloadTimeout = new Promise((_, reject) => {
         setTimeout(() => {
-          reject(new Error("Download timeout after 20 minutes. The video may be too long or unavailable."))
-        }, 20 * 60 * 1000) // 20 minutes
+          reject(new Error(
+            `Download timeout after ${isServerless ? "5" : "20"} minutes. ` +
+            "The video may be too long, unavailable, or yt-dlp may not be working properly. " +
+            "Please try a shorter video or use a dedicated worker process."
+          ))
+        }, downloadTimeoutMs)
       })
 
       await Promise.race([downloadPromise, downloadTimeout])
@@ -471,12 +493,14 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       
       // Provide more helpful error messages
       let userFriendlyError = `Failed to download audio: ${errorDetails}`
-      if (errorDetails.includes("not found") || errorDetails.includes("command not found")) {
-        userFriendlyError = "yt-dlp is not installed or not available. YouTube video processing requires yt-dlp to be installed on the server."
-      } else if (errorDetails.includes("Private video") || errorDetails.includes("unavailable")) {
+      if (errorDetails.includes("not found") || errorDetails.includes("command not found") || errorDetails.includes("not available")) {
+        userFriendlyError = "yt-dlp is not installed or not available. YouTube video processing requires yt-dlp to be installed on the server. Please use a dedicated worker process or a service that supports YouTube processing."
+      } else if (errorDetails.includes("Private video") || errorDetails.includes("unavailable") || errorDetails.includes("private")) {
         userFriendlyError = "The YouTube video is private, unavailable, or restricted. Please check the video URL and ensure it's publicly accessible."
       } else if (errorDetails.includes("timeout")) {
-        userFriendlyError = "Download timed out. The video may be too long. Please try a shorter video (under 20 minutes)."
+        userFriendlyError = `Download timed out. ${errorDetails}`
+      } else if (errorDetails.includes("ERROR") || errorDetails.includes("WARNING")) {
+        userFriendlyError = `YouTube download failed: ${errorDetails}`
       }
       
       throw new Error(userFriendlyError)
@@ -516,17 +540,37 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
 
     // Wait a bit and check again if file wasn't found
     if (!downloadedFile) {
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+      console.log(`[${contentItemId}] File not found immediately, waiting 5 seconds...`)
+      await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
       for (const ext of possibleExtensions) {
         const testPath = path.join(tempDir, `${contentItemId}.${ext}`)
         try {
           await fs.access(testPath)
           downloadedFile = testPath
           audioPath = testPath
-          console.log(`Found downloaded file after wait: ${downloadedFile}`)
+          console.log(`[${contentItemId}] Found downloaded file after wait: ${downloadedFile}`)
           break
         } catch {
           // Continue searching
+        }
+      }
+      
+      // Also check for any files in the temp dir
+      if (!downloadedFile) {
+        try {
+          const files = await fs.readdir(tempDir)
+          console.log(`[${contentItemId}] Files in temp dir: ${files.join(", ")}`)
+          // Try to find any audio file
+          const audioFile = files.find(f => 
+            f.endsWith('.mp3') || f.endsWith('.m4a') || f.endsWith('.webm') || f.endsWith('.opus')
+          )
+          if (audioFile) {
+            downloadedFile = path.join(tempDir, audioFile)
+            audioPath = downloadedFile
+            console.log(`[${contentItemId}] Found audio file: ${downloadedFile}`)
+          }
+        } catch (e) {
+          console.error(`[${contentItemId}] Could not list temp dir files:`, e)
         }
       }
     }
@@ -535,11 +579,15 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       // List files in temp dir for debugging
       try {
         const files = await fs.readdir(tempDir)
-        console.error(`Files in temp dir: ${files.join(", ")}`)
+        console.error(`[${contentItemId}] Files in temp dir: ${files.join(", ")}`)
       } catch (e) {
-        console.error("Could not list temp dir files:", e)
+        console.error(`[${contentItemId}] Could not list temp dir files:`, e)
       }
-      throw new Error("Audio file was not created after download. The video may be unavailable, restricted, or the download failed.")
+      throw new Error(
+        "Audio file was not created after download. " +
+        "This usually means yt-dlp failed silently or the video is unavailable. " +
+        "Please check: 1) yt-dlp is installed, 2) The video URL is valid and public, 3) Use a dedicated worker process."
+      )
     }
 
     // Read audio file

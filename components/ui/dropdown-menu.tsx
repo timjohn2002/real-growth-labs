@@ -58,8 +58,9 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
           e.preventDefault()
           setIsOpen((prev) => !prev)
           // Call original onClick if it exists
-          if (trigger.props?.onClick) {
-            trigger.props.onClick(e)
+          const originalProps = (trigger as React.ReactElement<any>).props
+          if (originalProps?.onClick) {
+            originalProps.onClick(e)
           }
         },
       })

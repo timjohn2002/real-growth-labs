@@ -105,7 +105,7 @@ export async function transcribeYouTubeUrl(
         end: w.end,
         confidence: w.confidence || 0,
       })),
-      confidence: polledTranscript.confidence,
+      confidence: polledTranscript.confidence ?? undefined,
       language: polledTranscript.language_code,
     }
   } catch (error) {
@@ -184,7 +184,7 @@ export async function transcribeAudioBuffer(
         end: w.end,
         confidence: w.confidence || 0,
       })),
-      confidence: polledTranscript.confidence,
+      confidence: polledTranscript.confidence ?? undefined,
       language: polledTranscript.language_code,
     }
   } catch (error) {

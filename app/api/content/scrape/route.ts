@@ -417,23 +417,9 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     if (!errorUpdateSuccess) {
       console.error(`[${contentItemId}] CRITICAL: Could not update error status in database. Error: ${errorMessage}`)
     }
-  } finally {
-    // Clean up temporary files
-    if (audioPath) {
-      try {
-        await fs.unlink(audioPath)
-      } catch (e) {
-        console.error("Failed to delete audio file:", e)
-      }
-    }
-    if (tempDir) {
-      try {
-        await fs.rmdir(tempDir)
-      } catch (e) {
-        console.error("Failed to delete temp directory:", e)
-      }
-    }
   }
+  // Note: Cleanup is handled by processYouTubeVideoWithYtDlp's finally block
+  // No cleanup needed here since AssemblyAI doesn't use temp files
 }
 
 /**

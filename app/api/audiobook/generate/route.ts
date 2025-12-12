@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { generateTTS } from "@/lib/openai"
 import { uploadFile } from "@/lib/storage"
 import { concatenateMP3Buffers } from "@/lib/audio-utils"
-import { audiobookQueue, isRedisAvailable } from "@/lib/queue"
+import { getAudiobookQueue, isRedisAvailable } from "@/lib/queue"
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,8 +48,13 @@ export async function POST(request: NextRequest) {
     // Use job queue if Redis is available, otherwise run in background
     if (isRedisAvailable()) {
       try {
+        const queue = getAudiobookQueue()
+        if (!queue) {
+          throw new Error("Queue not available")
+        }
+        
         // Add job to queue
-        const job = await audiobookQueue.add(
+        const job = await queue.add(
           `audiobook-${audiobook.id}`,
           {
             audiobookId: audiobook.id,

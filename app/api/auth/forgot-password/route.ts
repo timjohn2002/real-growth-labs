@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     console.log("To:", email)
     console.log("Reset URL:", resetUrl)
     console.log("RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY)
-    console.log("RESEND_FROM_EMAIL:", process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev")
+    console.log("RESEND_FROM_EMAIL:", process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art (default)")
     console.log("=".repeat(50))
     
     const emailResult = await sendPasswordResetEmail(email, resetUrl)

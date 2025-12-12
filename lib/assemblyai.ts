@@ -41,10 +41,12 @@ export interface TranscriptionResult {
 
 /**
  * Transcribe a YouTube URL using AssemblyAI
- * AssemblyAI supports YouTube URLs directly - no download needed!
+ * Note: AssemblyAI doesn't accept YouTube URLs directly, so we need to download the audio first
+ * and then upload it to AssemblyAI. This function expects the audio buffer to be provided.
  */
 export async function transcribeYouTubeUrl(
-  youtubeUrl: string,
+  audioBuffer: Buffer,
+  filename: string,
   options: {
     language?: string
     speakerLabels?: boolean
@@ -53,11 +55,16 @@ export async function transcribeYouTubeUrl(
   const client = getAssemblyAIClient()
 
   try {
-    console.log(`[AssemblyAI] Starting transcription for YouTube URL: ${youtubeUrl}`)
+    console.log(`[AssemblyAI] Starting transcription for audio file: ${filename}`)
+    console.log(`[AssemblyAI] Audio buffer size: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`)
+
+    // Upload audio file to AssemblyAI
+    const uploadUrl = await client.files.upload(audioBuffer)
+    console.log(`[AssemblyAI] Audio uploaded. URL: ${uploadUrl}`)
 
     // Submit transcription job
     const transcript = await client.transcripts.submit({
-      audio: youtubeUrl, // AssemblyAI accepts YouTube URLs directly!
+      audio: uploadUrl, // Use the uploaded file URL
       language_code: options.language || "en",
       speaker_labels: options.speakerLabels || false,
     })

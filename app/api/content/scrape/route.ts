@@ -365,14 +365,15 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     
     console.log(`[${contentItemId}] Video info retrieved: ${videoInfo.title}`)
 
-    // Check if AssemblyAI is configured - prefer it over yt-dlp
+    // Check if AssemblyAI is configured - use it for transcription after downloading audio
+    // Note: We still need yt-dlp to download the audio, but AssemblyAI provides better transcription
     if (isAssemblyAIConfigured()) {
-      console.log(`[${contentItemId}] Using AssemblyAI for transcription (no download needed)`)
+      console.log(`[${contentItemId}] Using AssemblyAI for transcription (will download audio first)`)
       return await processYouTubeVideoWithAssemblyAI(contentItemId, url, videoInfo, overallTimeout)
     }
 
-    // Fallback to yt-dlp if AssemblyAI is not configured
-    console.log(`[${contentItemId}] AssemblyAI not configured, falling back to yt-dlp`)
+    // Fallback to yt-dlp + OpenAI Whisper if AssemblyAI is not configured
+    console.log(`[${contentItemId}] AssemblyAI not configured, using yt-dlp + OpenAI Whisper`)
     return await processYouTubeVideoWithYtDlp(contentItemId, url, videoInfo, overallTimeout)
   } catch (error) {
     // Clear timeout on error
@@ -424,7 +425,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
 
 /**
  * Process YouTube video using AssemblyAI (preferred method)
- * No download needed - AssemblyAI accepts YouTube URLs directly!
+ * Downloads audio with yt-dlp, then transcribes with AssemblyAI
  */
 async function processYouTubeVideoWithAssemblyAI(
   contentItemId: string,
@@ -432,18 +433,118 @@ async function processYouTubeVideoWithAssemblyAI(
   videoInfo: { title: string; thumbnail: string | null },
   overallTimeout: NodeJS.Timeout
 ) {
-  try {
-    // Stage 2: Submitting to AssemblyAI (20%)
-    await updateProgress(contentItemId, "Submitting video to AssemblyAI for transcription...", 20)
-    console.log(`[${contentItemId}] Submitting YouTube URL to AssemblyAI: ${url}`)
+  let tempDir: string | null = null
+  let audioPath: string | null = null
 
-    // Stage 3: Transcribing (40-90%)
-    // AssemblyAI handles the transcription asynchronously
-    await updateProgress(contentItemId, "Transcribing video with AssemblyAI...", 40)
+  try {
+    // Stage 2: Downloading audio (20-40%)
+    await updateProgress(contentItemId, "Downloading audio from YouTube...", 20)
     
-    const transcription = await transcribeYouTubeUrl(url, {
-      language: "en",
+    // Create temporary directory
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-"))
+    const outputTemplate = path.join(tempDir, `${contentItemId}.%(ext)s`)
+
+    // Initialize yt-dlp
+    let ytDlpPath: string | undefined
+    try {
+      const { execSync } = await import("child_process")
+      ytDlpPath = execSync("which yt-dlp", { encoding: "utf-8" }).trim()
+      console.log(`[${contentItemId}] Found yt-dlp at: ${ytDlpPath}`)
+    } catch (e) {
+      // Try common paths
+      const commonPaths = ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"]
+      for (const commonPath of commonPaths) {
+        try {
+          await fs.access(commonPath)
+          ytDlpPath = commonPath
+          break
+        } catch {
+          // Continue
+        }
+      }
+    }
+
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
+    if (isServerless && !ytDlpPath) {
+      throw new Error(
+        "yt-dlp is required to download YouTube audio. " +
+        "AssemblyAI needs the audio file, not the YouTube URL. " +
+        "Please use a dedicated worker process with yt-dlp installed."
+      )
+    }
+
+    const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
+
+    // Download audio
+    console.log(`[${contentItemId}] Downloading audio from YouTube: ${url}`)
+    await updateProgress(contentItemId, "Downloading audio...", 30)
+    
+    const downloadPromise = ytDlpWrap.exec([
+      url,
+      "-x",
+      "--audio-format",
+      "mp3",
+      "--audio-quality",
+      "0",
+      "-o",
+      outputTemplate,
+      "--no-playlist",
+      "--no-warnings",
+    ])
+
+    const downloadTimeout = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Download timeout after 10 minutes"))
+      }, 10 * 60 * 1000)
     })
+
+    await Promise.race([downloadPromise, downloadTimeout])
+    console.log(`[${contentItemId}] Audio download completed`)
+
+    // Find downloaded file
+    const possibleExtensions = ["mp3", "m4a", "webm", "opus"]
+    let downloadedFile: string | null = null
+    
+    for (const ext of possibleExtensions) {
+      const testPath = path.join(tempDir, `${contentItemId}.${ext}`)
+      try {
+        await fs.access(testPath)
+        downloadedFile = testPath
+        audioPath = testPath
+        break
+      } catch {
+        // Continue
+      }
+    }
+
+    if (!downloadedFile) {
+      const files = await fs.readdir(tempDir)
+      const audioFile = files.find(f => 
+        f.endsWith('.mp3') || f.endsWith('.m4a') || f.endsWith('.webm') || f.endsWith('.opus')
+      )
+      if (audioFile) {
+        downloadedFile = path.join(tempDir, audioFile)
+        audioPath = downloadedFile
+      }
+    }
+
+    if (!downloadedFile || !audioPath) {
+      throw new Error("Audio file was not created after download")
+    }
+
+    // Read audio file
+    const audioBuffer = await fs.readFile(audioPath)
+    const stats = await fs.stat(audioPath)
+    console.log(`[${contentItemId}] Audio file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
+
+    // Stage 3: Transcribing with AssemblyAI (40-90%)
+    await updateProgress(contentItemId, "Transcribing with AssemblyAI...", 40)
+    
+    const transcription = await transcribeYouTubeUrl(
+      audioBuffer,
+      path.basename(audioPath),
+      { language: "en" }
+    )
 
     if (!transcription.text || transcription.text.trim().length === 0) {
       throw new Error("Transcription returned empty text. The video may not contain speech or may be unavailable.")
@@ -497,6 +598,22 @@ async function processYouTubeVideoWithAssemblyAI(
   } catch (error) {
     clearTimeout(overallTimeout)
     throw error
+  } finally {
+    // Clean up temporary files
+    if (audioPath) {
+      try {
+        await fs.unlink(audioPath)
+      } catch (e) {
+        console.error(`[${contentItemId}] Failed to delete audio file:`, e)
+      }
+    }
+    if (tempDir) {
+      try {
+        await fs.rmdir(tempDir)
+      } catch (e) {
+        console.error(`[${contentItemId}] Failed to delete temp directory:`, e)
+      }
+    }
   }
 }
 

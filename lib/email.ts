@@ -54,6 +54,9 @@ export async function sendPasswordResetEmail(
     console.log("Subject: Reset Your Password - Real Growth Labs")
     console.log("=".repeat(60))
 
+    // Ensure the reset link is properly encoded
+    const encodedResetLink = encodeURI(resetLink)
+    
     const result = await resend.emails.send({
       from: fromEmail,
       to: [email], // Ensure it's an array
@@ -72,15 +75,23 @@ export async function sendPasswordResetEmail(
               <p style="color: #666; margin-bottom: 30px;">
                 You requested to reset your password for your Real Growth Labs account.
               </p>
-              <a 
-                href="${resetLink}" 
-                style="display: inline-block; background-color: #a6261c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-bottom: 20px;"
-              >
-                Reset Password
-              </a>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 20px;">
+                <tr>
+                  <td style="background-color: #a6261c; border-radius: 6px; text-align: center;">
+                    <a 
+                      href="${encodedResetLink}" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: inline-block; background-color: #a6261c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;"
+                    >
+                      Reset Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
               <p style="color: #666; font-size: 14px; margin-top: 30px;">
                 Or copy and paste this link into your browser:<br>
-                <a href="${resetLink}" style="color: #a6261c; word-break: break-all;">${resetLink}</a>
+                <a href="${encodedResetLink}" style="color: #a6261c; word-break: break-all; text-decoration: underline;">${resetLink}</a>
               </p>
               <p style="color: #999; font-size: 12px; margin-top: 30px;">
                 This link will expire in 1 hour.<br>

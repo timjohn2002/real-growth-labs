@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
     // Read file buffer
     const fileBuffer = Buffer.from(await file.arrayBuffer())
 
+    // For images, we'll store the data URL directly, so set a temporary placeholder
+    // For other types, use placeholder URL
+    const initialFileUrl = type === "image" 
+      ? "processing" // Will be replaced with data URL
+      : `/uploads/${Date.now()}-${file.name}` // Placeholder URL
+    
     // Create content item in database first
     const contentItem = await prisma.contentItem.create({
       data: {
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
         title,
         type,
         status: "pending",
-        fileUrl: `/uploads/${Date.now()}-${file.name}`, // Placeholder URL
+        fileUrl: initialFileUrl,
         metadata: JSON.stringify({
           filename: file.name,
           size: file.size,
@@ -222,6 +228,14 @@ async function processImage(contentItemId: string, fileBuffer: Buffer, filename:
   } catch (error) {
     console.error("Image processing error:", error)
     const errorMessage = error instanceof Error ? error.message : "Processing failed"
+    
+    // Log full error details for debugging
+    console.error("Full error details:", {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      contentItemId,
+      filename,
+    })
     
     await prisma.contentItem.update({
       where: { id: contentItemId },

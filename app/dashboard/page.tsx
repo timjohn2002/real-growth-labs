@@ -263,16 +263,20 @@ export default function DashboardPage() {
                   <motion.div
                     whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   >
-                    <Card className="border-border shadow-sm hover:shadow-lg transition-all relative overflow-visible">
-                      <CardContent className="p-6 pb-8">
+                    <Card className="border-border shadow-sm hover:shadow-lg transition-all relative">
+                      <CardContent className="p-4 pb-6">
                         {/* Three-dot menu button */}
-                        <div className="absolute top-2 right-2 z-20">
+                        <div className="absolute top-3 right-3 z-30">
                           <DropdownMenu
                             trigger={
                               <button
                                 type="button"
-                                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors bg-white shadow-sm border border-gray-200"
+                                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors bg-white shadow-sm border border-gray-200 flex items-center justify-center"
                                 disabled={deletingBookId === book.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  e.preventDefault()
+                                }}
                               >
                                 <MoreVertical className="h-5 w-5 text-gray-600" />
                               </button>
@@ -300,7 +304,7 @@ export default function DashboardPage() {
 
                         {/* Visual Book Cover */}
                         <motion.div
-                          className="w-full h-32 rounded-lg mb-4 relative overflow-hidden"
+                          className="w-full h-24 rounded-lg mb-3 relative overflow-hidden"
                           style={{
                             background: `linear-gradient(135deg, ${BRAND_COLOR} 0%, #d43a2e 100%)`,
                           }}

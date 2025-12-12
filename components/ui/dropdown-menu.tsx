@@ -46,13 +46,18 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
 
   const handleTriggerClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    e.preventDefault()
     setIsOpen(!isOpen)
   }
 
   return (
     <DropdownMenuContext.Provider value={{ close: closeMenu }}>
       <div className="relative" ref={menuRef}>
-        <div ref={triggerRef} onClick={handleTriggerClick}>
+        <div 
+          ref={triggerRef} 
+          onClick={handleTriggerClick}
+          className="cursor-pointer"
+        >
           {trigger}
         </div>
         <AnimatePresence>
@@ -63,7 +68,7 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.2 }}
               className={cn(
-                "absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[200px] z-50",
+                "absolute top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-[100]",
                 align === "right" ? "right-0" : "left-0"
               )}
               onClick={(e) => e.stopPropagation()}

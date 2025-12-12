@@ -73,15 +73,71 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Start YouTube processing (don't await - process in background)
+      // Try to use job queue if available, otherwise process directly
+      const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
+      
+      if (isRedisAvailable()) {
+        const youtubeQueue = getYouTubeQueue()
+        if (youtubeQueue) {
+          try {
+            const job = await youtubeQueue.add(
+              `youtube-${contentItem.id}`,
+              {
+                contentItemId: contentItem.id,
+                url,
+              },
+              {
+                jobId: `youtube-${contentItem.id}`,
+                priority: 1,
+              }
+            )
+            
+            // Update content item with job ID
+            await prisma.contentItem.update({
+              where: { id: contentItem.id },
+              data: {
+                metadata: JSON.stringify({
+                  jobId: job.id,
+                  processingStage: "Queued",
+                  processingProgress: 5,
+                }),
+              },
+            })
+            
+            return NextResponse.json({
+              id: contentItem.id,
+              status: "processing",
+              message: "YouTube video processing queued",
+              jobId: job.id,
+            })
+          } catch (queueError) {
+            console.error("Failed to queue YouTube job, falling back to direct execution:", queueError)
+            // Fall through to direct execution
+          }
+        }
+      }
+      
+      // Fallback: Start processing in background (may timeout in serverless)
+      // This will work in environments with longer timeouts or dedicated workers
       processYouTubeVideo(contentItem.id, url).catch((error) => {
         console.error("YouTube processing error:", error)
+        // Update status to error
+        prisma.contentItem.update({
+          where: { id: contentItem.id },
+          data: {
+            status: "error",
+            error: error instanceof Error ? error.message : "Processing failed",
+          },
+        }).catch((dbError) => {
+          console.error("Failed to update error status:", dbError)
+        })
       })
 
       return NextResponse.json({
         id: contentItem.id,
         status: "processing",
         message: "YouTube video processing started",
+        warning: "Processing may take several minutes. If it fails, check the error status.",
       })
     }
 
@@ -276,7 +332,7 @@ async function updateProgress(contentItemId: string, stage: string, progress: nu
   }
 }
 
-async function processYouTubeVideo(contentItemId: string, url: string) {
+export async function processYouTubeVideo(contentItemId: string, url: string) {
   let tempDir: string | null = null
   let audioPath: string | null = null
 
@@ -299,10 +355,14 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
   try {
     // Stage 1: Fetching video info (10%)
     await updateProgress(contentItemId, "Fetching video information...", 10)
+    console.log(`[${contentItemId}] Starting YouTube video processing for: ${url}`)
+    
     const videoInfo = await getYouTubeVideoInfo(url)
     if (!videoInfo) {
-      throw new Error("Failed to fetch YouTube video information")
+      throw new Error("Failed to fetch YouTube video information. The URL may be invalid or the video may be private/unavailable.")
     }
+    
+    console.log(`[${contentItemId}] Video info retrieved: ${videoInfo.title}`)
 
     // Create temporary directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-"))
@@ -312,10 +372,13 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     // Initialize yt-dlp
     // Try to find yt-dlp in common locations
     let ytDlpPath: string | undefined
+    let ytDlpAvailable = false
+    
     try {
       const { execSync } = await import("child_process")
       ytDlpPath = execSync("which yt-dlp", { encoding: "utf-8" }).trim()
-      console.log(`Found yt-dlp at: ${ytDlpPath}`)
+      ytDlpAvailable = true
+      console.log(`[${contentItemId}] Found yt-dlp at: ${ytDlpPath}`)
     } catch (e) {
       // Try common installation paths
       const commonPaths = [
@@ -327,15 +390,36 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
         try {
           await fs.access(commonPath)
           ytDlpPath = commonPath
-          console.log(`Found yt-dlp at: ${ytDlpPath}`)
+          ytDlpAvailable = true
+          console.log(`[${contentItemId}] Found yt-dlp at: ${ytDlpPath}`)
           break
         } catch {
           // Continue searching
         }
       }
-      if (!ytDlpPath) {
-        console.log("yt-dlp not found, yt-dlp-wrap will attempt to locate it")
+      if (!ytDlpAvailable) {
+        console.warn(`[${contentItemId}] yt-dlp not found in standard locations`)
+        // Try to use yt-dlp-wrap's auto-detection
+        try {
+          const testWrap = new YTDlpWrap()
+          // Check if yt-dlp-wrap can find it
+          ytDlpAvailable = true
+          console.log(`[${contentItemId}] yt-dlp-wrap will attempt to locate yt-dlp`)
+        } catch (wrapError) {
+          console.error(`[${contentItemId}] yt-dlp-wrap initialization failed:`, wrapError)
+          ytDlpAvailable = false
+        }
       }
+    }
+
+    // Check if we're in a serverless environment where yt-dlp won't work
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
+    if (isServerless && !ytDlpAvailable) {
+      throw new Error(
+        "YouTube video processing is not available in serverless environments. " +
+        "yt-dlp is required but not available. Please use a dedicated worker process with yt-dlp installed, " +
+        "or use a service that supports YouTube video processing."
+      )
     }
 
     const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
@@ -343,8 +427,8 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     // Stage 2: Downloading audio (20%)
     await updateProgress(contentItemId, "Downloading audio from YouTube...", 20)
     
-    console.log(`Downloading audio from YouTube: ${url}`)
-    console.log(`Output template: ${outputTemplate}`)
+    console.log(`[${contentItemId}] Downloading audio from YouTube: ${url}`)
+    console.log(`[${contentItemId}] Output template: ${outputTemplate}`)
     
     // Download audio only (extract audio, format mp3)
     // -x: extract audio
@@ -352,6 +436,7 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
     // -o: output template (yt-dlp will replace %(ext)s with actual extension)
     // Add timeout for download (20 minutes max)
     try {
+      console.log(`[${contentItemId}] Starting yt-dlp download...`)
       const downloadPromise = ytDlpWrap.exec([
         url,
         "-x",
@@ -365,6 +450,7 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
         "--no-warnings",
         "--extract-flat",
         "false",
+        "--verbose", // Add verbose logging
       ])
 
       // Add timeout to download
@@ -375,14 +461,25 @@ async function processYouTubeVideo(contentItemId: string, url: string) {
       })
 
       await Promise.race([downloadPromise, downloadTimeout])
-      console.log("Audio download completed successfully")
+      console.log(`[${contentItemId}] Audio download completed successfully`)
       
       // Stage 3: Audio downloaded (40%)
       await updateProgress(contentItemId, "Audio downloaded, preparing for transcription...", 40)
     } catch (execError) {
-      console.error("yt-dlp execution error:", execError)
+      console.error(`[${contentItemId}] yt-dlp execution error:`, execError)
       const errorDetails = execError instanceof Error ? execError.message : String(execError)
-      throw new Error(`Failed to download audio: ${errorDetails}`)
+      
+      // Provide more helpful error messages
+      let userFriendlyError = `Failed to download audio: ${errorDetails}`
+      if (errorDetails.includes("not found") || errorDetails.includes("command not found")) {
+        userFriendlyError = "yt-dlp is not installed or not available. YouTube video processing requires yt-dlp to be installed on the server."
+      } else if (errorDetails.includes("Private video") || errorDetails.includes("unavailable")) {
+        userFriendlyError = "The YouTube video is private, unavailable, or restricted. Please check the video URL and ensure it's publicly accessible."
+      } else if (errorDetails.includes("timeout")) {
+        userFriendlyError = "Download timed out. The video may be too long. Please try a shorter video (under 20 minutes)."
+      }
+      
+      throw new Error(userFriendlyError)
     }
 
     // Find the actual downloaded file (yt-dlp may have added extension)

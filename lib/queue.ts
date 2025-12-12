@@ -106,6 +106,44 @@ export function getAudiobookQueueEvents(): QueueEvents | null {
   }
 }
 
+// YouTube video processing queue
+let _youtubeQueue: Queue | null = null
+
+export function getYouTubeQueue(): Queue | null {
+  if (_youtubeQueue) {
+    return _youtubeQueue
+  }
+
+  const connection = getRedisConnection()
+  if (!connection) {
+    return null
+  }
+
+  try {
+    _youtubeQueue = new Queue("youtube-processing", {
+      connection,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: {
+          type: "exponential",
+          delay: 5000,
+        },
+        removeOnComplete: {
+          age: 24 * 3600, // Keep completed jobs for 24 hours
+          count: 500,
+        },
+        removeOnFail: {
+          age: 7 * 24 * 3600, // Keep failed jobs for 7 days
+        },
+      },
+    })
+    return _youtubeQueue
+  } catch (error) {
+    console.warn("Failed to create YouTube queue:", error)
+    return null
+  }
+}
+
 // Note: Use getAudiobookQueue() instead of direct export to avoid connection errors during build
 
 /**
@@ -155,6 +193,56 @@ export function initializeAudiobookWorker() {
     return worker
   } catch (error) {
     console.error("Failed to initialize audiobook worker:", error)
+    return null
+  }
+}
+
+/**
+ * Initialize the YouTube video processing worker
+ * This should be called in a separate worker process or serverless function
+ */
+export function initializeYouTubeWorker() {
+  const connection = getRedisConnection()
+  if (!connection) {
+    console.warn("Cannot initialize YouTube worker: Redis is not configured")
+    return null
+  }
+
+  try {
+    const worker = new Worker(
+      "youtube-processing",
+      async (job) => {
+        const { contentItemId, url } = job.data
+
+        // Import the processing function dynamically to avoid circular dependencies
+        const { processYouTubeVideo } = await import("@/app/api/content/scrape/route")
+        
+        // Call the processing function
+        await processYouTubeVideo(contentItemId, url)
+        
+        return { success: true, contentItemId }
+      },
+      {
+        connection,
+        concurrency: 1, // Process 1 job at a time (YouTube downloads can be resource-intensive)
+        limiter: {
+          max: 3, // Max 3 jobs per duration
+          duration: 60000, // Per minute
+        },
+      }
+    )
+
+    worker.on("completed", (job) => {
+      console.log(`YouTube processing job ${job.id} completed`)
+    })
+
+    worker.on("failed", (job, err) => {
+      console.error(`YouTube processing job ${job?.id} failed:`, err)
+    })
+
+    return worker
+  } catch (error) {
+    console.error("Failed to initialize YouTube worker:", error)
     return null
   }
 }

@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "worker": "tsx lib/workers/audiobook-worker.ts"
+    "worker": "tsx lib/workers/audiobook-worker.ts",
+    "youtube-worker": "tsx lib/workers/youtube-worker.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

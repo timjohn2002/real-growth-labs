@@ -177,26 +177,18 @@ async function processImage(contentItemId: string, fileBuffer: Buffer, filename:
 
     console.log(`Processing image upload: ${filename}`)
     
-    // Upload image to storage
-    const { uploadFile } = await import("@/lib/storage")
-    
-    // Convert Buffer to Uint8Array (which is a valid BlobPart)
-    const uint8Array = new Uint8Array(fileBuffer)
-    
-    // Create a File object from buffer for uploadFile
-    const imageFile = new File([uint8Array], filename, { type: mimeType })
-    
     // Generate unique filename
     const timestamp = Date.now()
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "-")
-    const storagePath = `content/${contentItemId}-${timestamp}-${sanitizedFilename}`
+    const uniqueFilename = `${contentItemId}-${timestamp}-${sanitizedFilename}`
     
-    // Upload to storage
-    const imageUrl = await uploadFile(imageFile, storagePath, {
-      provider: (process.env.STORAGE_PROVIDER as any) || "local",
-      bucket: process.env.STORAGE_BUCKET,
-      folder: "content-vault",
-    })
+    // For images, convert to base64 data URL and store in database
+    // This works in serverless environments without file system access
+    const base64Image = fileBuffer.toString("base64")
+    const dataUrl = `data:${mimeType};base64,${base64Image}`
+    
+    // Use data URL as the image URL (stored in database)
+    const imageUrl = dataUrl
 
     console.log(`Image uploaded successfully. URL: ${imageUrl}`)
 

@@ -9,6 +9,7 @@ const filters = [
   { id: "video", label: "Video" },
   { id: "links", label: "Links" },
   { id: "text", label: "Text" },
+  { id: "image", label: "Images" },
   { id: "processed", label: "Processed" },
   { id: "pending", label: "Pending" },
 ]

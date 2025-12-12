@@ -254,9 +254,10 @@ export function ContentDrawer({
                         variant="outline"
                         size="sm"
                         onClick={() => onReprocess(item.id)}
+                        disabled={item.status === "processing"}
                       >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Reprocess
+                        <RefreshCw className={`h-4 w-4 mr-2 ${item.status === "processing" ? "animate-spin" : ""}`} />
+                        {item.status === "error" ? "Retry" : item.status === "processing" ? "Processing..." : "Reprocess"}
                       </Button>
                       <Button
                         variant="outline"

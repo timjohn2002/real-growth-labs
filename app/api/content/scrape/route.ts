@@ -660,11 +660,13 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     // Clear timeout on error
     clearTimeout(overallTimeout)
     
-    console.error("YouTube processing error:", error)
+    console.error(`[${contentItemId}] YouTube processing error:`, error)
     
     const errorMessage = error instanceof Error 
       ? error.message 
       : "Failed to process YouTube video"
+
+    console.log(`[${contentItemId}] Saving error to database: ${errorMessage}`)
 
     // Try to update error status with retry logic
     let errorUpdateSuccess = false
@@ -675,12 +677,19 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
           data: {
             status: "error",
             error: errorMessage,
+            metadata: JSON.stringify({
+              processingStage: "Error",
+              processingProgress: 0,
+              errorDetails: errorMessage,
+              failedAt: new Date().toISOString(),
+            }),
           },
         })
         errorUpdateSuccess = true
+        console.log(`[${contentItemId}] Error status saved successfully`)
         break
       } catch (dbError) {
-        console.error(`Failed to update error status (attempt ${attempt}):`, dbError)
+        console.error(`[${contentItemId}] Failed to update error status (attempt ${attempt}):`, dbError)
         if (attempt < 3) {
           await new Promise(resolve => setTimeout(resolve, attempt * 1000))
         }
@@ -688,7 +697,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     }
     
     if (!errorUpdateSuccess) {
-      console.error("CRITICAL: Could not update error status in database. Error:", errorMessage)
+      console.error(`[${contentItemId}] CRITICAL: Could not update error status in database. Error: ${errorMessage}`)
     }
   } finally {
     // Clean up temporary files

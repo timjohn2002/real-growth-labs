@@ -149,28 +149,65 @@ export default function ContentVaultPage() {
       const item = contentItems.find((i) => i.id === id)
       if (!item) return
 
+      // Reset status to processing
+      setContentItems((prev) =>
+        prev.map((i) =>
+          i.id === id ? { ...i, status: "processing" as const, error: undefined } : i
+        )
+      )
+
       // Reprocess based on type
-      if (item.type === "audio" || item.type === "video") {
+      if (item.type === "video" && item.source) {
+        // Check if it's a YouTube URL
+        const isYouTube = item.source.includes("youtube.com") || item.source.includes("youtu.be")
+        if (isYouTube) {
+          // Reprocess YouTube video
+          await fetch("/api/content/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              url: item.source,
+              title: item.title,
+            }),
+          })
+        } else {
+          // Regular video file transcription
+          await fetch("/api/content/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ contentItemId: id }),
+          })
+        }
+      } else if (item.type === "audio") {
         await fetch("/api/content/transcribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ contentItemId: id }),
         })
       } else if (item.type === "url" && item.source) {
         await fetch("/api/content/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             url: item.source,
             title: item.title,
-            userId,
           }),
         })
       }
 
-      fetchContent()
+      // Refresh content after a short delay
+      setTimeout(() => {
+        fetchContent()
+      }, 1000)
     } catch (error) {
       console.error("Failed to reprocess:", error)
+      alert(error instanceof Error ? error.message : "Failed to reprocess content")
+      // Refresh to show updated status
+      fetchContent()
     }
   }
 

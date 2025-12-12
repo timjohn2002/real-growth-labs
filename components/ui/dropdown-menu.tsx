@@ -13,11 +13,17 @@ interface DropdownMenuProps {
 export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
+  const triggerRef = React.useRef<HTMLDivElement>(null)
 
   // Close menu when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false)
       }
     }
@@ -31,9 +37,14 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
     }
   }, [isOpen])
 
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(!isOpen)
+  }
+
   return (
     <div className="relative" ref={menuRef}>
-      <div onClick={() => setIsOpen(!isOpen)}>
+      <div ref={triggerRef} onClick={handleTriggerClick}>
         {trigger}
       </div>
       <AnimatePresence>
@@ -44,7 +55,7 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "absolute top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[200px] z-50",
+              "absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[200px] z-50",
               align === "right" ? "right-0" : "left-0"
             )}
             onClick={(e) => e.stopPropagation()}
@@ -69,8 +80,11 @@ export function DropdownMenuItem({
   const Component = href ? "a" : "button"
   
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onClick) {
-      e.preventDefault()
+      if (href) {
+        e.preventDefault()
+      }
       onClick()
     }
   }
@@ -79,7 +93,8 @@ export function DropdownMenuItem({
     <Component
       href={href}
       onClick={handleClick}
-      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center"
+      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center cursor-pointer"
+      type={Component === "button" ? "button" : undefined}
     >
       {children}
     </Component>

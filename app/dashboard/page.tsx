@@ -250,7 +250,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ gap: "1.5rem" }}>
                 {books.map((book, index) => {
                   const progress = calculateProgress(book)
                   return (
@@ -263,15 +263,15 @@ export default function DashboardPage() {
                   <motion.div
                     whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   >
-                    <Card className="border-border shadow-sm hover:shadow-lg transition-all relative">
-                      <CardContent className="p-6">
+                    <Card className="border-border shadow-sm hover:shadow-lg transition-all relative overflow-visible">
+                      <CardContent className="p-6 pb-8">
                         {/* Three-dot menu button */}
-                        <div className="absolute top-4 right-4 z-10">
+                        <div className="absolute top-2 right-2 z-20">
                           <DropdownMenu
                             trigger={
                               <button
-                                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-                                onClick={(e) => e.stopPropagation()}
+                                type="button"
+                                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors bg-white shadow-sm border border-gray-200"
                                 disabled={deletingBookId === book.id}
                               >
                                 <MoreVertical className="h-5 w-5 text-gray-600" />
@@ -280,13 +280,17 @@ export default function DashboardPage() {
                             align="right"
                           >
                             <DropdownMenuItem
-                              onClick={() => handleOpenEditor(book.id)}
+                              onClick={() => {
+                                handleOpenEditor(book.id)
+                              }}
                             >
                               <Edit className="h-4 w-4 mr-2 inline" />
                               Open in Book Editor
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDeleteBook(book.id, book.title)}
+                              onClick={() => {
+                                handleDeleteBook(book.id, book.title)
+                              }}
                             >
                               <Trash2 className="h-4 w-4 mr-2 inline text-red-600" />
                               <span className="text-red-600">Delete Book</span>

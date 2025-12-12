@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isYouTubeUrl, getYouTubeVideoInfo, extractYouTubeVideoId } from "@/lib/youtube"
+import { transcribeYouTubeUrl, isAssemblyAIConfigured } from "@/lib/assemblyai"
 import YTDlpWrap from "yt-dlp-wrap"
 import { transcribeAudioFromBuffer } from "@/lib/openai"
 import fs from "fs/promises"
@@ -344,7 +345,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
         where: { id: contentItemId },
         data: {
           status: "error",
-          error: "Processing timeout - the video may be too long or the download failed. Please try a shorter video or check the URL.",
+          error: "Processing timeout - the video may be too long or the transcription failed. Please try a shorter video or check the URL.",
         },
       })
     } catch (e) {
@@ -363,6 +364,170 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     }
     
     console.log(`[${contentItemId}] Video info retrieved: ${videoInfo.title}`)
+
+    // Check if AssemblyAI is configured - prefer it over yt-dlp
+    if (isAssemblyAIConfigured()) {
+      console.log(`[${contentItemId}] Using AssemblyAI for transcription (no download needed)`)
+      return await processYouTubeVideoWithAssemblyAI(contentItemId, url, videoInfo, overallTimeout)
+    }
+
+    // Fallback to yt-dlp if AssemblyAI is not configured
+    console.log(`[${contentItemId}] AssemblyAI not configured, falling back to yt-dlp`)
+    return await processYouTubeVideoWithYtDlp(contentItemId, url, videoInfo, overallTimeout)
+  } catch (error) {
+    // Clear timeout on error
+    clearTimeout(overallTimeout)
+    
+    console.error(`[${contentItemId}] YouTube processing error:`, error)
+    
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : "Failed to process YouTube video"
+
+    console.log(`[${contentItemId}] Saving error to database: ${errorMessage}`)
+
+    // Try to update error status with retry logic
+    let errorUpdateSuccess = false
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "error",
+            error: errorMessage,
+            metadata: JSON.stringify({
+              processingStage: "Error",
+              processingProgress: 0,
+              errorDetails: errorMessage,
+              failedAt: new Date().toISOString(),
+            }),
+          },
+        })
+        errorUpdateSuccess = true
+        console.log(`[${contentItemId}] Error status saved successfully`)
+        break
+      } catch (dbError) {
+        console.error(`[${contentItemId}] Failed to update error status (attempt ${attempt}):`, dbError)
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000))
+        }
+      }
+    }
+    
+    if (!errorUpdateSuccess) {
+      console.error(`[${contentItemId}] CRITICAL: Could not update error status in database. Error: ${errorMessage}`)
+    }
+  } finally {
+    // Clean up temporary files
+    if (audioPath) {
+      try {
+        await fs.unlink(audioPath)
+      } catch (e) {
+        console.error("Failed to delete audio file:", e)
+      }
+    }
+    if (tempDir) {
+      try {
+        await fs.rmdir(tempDir)
+      } catch (e) {
+        console.error("Failed to delete temp directory:", e)
+      }
+    }
+  }
+}
+
+/**
+ * Process YouTube video using AssemblyAI (preferred method)
+ * No download needed - AssemblyAI accepts YouTube URLs directly!
+ */
+async function processYouTubeVideoWithAssemblyAI(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+) {
+  try {
+    // Stage 2: Submitting to AssemblyAI (20%)
+    await updateProgress(contentItemId, "Submitting video to AssemblyAI for transcription...", 20)
+    console.log(`[${contentItemId}] Submitting YouTube URL to AssemblyAI: ${url}`)
+
+    // Stage 3: Transcribing (40-90%)
+    // AssemblyAI handles the transcription asynchronously
+    await updateProgress(contentItemId, "Transcribing video with AssemblyAI...", 40)
+    
+    const transcription = await transcribeYouTubeUrl(url, {
+      language: "en",
+    })
+
+    if (!transcription.text || transcription.text.trim().length === 0) {
+      throw new Error("Transcription returned empty text. The video may not contain speech or may be unavailable.")
+    }
+
+    console.log(`[${contentItemId}] Transcription complete. Text length: ${transcription.text.length} characters`)
+
+    // Stage 4: Generating summary (90%)
+    await updateProgress(contentItemId, "Generating summary...", 90)
+    
+    const summary = await generateSummary(transcription.text)
+    const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] Word count: ${wordCount}`)
+
+    // Stage 5: Saving to database (95%)
+    await updateProgress(contentItemId, "Saving to database...", 95)
+    
+    // Update content item with transcript
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcription.text,
+        rawText: transcription.text,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+        metadata: JSON.stringify({
+          ...existingMetadata,
+          processingStage: "Complete",
+          processingProgress: 100,
+          transcriptionMethod: "assemblyai",
+        }),
+      },
+    })
+
+    // Clear timeout on success
+    clearTimeout(overallTimeout)
+
+    console.log(`✅ YouTube video processed successfully with AssemblyAI: ${contentItemId}`)
+    console.log(`   - Title: ${videoInfo.title}`)
+    console.log(`   - Transcript length: ${transcription.text.length} characters`)
+    console.log(`   - Word count: ${wordCount}`)
+  } catch (error) {
+    clearTimeout(overallTimeout)
+    throw error
+  }
+}
+
+/**
+ * Process YouTube video using yt-dlp (fallback method)
+ * Only used if AssemblyAI is not configured
+ */
+async function processYouTubeVideoWithYtDlp(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+) {
+  let tempDir: string | null = null
+  let audioPath: string | null = null
+
+  try {
 
     // Create temporary directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-"))
@@ -675,6 +840,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
               ...existingMetadata,
               processingStage: "Complete",
               processingProgress: 100,
+              transcriptionMethod: "yt-dlp",
             }),
           },
         })
@@ -700,11 +866,31 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     // Clear timeout on success
     clearTimeout(overallTimeout)
 
-    console.log(`✅ YouTube video processed successfully: ${contentItemId}`)
+    console.log(`✅ YouTube video processed successfully with yt-dlp: ${contentItemId}`)
     console.log(`   - Title: ${videoInfo.title}`)
     console.log(`   - Transcript length: ${transcription.text.length} characters`)
     console.log(`   - Word count: ${wordCount}`)
   } catch (error) {
+    clearTimeout(overallTimeout)
+    throw error
+  } finally {
+    // Clean up temporary files
+    if (audioPath) {
+      try {
+        await fs.unlink(audioPath)
+      } catch (e) {
+        console.error(`[${contentItemId}] Failed to delete audio file:`, e)
+      }
+    }
+    if (tempDir) {
+      try {
+        await fs.rmdir(tempDir)
+      } catch (e) {
+        console.error(`[${contentItemId}] Failed to delete temp directory:`, e)
+      }
+    }
+  }
+}
     // Clear timeout on error
     clearTimeout(overallTimeout)
     

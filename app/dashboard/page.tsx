@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, BookOpen, TrendingUp, Clock, Loader2 } from "lucide-react"
+import { Plus, BookOpen, TrendingUp, Clock, Loader2, MoreVertical, Trash2, Edit } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { BookJourneyTimeline } from "@/components/dashboard/BookJourneyTimeline"
@@ -15,6 +15,7 @@ import { BookRecommendations } from "@/components/dashboard/BookRecommendations"
 import { PerformanceOverview } from "@/components/dashboard/PerformanceOverview"
 import { QuickActionsLauncher } from "@/components/dashboard/QuickActionsLauncher"
 import { BookFocusPreview } from "@/components/dashboard/BookFocusPreview"
+import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [currentBook, setCurrentBook] = useState<Book | null>(null)
+  const [deletingBookId, setDeletingBookId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
@@ -109,6 +111,50 @@ export default function DashboardPage() {
       return 10
     }
     return 30
+  }
+
+  const handleDeleteBook = async (bookId: string, bookTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${bookTitle}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setDeletingBookId(bookId)
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        // Remove book from state
+        setBooks(books.filter((b) => b.id !== bookId))
+        
+        // Update stats
+        const updatedBooks = books.filter((b) => b.id !== bookId)
+        const totalBooks = updatedBooks.length
+        const published = updatedBooks.filter((b) => b.status === "published").length
+        const inProgress = updatedBooks.filter((b) => 
+          b.status === "draft" || b.status === "in_progress"
+        ).length
+        setStats({ totalBooks, published, inProgress })
+        
+        // Update current book if needed
+        if (currentBook?.id === bookId) {
+          setCurrentBook(updatedBooks[0] || null)
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        alert(errorData.error || "Failed to delete book. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error deleting book:", error)
+      alert("An error occurred while deleting the book. Please try again.")
+    } finally {
+      setDeletingBookId(null)
+    }
+  }
+
+  const handleOpenEditor = (bookId: string) => {
+    router.push(`/dashboard/book-editor?id=${bookId}`)
   }
 
   return (
@@ -217,8 +263,37 @@ export default function DashboardPage() {
                   <motion.div
                     whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   >
-                    <Card className="border-border shadow-sm hover:shadow-lg transition-all">
+                    <Card className="border-border shadow-sm hover:shadow-lg transition-all relative">
                       <CardContent className="p-6">
+                        {/* Three-dot menu button */}
+                        <div className="absolute top-4 right-4 z-10">
+                          <DropdownMenu
+                            trigger={
+                              <button
+                                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                                disabled={deletingBookId === book.id}
+                              >
+                                <MoreVertical className="h-5 w-5 text-gray-600" />
+                              </button>
+                            }
+                            align="right"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => handleOpenEditor(book.id)}
+                            >
+                              <Edit className="h-4 w-4 mr-2 inline" />
+                              Open in Book Editor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteBook(book.id, book.title)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2 inline text-red-600" />
+                              <span className="text-red-600">Delete Book</span>
+                            </DropdownMenuItem>
+                          </DropdownMenu>
+                        </div>
+
                         {/* Visual Book Cover */}
                         <motion.div
                           className="w-full h-32 rounded-lg mb-4 relative overflow-hidden"

@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
 import CharacterCount from "@tiptap/extension-character-count"
+import Image from "@tiptap/extension-image"
 import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Sparkles, Undo2, Redo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
@@ -40,6 +41,10 @@ export function TipTapEditor({
         placeholder,
       }),
       CharacterCount,
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
     ],
     content,
     immediatelyRender: false,
@@ -81,9 +86,29 @@ export function TipTapEditor({
   // Handle content insertion
   useEffect(() => {
     if (editor && insertContent) {
-      // Insert content at cursor position
-      const text = insertContent.replace(/\n/g, "<br>")
-      editor.commands.insertContent(`<p>${text}</p>`)
+      // Check if content is an image markdown: ![alt](url)
+      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([^)]+)\)$/
+      const imageMatch = insertContent.trim().match(imageMarkdownRegex)
+      
+      if (imageMatch) {
+        // It's an image - extract alt text and URL
+        const altText = imageMatch[1] || "Image"
+        const imageUrl = imageMatch[2]
+        
+        // Insert as HTML img tag
+        editor.commands.insertContent({
+          type: "image",
+          attrs: {
+            src: imageUrl,
+            alt: altText,
+          },
+        })
+      } else {
+        // Regular text content - insert as HTML
+        const text = insertContent.replace(/\n/g, "<br>")
+        editor.commands.insertContent(`<p>${text}</p>`)
+      }
+      
       onInsertComplete?.()
     }
   }, [insertContent, editor, onInsertComplete])
@@ -203,7 +228,18 @@ export function TipTapEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto bg-background">
-        <EditorContent editor={editor} />
+        <EditorContent 
+          editor={editor}
+          className="prose prose-sm max-w-none"
+        />
+        <style jsx global>{`
+          .ProseMirror img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 1rem 0;
+          }
+        `}</style>
       </div>
     </div>
   )

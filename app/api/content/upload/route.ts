@@ -190,13 +190,19 @@ async function processImage(contentItemId: string, fileBuffer: Buffer, filename:
     
     // For images, convert to base64 data URL and store in database
     // This works in serverless environments without file system access
+    // Note: Base64 increases size by ~33%, so we check file size first
+    const maxSizeBytes = 10 * 1024 * 1024 // 10MB limit for base64 encoding
+    if (fileBuffer.length > maxSizeBytes) {
+      throw new Error(`Image is too large (${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB). Maximum size is 10MB.`)
+    }
+    
     const base64Image = fileBuffer.toString("base64")
     const dataUrl = `data:${mimeType};base64,${base64Image}`
     
     // Use data URL as the image URL (stored in database)
     const imageUrl = dataUrl
 
-    console.log(`Image uploaded successfully. URL: ${imageUrl}`)
+    console.log(`Image uploaded successfully. Size: ${(fileBuffer.length / 1024).toFixed(2)}KB, Base64 size: ${(dataUrl.length / 1024).toFixed(2)}KB`)
 
     // Get the content item to use its title for summary
     const contentItem = await prisma.contentItem.findUnique({

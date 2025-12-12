@@ -180,8 +180,14 @@ async function processImage(contentItemId: string, fileBuffer: Buffer, filename:
     // Upload image to storage
     const { uploadFile } = await import("@/lib/storage")
     
-    // Create a File-like object from buffer for uploadFile
-    const imageFile = new File([fileBuffer], filename, { type: mimeType })
+    // Convert Buffer to ArrayBuffer for File constructor
+    const arrayBuffer = fileBuffer.buffer.slice(
+      fileBuffer.byteOffset,
+      fileBuffer.byteOffset + fileBuffer.byteLength
+    )
+    
+    // Create a File object from buffer for uploadFile
+    const imageFile = new File([arrayBuffer], filename, { type: mimeType })
     
     // Generate unique filename
     const timestamp = Date.now()

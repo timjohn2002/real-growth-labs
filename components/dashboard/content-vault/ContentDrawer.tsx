@@ -247,38 +247,43 @@ export function ContentDrawer({
               {/* Actions Footer */}
               <div className="border-t border-gray-200 p-6">
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onReprocess(item.id)}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Reprocess
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      console.log("Improve Summary button clicked for:", item.id)
-                      onImproveSummary(item.id)
-                    }}
-                    disabled={isImprovingSummary}
-                    className={isImprovingSummary ? "opacity-50 cursor-not-allowed" : ""}
-                  >
-                    {isImprovingSummary ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Improving...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Improve Summary
-                      </>
-                    )}
-                  </Button>
+                  {/* Only show Reprocess and Improve Summary for non-image content */}
+                  {item.type !== "image" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onReprocess(item.id)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reprocess
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          console.log("Improve Summary button clicked for:", item.id)
+                          onImproveSummary(item.id)
+                        }}
+                        disabled={isImprovingSummary}
+                        className={isImprovingSummary ? "opacity-50 cursor-not-allowed" : ""}
+                      >
+                        {isImprovingSummary ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Improving...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Improve Summary
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"

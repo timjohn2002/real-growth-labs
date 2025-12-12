@@ -47,8 +47,34 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
   const handleTriggerClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    setIsOpen(!isOpen)
+    console.log("Dropdown trigger clicked, isOpen:", isOpen) // Debug log
+    setIsOpen((prev) => {
+      console.log("Setting isOpen to:", !prev) // Debug log
+      return !prev
+    })
   }
+
+  // Handle clicks on the trigger element itself
+  React.useEffect(() => {
+    const triggerElement = triggerRef.current
+    if (!triggerElement) return
+
+    const handleClick = (e: MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      console.log("Trigger element clicked") // Debug log
+      setIsOpen((prev) => !prev)
+    }
+
+    // Find the button inside the trigger
+    const button = triggerElement.querySelector("button")
+    if (button) {
+      button.addEventListener("click", handleClick)
+      return () => {
+        button.removeEventListener("click", handleClick)
+      }
+    }
+  }, [])
 
   return (
     <DropdownMenuContext.Provider value={{ close: closeMenu }}>

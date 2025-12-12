@@ -273,10 +273,6 @@ export default function DashboardPage() {
                                 type="button"
                                 className="p-1.5 rounded-full hover:bg-gray-100 transition-colors bg-white shadow-sm border border-gray-200 flex items-center justify-center"
                                 disabled={deletingBookId === book.id}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  e.preventDefault()
-                                }}
                               >
                                 <MoreVertical className="h-5 w-5 text-gray-600" />
                               </button>
@@ -315,7 +311,7 @@ export default function DashboardPage() {
                               animate={{ rotate: [0, 5, -5, 0] }}
                               transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
                             >
-                              <BookOpen className="h-12 w-12 text-white/80" />
+                              <BookOpen className="h-10 w-10 text-white/80" />
                             </motion.div>
                           </div>
                         </motion.div>

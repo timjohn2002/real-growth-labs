@@ -17,6 +17,8 @@ interface ProfileSectionProps {
     name: string
     email: string
     avatar?: string
+    createdAt?: string
+    updatedAt?: string
   }
   onUpdate: (updates: { name?: string; email?: string; avatar?: string }) => void
 }

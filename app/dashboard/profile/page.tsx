@@ -13,36 +13,16 @@ export default function ProfilePage() {
     name: string
     email: string
     avatar: string | undefined
+    createdAt?: string
+    updatedAt?: string
   }>({
-    name: "Evgeny Timofeev",
-    email: "evgeny@example.com",
+    name: "",
+    email: "",
     avatar: undefined,
   })
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize theme from current document state to preserve theme across navigation
-  const getInitialTheme = (): "light" | "dark" => {
-    if (typeof window === "undefined") return "light"
-    
-    // Check if theme is stored in localStorage
-    const storedTheme = localStorage.getItem("theme") as "light" | "dark" | null
-    if (storedTheme && (storedTheme === "light" || storedTheme === "dark")) {
-      return storedTheme
-    }
-    
-    // Check current HTML class
-    const html = document.documentElement
-    if (html.classList.contains("dark")) {
-      return "dark"
-    }
-    if (html.classList.contains("light")) {
-      return "light"
-    }
-    
-    // Default to light
-    return "light"
-  }
-
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme)
+  const [theme] = useState<"light" | "dark">("light")
   const [autosaveFrequency, setAutosaveFrequency] = useState("5")
   const [notifications, setNotifications] = useState({
     audiobookReady: true,
@@ -50,29 +30,25 @@ export default function ProfilePage() {
     weeklyProgress: false,
   })
 
-  // Apply theme immediately on mount to prevent flash
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const html = document.documentElement
-      const currentTheme = getInitialTheme()
-      
-      html.classList.remove("light", "dark")
-      html.classList.add(currentTheme)
-    }
-  }, [])
 
   useEffect(() => {
     // Load user data from API
     const loadUser = async () => {
       try {
-        const response = await fetch("/api/user")
+        setIsLoading(true)
+        const response = await fetch("/api/user", {
+          credentials: "include",
+        })
+        
         if (response.ok) {
           const data = await response.json()
           if (data.user) {
             setUser({
-              name: data.user.name || data.user.email.split("@")[0] || "User",
-              email: data.user.email,
-              avatar: data.user.avatar,
+              name: data.user.name || data.user.email?.split("@")[0] || "User",
+              email: data.user.email || "",
+              avatar: data.user.avatar || undefined,
+              createdAt: data.user.createdAt,
+              updatedAt: data.user.updatedAt,
             })
             
             // Load preferences
@@ -87,19 +63,38 @@ export default function ProfilePage() {
                 prefs = {}
               }
               
-              if (prefs.theme && (prefs.theme === "light" || prefs.theme === "dark")) {
-                setTheme(prefs.theme)
-                // Apply theme immediately
-                if (typeof window !== "undefined") {
-                  const html = document.documentElement
-                  html.classList.remove("light", "dark")
-                  html.classList.add(prefs.theme)
-                  // Store in localStorage for persistence
-                  localStorage.setItem("theme", prefs.theme)
+              if (prefs.autosaveFrequency) setAutosaveFrequency(prefs.autosaveFrequency)
+              if (prefs.notifications) {
+                setNotifications({
+                  audiobookReady: prefs.notifications.audiobookReady ?? true,
+                  bookReviewReady: prefs.notifications.bookReviewReady ?? true,
+                  weeklyProgress: prefs.notifications.weeklyProgress ?? false,
+                })
+              }
+            }
+          }
+        } else if (response.status === 401) {
+          // Not authenticated, redirect to login
+          window.location.href = "/login"
+          return
+        } else {
+          console.error("Failed to load user data:", response.status)
+          // Fallback to localStorage
+          if (typeof window !== "undefined") {
+            try {
+              const userData = localStorage.getItem("user")
+              if (userData) {
+                const parsed = JSON.parse(userData)
+                if (parsed.email) {
+                  setUser((prev) => ({
+                    ...prev,
+                    email: parsed.email,
+                    name: parsed.name || parsed.email.split("@")[0] || prev.name,
+                  }))
                 }
               }
-              if (prefs.autosaveFrequency) setAutosaveFrequency(prefs.autosaveFrequency)
-              if (prefs.notifications) setNotifications(prefs.notifications)
+            } catch (err) {
+              console.error("Error loading from localStorage:", err)
             }
           }
         }
@@ -115,7 +110,7 @@ export default function ProfilePage() {
                 setUser((prev) => ({
                   ...prev,
                   email: parsed.email,
-                  name: parsed.email.split("@")[0] || prev.name,
+                  name: parsed.name || parsed.email.split("@")[0] || prev.name,
                 }))
               }
             }
@@ -123,6 +118,8 @@ export default function ProfilePage() {
             console.error("Error loading from localStorage:", err)
           }
         }
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -133,58 +130,46 @@ export default function ProfilePage() {
     setUser((prev) => ({ ...prev, ...updates }))
     
     try {
-      await fetch("/api/user", {
+      const response = await fetch("/api/user", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(updates),
       })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.user) {
+          setUser((prev) => ({
+            ...prev,
+            ...updates,
+            updatedAt: data.user.updatedAt,
+          }))
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Failed to update user:", errorData)
+        alert(errorData.error || "Failed to update profile. Please try again.")
+      }
     } catch (error) {
       console.error("Failed to update user:", error)
+      alert("An error occurred while updating your profile. Please try again.")
     }
   }
 
-  const handleThemeChange = async (newTheme: "light" | "dark") => {
-    setTheme(newTheme)
-    
-    // Apply theme to document immediately
-    if (typeof window !== "undefined") {
-      const html = document.documentElement
-      html.classList.remove("light", "dark")
-      html.classList.add(newTheme)
-      
-      // Store in localStorage for persistence across navigation
-      localStorage.setItem("theme", newTheme)
-    }
-    
-    // Save to database
-    await savePreferences(newTheme, autosaveFrequency, notifications)
-  }
-
-  // Apply theme when theme state changes (from API load)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const html = document.documentElement
-      html.classList.remove("light", "dark")
-      html.classList.add(theme)
-      
-      // Store in localStorage for persistence
-      localStorage.setItem("theme", theme)
-    }
-  }, [theme])
 
   const handleAutosaveChange = async (newFrequency: string) => {
     setAutosaveFrequency(newFrequency)
-    await savePreferences(theme, newFrequency, notifications)
+    await savePreferences(newFrequency, notifications)
   }
 
   const handleNotificationChange = async (key: string, value: boolean) => {
     const updatedNotifications = { ...notifications, [key]: value }
     setNotifications(updatedNotifications)
-    await savePreferences(theme, autosaveFrequency, updatedNotifications)
+    await savePreferences(autosaveFrequency, updatedNotifications)
   }
 
   const savePreferences = async (
-    themeValue: "light" | "dark",
     autosaveValue: string,
     notificationsValue: typeof notifications
   ) => {
@@ -194,7 +179,6 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           preferences: {
-            theme: themeValue,
             autosaveFrequency: autosaveValue,
             notifications: notificationsValue,
           },
@@ -238,15 +222,19 @@ export default function ProfilePage() {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Personal Information */}
-        <ProfileSection user={user} onUpdate={handleUserUpdate} />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-muted-foreground">Loading profile...</div>
+          </div>
+        ) : (
+          <>
+            {/* Personal Information */}
+            <ProfileSection user={user} onUpdate={handleUserUpdate} />
 
         {/* Account Settings */}
         <AccountPreferences
-          theme={theme}
           autosaveFrequency={autosaveFrequency}
           notifications={notifications}
-          onThemeChange={handleThemeChange}
           onAutosaveChange={handleAutosaveChange}
           onNotificationChange={handleNotificationChange}
         />
@@ -285,8 +273,10 @@ export default function ProfilePage() {
           onUpdatePayment={handleUpdatePayment}
         />
 
-        {/* Danger Zone */}
-        <DangerZone />
+            {/* Danger Zone */}
+            <DangerZone />
+          </>
+        )}
       </div>
     </div>
   )

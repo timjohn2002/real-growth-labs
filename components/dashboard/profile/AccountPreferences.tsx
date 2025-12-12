@@ -12,26 +12,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Moon, Sun, Bell, Link as LinkIcon } from "lucide-react"
+import { Bell, Link as LinkIcon } from "lucide-react"
 
 interface AccountPreferencesProps {
-  theme: "light" | "dark"
   autosaveFrequency: string
   notifications: {
     audiobookReady: boolean
     bookReviewReady: boolean
     weeklyProgress: boolean
   }
-  onThemeChange: (theme: "light" | "dark") => void
   onAutosaveChange: (frequency: string) => void
   onNotificationChange: (key: string, value: boolean) => void
 }
 
 export function AccountPreferences({
-  theme,
   autosaveFrequency,
   notifications,
-  onThemeChange,
   onAutosaveChange,
   onNotificationChange,
 }: AccountPreferencesProps) {
@@ -46,36 +42,6 @@ export function AccountPreferences({
           <h3 className="text-lg font-semibold text-foreground mb-6">Account Settings</h3>
 
           <div className="space-y-6">
-            {/* Theme */}
-            <div className="space-y-3">
-              <Label>Theme</Label>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="theme"
-                    value="light"
-                    checked={theme === "light"}
-                    onChange={() => onThemeChange("light")}
-                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
-                  />
-                  <Sun className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">Light</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="theme"
-                    value="dark"
-                    checked={theme === "dark"}
-                    onChange={() => onThemeChange("dark")}
-                    className="w-4 h-4 text-[#a6261c] border-input focus:ring-[#a6261c]"
-                  />
-                  <Moon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">Dark</span>
-                </label>
-              </div>
-            </div>
 
             {/* Autosave Frequency */}
             <div className="space-y-2">

@@ -15,21 +15,21 @@ if (!worker) {
   process.exit(1)
 }
 
+// At this point, worker is guaranteed to be non-null
+// TypeScript needs help understanding this in async callbacks
+const activeWorker = worker
+
 console.log("Audiobook generation worker started")
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, shutting down worker...")
-  if (worker) {
-    await worker.close()
-  }
+  await activeWorker.close()
   process.exit(0)
 })
 
 process.on("SIGINT", async () => {
   console.log("SIGINT received, shutting down worker...")
-  if (worker) {
-    await worker.close()
-  }
+  await activeWorker.close()
   process.exit(0)
 })

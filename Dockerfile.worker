@@ -1,0 +1,32 @@
+FROM node:20-slim
+
+# Install system dependencies and yt-dlp
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    ffmpeg \
+    curl \
+    && pip3 install yt-dlp \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify yt-dlp installation
+RUN yt-dlp --version
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy Prisma schema and generate client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy source code
+COPY . .
+
+# Expose port (if needed for health checks)
+EXPOSE 3000
+
+# Start worker
+CMD ["npm", "run", "youtube-worker"]

@@ -10,10 +10,17 @@ interface DropdownMenuProps {
   align?: "left" | "right"
 }
 
+// Create a context to share the close function with menu items
+const DropdownMenuContext = React.createContext<{ close: () => void } | null>(null)
+
 export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLDivElement>(null)
+
+  const closeMenu = React.useCallback(() => {
+    setIsOpen(false)
+  }, [])
 
   // Close menu when clicking outside
   React.useEffect(() => {
@@ -43,28 +50,30 @@ export function DropdownMenu({ trigger, children, align = "left" }: DropdownMenu
   }
 
   return (
-    <div className="relative" ref={menuRef}>
-      <div ref={triggerRef} onClick={handleTriggerClick}>
-        {trigger}
+    <DropdownMenuContext.Provider value={{ close: closeMenu }}>
+      <div className="relative" ref={menuRef}>
+        <div ref={triggerRef} onClick={handleTriggerClick}>
+          {trigger}
+        </div>
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className={cn(
+                "absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[200px] z-50",
+                align === "right" ? "right-0" : "left-0"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {children}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2 }}
-            className={cn(
-              "absolute top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[200px] z-50",
-              align === "right" ? "right-0" : "left-0"
-            )}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    </DropdownMenuContext.Provider>
   )
 }
 
@@ -78,6 +87,7 @@ export function DropdownMenuItem({
   onClick?: () => void
 }) {
   const Component = href ? "a" : "button"
+  const context = React.useContext(DropdownMenuContext)
   
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -86,6 +96,10 @@ export function DropdownMenuItem({
         e.preventDefault()
       }
       onClick()
+      // Close the menu after clicking an item
+      if (context) {
+        context.close()
+      }
     }
   }
   

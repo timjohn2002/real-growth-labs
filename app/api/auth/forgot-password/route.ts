@@ -77,11 +77,22 @@ export async function POST(request: NextRequest) {
     // Log email result
     if (emailResult.success) {
       console.log("✅ Password reset email sent successfully")
+      console.log("Email ID:", emailResult.emailId)
     } else {
-      console.error("❌ Failed to send password reset email:", emailResult.error)
+      console.error("=".repeat(60))
+      console.error("❌ FAILED TO SEND PASSWORD RESET EMAIL")
+      console.error("=".repeat(60))
+      console.error("Error:", emailResult.error)
       if (emailResult.details) {
         console.error("Error details:", emailResult.details)
       }
+      console.error("=".repeat(60))
+      console.error("TROUBLESHOOTING:")
+      console.error("1. Check RESEND_API_KEY is set correctly in Vercel")
+      console.error("2. Verify domain 'labs.realgrowth.art' is verified in Resend")
+      console.error("3. Check RESEND_FROM_EMAIL matches verified domain")
+      console.error("4. Check Resend dashboard for API errors")
+      console.error("=".repeat(60))
     }
 
     // In development mode, also return the reset link for easy testing

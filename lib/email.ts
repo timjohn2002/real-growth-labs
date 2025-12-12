@@ -27,8 +27,33 @@ export async function sendPasswordResetEmail(
     // Use verified domain: labs.realgrowth.art
     const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art"
     
-    console.log("Sending password reset email:", { to: email, from: fromEmail })
+    // Validate from email is from verified domain
+    if (!fromEmail.includes("@labs.realgrowth.art")) {
+      console.error("❌ From email must be from verified domain labs.realgrowth.art")
+      console.error("Current from email:", fromEmail)
+      return {
+        success: false,
+        error: `From email must be from verified domain. Current: ${fromEmail}`,
+      }
+    }
     
+    console.log("=".repeat(60))
+    console.log("📧 PREPARING TO SEND EMAIL")
+    console.log("=".repeat(60))
+    console.log("From:", fromEmail)
+    console.log("To:", email)
+    console.log("RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY)
+    console.log("RESEND_API_KEY length:", process.env.RESEND_API_KEY?.length || 0)
+    console.log("=".repeat(60))
+    
+    console.log("=".repeat(60))
+    console.log("📧 RESEND EMAIL SEND REQUEST")
+    console.log("=".repeat(60))
+    console.log("From:", fromEmail)
+    console.log("To:", email)
+    console.log("Subject: Reset Your Password - Real Growth Labs")
+    console.log("=".repeat(60))
+
     const result = await resend.emails.send({
       from: fromEmail,
       to: [email], // Ensure it's an array
@@ -79,15 +104,57 @@ export async function sendPasswordResetEmail(
       `,
     })
 
-    console.log("Email sent successfully:", JSON.stringify(result, null, 2))
+    console.log("=".repeat(60))
+    console.log("📧 RESEND API RESPONSE")
+    console.log("=".repeat(60))
+    console.log("Full response:", JSON.stringify(result, null, 2))
+    console.log("Response type:", typeof result)
+    console.log("Response keys:", Object.keys(result || {}))
+    console.log("=".repeat(60))
     
     // Extract email ID from Resend response
-    const emailId = (result as any).data?.id || (result as any).id
-    console.log("Resend Email ID:", emailId)
+    // Resend API returns: { id: "..." } directly
+    // Resend SDK might wrap it: { data: { id: "..." } }
+    const emailId = (result as any)?.id || (result as any)?.data?.id
     
-    if (!emailId) {
-      console.warn("Warning: No email ID returned from Resend. Email may not have been sent.")
+    console.log("Extracted Email ID:", emailId)
+    console.log("Result structure:", {
+      hasId: !!(result as any)?.id,
+      hasData: !!(result as any)?.data,
+      hasDataId: !!(result as any)?.data?.id,
+      resultKeys: Object.keys(result || {}),
+      dataKeys: (result as any)?.data ? Object.keys((result as any).data) : null,
+    })
+    
+    // Check for errors in response
+    if ((result as any)?.error) {
+      console.error("❌ Resend returned an error:", (result as any).error)
+      return {
+        success: false,
+        error: (result as any).error.message || "Resend API error",
+        details: JSON.stringify((result as any).error, null, 2),
+      }
     }
+    
+    // If no email ID, treat as failure
+    if (!emailId) {
+      console.error("❌ CRITICAL: No email ID returned from Resend!")
+      console.error("This usually means the email was NOT sent.")
+      console.error("Possible causes:")
+      console.error("  1. Invalid RESEND_API_KEY")
+      console.error("  2. From email not authorized for domain")
+      console.error("  3. Domain not verified in Resend")
+      console.error("  4. Resend API issue")
+      
+      return {
+        success: false,
+        error: "No email ID returned from Resend. Email was likely not sent. Please check your Resend configuration.",
+        details: `Full response: ${JSON.stringify(result, null, 2)}`,
+      }
+    }
+    
+    console.log("✅ Email sent successfully! Email ID:", emailId)
+    console.log("=".repeat(60))
     
     return { 
       success: true, 

@@ -228,18 +228,7 @@ export function TipTapEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto bg-background">
-        <EditorContent 
-          editor={editor}
-          className="prose prose-sm max-w-none"
-        />
-        <style jsx global>{`
-          .ProseMirror img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            margin: 1rem 0;
-          }
-        `}</style>
+        <EditorContent editor={editor} />
       </div>
     </div>
   )

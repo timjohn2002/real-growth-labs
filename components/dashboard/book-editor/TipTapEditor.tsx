@@ -87,22 +87,32 @@ export function TipTapEditor({
   useEffect(() => {
     if (editor && insertContent) {
       // Check if content is an image markdown: ![alt](url)
-      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([^)]+)\)$/
-      const imageMatch = insertContent.trim().match(imageMarkdownRegex)
+      // Handle both single-line and multi-line base64 URLs
+      const trimmedContent = insertContent.trim()
+      
+      // More flexible regex that handles long base64 URLs (including newlines)
+      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([\s\S]+)\)$/
+      const imageMatch = trimmedContent.match(imageMarkdownRegex)
       
       if (imageMatch) {
         // It's an image - extract alt text and URL
         const altText = imageMatch[1] || "Image"
-        const imageUrl = imageMatch[2]
+        // Clean up the URL (remove any whitespace/newlines from base64)
+        const imageUrl = imageMatch[2].trim().replace(/\s+/g, "")
         
-        // Insert as HTML img tag
-        editor.commands.insertContent({
-          type: "image",
-          attrs: {
-            src: imageUrl,
-            alt: altText,
-          },
+        console.log("Inserting image:", { 
+          altText, 
+          urlLength: imageUrl.length, 
+          urlPreview: imageUrl.substring(0, 50) + "...",
+          isBase64: imageUrl.startsWith("data:")
         })
+        
+        // Insert as image node using TipTap's image extension
+        // Use chain().focus() to ensure editor is focused, then setImage
+        editor.chain().focus().setImage({ 
+          src: imageUrl, 
+          alt: altText 
+        }).run()
       } else {
         // Regular text content - insert as HTML
         const text = insertContent.replace(/\n/g, "<br>")

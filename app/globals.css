@@ -53,6 +53,14 @@
   border-radius: 8px;
   margin: 1rem 0;
   display: block;
+  object-fit: contain;
+}
+
+/* Ensure TipTap image nodes render properly */
+.ProseMirror img[data-type="image"] {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {

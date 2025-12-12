@@ -24,7 +24,8 @@ export async function sendPasswordResetEmail(
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
+    // Use verified domain: labs.realgrowth.art
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art"
     
     console.log("Sending password reset email:", { to: email, from: fromEmail })
     
@@ -137,7 +138,8 @@ export async function sendWelcomeEmail(
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
+    // Use verified domain: labs.realgrowth.art
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art"
     
     await resend.emails.send({
       from: fromEmail,

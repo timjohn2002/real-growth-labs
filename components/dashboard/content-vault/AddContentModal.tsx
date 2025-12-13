@@ -67,8 +67,8 @@ export function AddContentModal({ isOpen, onClose, onSelectType }: AddContentMod
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={type.disabled ? {} : { scale: 1.02, y: -2 }}
+                  whileTap={type.disabled ? {} : { scale: 0.98 }}
                 >
                   <Card
                     className={`border-gray-200 shadow-sm transition-all h-full ${

@@ -177,6 +177,9 @@ export async function POST(request: NextRequest) {
 
 async function scrapeUrl(contentItemId: string, url: string) {
   try {
+    // Stage 1: Initializing (10%)
+    await updateProgress(contentItemId, "Initializing...", 10)
+    
     // Check if it's a YouTube URL (double-check)
     const parsedUrl = new URL(url)
     const isYouTube = parsedUrl.hostname.includes("youtube.com") || parsedUrl.hostname.includes("youtu.be")
@@ -185,6 +188,9 @@ async function scrapeUrl(contentItemId: string, url: string) {
       throw new Error("YouTube URLs cannot be scraped directly. Please use a different method to extract content.")
     }
 
+    // Stage 2: Fetching URL (20-40%)
+    await updateProgress(contentItemId, "Fetching webpage...", 20)
+    
     // Fetch the URL with timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
@@ -199,6 +205,7 @@ async function scrapeUrl(contentItemId: string, url: string) {
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
+      await updateProgress(contentItemId, "Downloading content...", 40)
     } catch (fetchError) {
       clearTimeout(timeoutId)
       if (fetchError instanceof Error && fetchError.name === "AbortError") {
@@ -213,21 +220,32 @@ async function scrapeUrl(contentItemId: string, url: string) {
 
     const html = await response.text()
 
+    // Stage 3: Extracting text (50-60%)
+    await updateProgress(contentItemId, "Extracting text content...", 50)
+    
     // Extract text content from HTML
-    // Simple extraction - in production, use a library like cheerio or puppeteer
     const text = extractTextFromHTML(html)
 
     if (!text || text.trim().length === 0) {
       throw new Error("No text content found")
     }
 
+    await updateProgress(contentItemId, "Processing content...", 60)
+    
     const wordCount = text.split(/\s+/).filter(Boolean).length
+    
+    // Stage 4: Generating summary (70-90%)
+    await updateProgress(contentItemId, "Generating summary with AI...", 70)
     const summary = await generateSummary(text)
+    await updateProgress(contentItemId, "Finalizing...", 90)
 
     // Extract metadata
     const title = extractTitle(html) || url
     const thumbnail = extractThumbnail(html)
 
+    // Stage 5: Saving (95-100%)
+    await updateProgress(contentItemId, "Saving to database...", 95)
+    
     await prisma.contentItem.update({
       where: { id: contentItemId },
       data: {
@@ -239,6 +257,10 @@ async function scrapeUrl(contentItemId: string, url: string) {
         summary,
         thumbnail,
         processedAt: new Date(),
+        metadata: JSON.stringify({
+          processingStage: "Complete",
+          processingProgress: 100,
+        }),
       },
     })
   } catch (error) {
@@ -247,6 +269,10 @@ async function scrapeUrl(contentItemId: string, url: string) {
       data: {
         status: "error",
         error: error instanceof Error ? error.message : "Scraping failed",
+        metadata: JSON.stringify({
+          processingStage: "Error",
+          processingProgress: 0,
+        }),
       },
     })
   }

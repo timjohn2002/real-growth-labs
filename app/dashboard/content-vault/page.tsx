@@ -99,7 +99,7 @@ export default function ContentVaultPage() {
   useEffect(() => {
     fetchContent()
     
-    // Poll for updates on processing items
+    // Poll for updates on processing items - more frequent for better progress accuracy
     const interval = setInterval(() => {
       const hasProcessing = contentItems.some(
         (item) => item.status === "processing" || item.status === "pending"
@@ -107,7 +107,7 @@ export default function ContentVaultPage() {
       if (hasProcessing) {
         fetchContent()
       }
-    }, 5000) // Poll every 5 seconds
+    }, 2000) // Poll every 2 seconds for more accurate progress updates
 
     return () => clearInterval(interval)
   }, [])
@@ -120,7 +120,7 @@ export default function ContentVaultPage() {
     if (hasProcessing) {
       const interval = setInterval(() => {
         fetchContent()
-      }, 5000)
+      }, 2000) // Poll every 2 seconds for more accurate progress updates
       return () => clearInterval(interval)
     }
   }, [contentItems.length])

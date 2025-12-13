@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
-import { Video, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, Loader2 } from "lucide-react"
+import { Video, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const BRAND_COLOR = "#a6261c"
@@ -28,6 +28,7 @@ interface ContentCardProps {
   item: ContentItem
   onView: (item: ContentItem) => void
   onDelete: (id: string) => void
+  onRetry?: (id: string) => void
 }
 
 const getTypeIcon = (type: string) => {
@@ -58,7 +59,7 @@ const getStatusColor = (status: string) => {
   }
 }
 
-export function ContentCard({ item, onView, onDelete }: ContentCardProps) {
+export function ContentCard({ item, onView, onDelete, onRetry }: ContentCardProps) {
   const Icon = getTypeIcon(item.type)
 
   return (
@@ -183,6 +184,19 @@ export function ContentCard({ item, onView, onDelete }: ContentCardProps) {
               <Eye className="h-3 w-3 mr-1" />
               View
             </Button>
+            {(item.status === "error" || (item.status === "processing" && item.metadata?.processingProgress === 5)) && onRetry && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRetry(item.id)
+                }}
+                title="Retry processing"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

@@ -157,6 +157,30 @@ export default function ContentVaultPage() {
     setIsDrawerOpen(true)
   }
 
+  const handleRetry = async (id: string) => {
+    try {
+      const response = await fetch("/api/content/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ contentItemId: id }),
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        alert(data.message || "Processing retried successfully")
+        // Refresh content
+        fetchContent()
+      } else {
+        const error = await response.json()
+        alert(error.error || "Failed to retry processing")
+      }
+    } catch (error) {
+      console.error("Failed to retry:", error)
+      alert("Failed to retry processing. Please try again.")
+    }
+  }
+
   const handleDelete = async (id: string) => {
     try {
       // Confirm deletion
@@ -346,12 +370,13 @@ export default function ContentVaultPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredContent.map((item, index) => (
-            <ContentCard
-              key={item.id}
-              item={item}
-              onView={handleView}
-              onDelete={handleDelete}
-            />
+                  <ContentCard
+                    key={item.id}
+                    item={item}
+                    onView={handleView}
+                    onDelete={handleDelete}
+                    onRetry={handleRetry}
+                  />
           ))}
         </div>
       )}

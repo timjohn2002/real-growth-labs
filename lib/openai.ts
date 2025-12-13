@@ -109,14 +109,13 @@ export async function transcribeAudioFromBuffer(
       contentType = "audio/mpeg"
     }
     
-    // Convert Buffer to Uint8Array for Blob compatibility
+    // Convert Buffer to ArrayBuffer for Blob compatibility
     // Create a new ArrayBuffer to avoid SharedArrayBuffer type issues
     const arrayBuffer = audioBuffer.buffer.slice(
       audioBuffer.byteOffset,
       audioBuffer.byteOffset + audioBuffer.byteLength
-    )
-    const uint8Array = new Uint8Array(arrayBuffer)
-    const blob = new Blob([uint8Array], { type: contentType })
+    ) as ArrayBuffer
+    const blob = new Blob([arrayBuffer], { type: contentType })
     
     // Use native FormData (available in Node.js 18+)
     // Create a File-like object for FormData

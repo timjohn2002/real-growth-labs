@@ -32,7 +32,24 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
+      // Check file size - Vercel has a hard 4.5MB limit for serverless functions
+      const maxSizeBytes = 4.5 * 1024 * 1024 // 4.5MB - Vercel's hard limit
+      if (selectedFile.size > maxSizeBytes) {
+        const fileSizeMB = (selectedFile.size / 1024 / 1024).toFixed(2)
+        setError(
+          `File size (${fileSizeMB}MB) exceeds Vercel's 4.5MB limit. ` +
+          `Please compress your file or use a video/audio URL instead. ` +
+          `Tip: You can upload YouTube URLs directly in the "URL" option.`
+        )
+        setFile(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
+        return
+      }
+      
       setFile(selectedFile)
+      setError("") // Clear any previous errors
       if (!title) {
         setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""))
       }
@@ -299,9 +316,9 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {type === "audio"
-                            ? "MP3, WAV, M4A, MP4"
+                            ? "MP3, WAV, M4A, MP4 (Max 4.5MB)"
                             : type === "video"
-                            ? "MP4, WebM, QuickTime"
+                            ? "MP4, WebM, QuickTime (Max 4.5MB)"
                             : "JPEG, PNG, GIF, WebP"}
                         </p>
                       </div>

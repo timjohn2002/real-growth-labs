@@ -5,6 +5,7 @@ import path from "path"
 import os from "os"
 
 // Handle file uploads (audio, video, text)
+// Note: Vercel has a hard 4.5MB limit for request body size
 export async function POST(request: NextRequest) {
   try {
     const { getUserIdFromRequest } = await import("@/lib/auth")

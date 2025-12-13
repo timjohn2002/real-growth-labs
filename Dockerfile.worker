@@ -18,13 +18,12 @@ RUN yt-dlp --version
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and Prisma schema (needed for postinstall script)
 COPY package*.json ./
-RUN npm ci
-
-# Copy Prisma schema and generate client
 COPY prisma ./prisma
-RUN npx prisma generate
+
+# Install dependencies (postinstall will run prisma generate)
+RUN npm ci
 
 # Copy source code
 COPY . .

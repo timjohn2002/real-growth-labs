@@ -11,7 +11,7 @@ const contentTypes = [
   {
     name: "Video Upload",
     icon: Video,
-    description: "Upload video files",
+    description: "Coming Soon",
     color: "#a6261c",
   },
   {

@@ -32,22 +32,6 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      // Check file size - Vercel has a hard 4.5MB limit for serverless functions
-      const maxSizeBytes = 4.5 * 1024 * 1024 // 4.5MB - Vercel's hard limit
-      if (selectedFile.size > maxSizeBytes) {
-        const fileSizeMB = (selectedFile.size / 1024 / 1024).toFixed(2)
-        setError(
-          `File size (${fileSizeMB}MB) exceeds Vercel's 4.5MB limit. ` +
-          `Please compress your file or use a video URL instead. ` +
-          `Tip: You can upload YouTube URLs directly in the "URL" option.`
-        )
-        setFile(null)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ""
-        }
-        return
-      }
-      
       setFile(selectedFile)
       setError("") // Clear any previous errors
       if (!title) {
@@ -114,38 +98,103 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
           throw new Error(data.error || "Failed to create text content")
         }
       } else if (file) {
-        // Upload file (audio/video/image)
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("type", type)
-        formData.append("title", title || file.name)
-        formData.append("userId", userId)
+        // Check file size - use Supabase for files > 4.5MB
+        const vercelLimit = 4.5 * 1024 * 1024 // 4.5MB
+        const useDirectUpload = file.size > vercelLimit
 
-        const response = await fetch("/api/content/upload", {
-          method: "POST",
-          body: formData,
-        })
+        if (useDirectUpload) {
+          // For large files, upload directly to Supabase Storage
+          // Step 1: Get upload path and Supabase config
+          const urlResponse = await fetch("/api/content/upload-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              filename: file.name,
+              fileType: type,
+            }),
+          })
 
-        if (!response.ok) {
-          let errorMessage = "Failed to upload file"
-          try {
-            const data = await response.json()
-            errorMessage = data.error || errorMessage
-          } catch (parseError) {
-            // If response is not JSON, try to get text
-            try {
-              const text = await response.text()
-              errorMessage = text || errorMessage
-            } catch {
-              // Use default error message
-            }
+          if (!urlResponse.ok) {
+            const urlData = await urlResponse.json()
+            throw new Error(urlData.error || "Failed to get upload configuration")
           }
-          throw new Error(errorMessage)
+
+          const { path: filePath, supabaseUrl, supabaseAnonKey, bucket } = await urlResponse.json()
+
+          // Step 2: Upload file directly to Supabase using client-side upload
+          const { createClient } = await import("@supabase/supabase-js")
+          const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file, {
+              contentType: file.type,
+              upsert: false,
+            })
+
+          if (uploadError) {
+            console.error("Supabase upload error:", uploadError)
+            throw new Error(uploadError.message || "Failed to upload file to storage")
+          }
+
+          // Step 3: Get public URL for the uploaded file
+          const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath)
+
+          const fileUrl = urlData.publicUrl
+
+          // Step 4: Notify our API with the file URL
+          const response = await fetch("/api/content/upload-from-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              fileUrl,
+              filePath,
+              type,
+              title: title || file.name,
+              filename: file.name,
+              size: file.size,
+              mimeType: file.type,
+            }),
+          })
+
+          if (!response.ok) {
+            const data = await response.json()
+            throw new Error(data.error || "Failed to process uploaded file")
+          }
+        } else {
+          // For small files, use traditional upload through Vercel
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("type", type)
+          formData.append("title", title || file.name)
+          formData.append("userId", userId)
+
+          const response = await fetch("/api/content/upload", {
+            method: "POST",
+            body: formData,
+          })
+
+          if (!response.ok) {
+            let errorMessage = "Failed to upload file"
+            try {
+              const data = await response.json()
+              errorMessage = data.error || errorMessage
+            } catch (parseError) {
+              // If response is not JSON, try to get text
+              try {
+                const text = await response.text()
+                errorMessage = text || errorMessage
+              } catch {
+                // Use default error message
+              }
+            }
+            throw new Error(errorMessage)
+          }
         }
-        
-        // Only try to parse JSON if response is ok
-        const data = await response.json()
-        // Success - file uploaded
       } else {
         throw new Error("Please select a file")
       }
@@ -290,7 +339,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {type === "video"
-                            ? "MP4, WebM, QuickTime (Max 4.5MB)"
+                            ? "MP4, WebM, QuickTime (Large files supported via Supabase)"
                             : "JPEG, PNG, GIF, WebP"}
                         </p>
                       </div>

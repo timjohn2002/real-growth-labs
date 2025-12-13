@@ -16,7 +16,7 @@ if (!OPENAI_API_KEY) {
 export async function callGPT(
   prompt: string,
   options: {
-    model?: "gpt-4" | "gpt-3.5-turbo" | "gpt-4-turbo"
+    model?: "gpt-4" | "gpt-3.5-turbo" | "gpt-4-turbo" | "gpt-4o"
     temperature?: number
     maxTokens?: number
     systemPrompt?: string

@@ -57,24 +57,39 @@ export async function POST(
       )
     }
 
-    // Create a prompt for DALL-E based on the introduction
-    // Limit intro text to first 500 characters for prompt
-    const introSummary = introText.substring(0, 500)
+    // Use GPT-4o to generate an optimized prompt for DALL-E 3
+    const introSummary = introText.substring(0, 1000) // Use more context for GPT-4o
     
-    const prompt = `Create a flat, graphic book cover design (NOT a photograph of a physical book). The book title is "${book.title}". The book is about: ${introSummary}. 
+    console.log(`[generateBookCover] Generating optimized prompt with GPT-4o for book "${book.title}"...`)
     
-Design requirements:
-- Flat, graphic design book cover (NOT a photo of a book)
-- Simple and minimal aesthetic
-- Clean, modern design
-- Professional and enticing
-- Include the book title "${book.title}" prominently displayed on the cover
-- The title should be clearly readable and integrated into the design
-- High quality, artistic illustration
-- Digital book cover design suitable for print and digital formats
-- No 3D effects, shadows, or photographic elements - pure graphic design`
+    const { callGPT } = await import("@/lib/openai")
+    
+    const promptGenerationPrompt = `You are a professional book cover designer. Create an optimized, detailed prompt for DALL-E 3 to generate a book cover.
 
-    console.log(`[generateBookCover] Generating cover for book "${book.title}"...`)
+Book Title: "${book.title}"
+Book Introduction/Content: ${introSummary}
+
+Requirements for the DALL-E 3 prompt:
+1. Must be a flat, graphic book cover design (NOT a photograph of a physical book)
+2. Must include the book title "${book.title}" prominently and clearly readable
+3. Should reflect the book's content and theme based on the introduction
+4. Simple, minimal, and modern aesthetic
+5. Professional and enticing design
+6. Suitable for both print and digital formats
+7. Pure graphic design - no 3D effects, shadows, or photographic elements
+8. High quality, artistic illustration
+
+Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use to create this cover. Focus on visual elements, color palette suggestions, and design style that matches the book's theme.`
+
+    const optimizedPrompt = await callGPT(promptGenerationPrompt, {
+      model: "gpt-4o",
+      temperature: 0.7,
+      maxTokens: 200,
+      systemPrompt: "You are an expert at creating detailed, effective prompts for AI image generation. Your prompts are clear, specific, and produce high-quality results.",
+    })
+
+    console.log(`[generateBookCover] Optimized prompt from GPT-4o: ${optimizedPrompt}`)
+    console.log(`[generateBookCover] Generating cover with DALL-E 3...`)
 
     // Generate image using DALL-E 3
     const imageResponse = await fetch(`${OPENAI_API_URL}/images/generations`, {
@@ -85,10 +100,10 @@ Design requirements:
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: prompt,
+        prompt: optimizedPrompt.trim(),
         n: 1,
         size: "1024x1024",
-        quality: "standard",
+        quality: "hd", // Use HD quality for better results
       }),
     })
 

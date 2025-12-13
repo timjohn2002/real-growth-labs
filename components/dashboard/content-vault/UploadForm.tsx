@@ -125,47 +125,111 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
           const { path: filePath, supabaseUrl, supabaseKey, bucket } = await tokenResponse.json()
 
-          // Step 2: Upload directly to Supabase using service role key (bypasses RLS)
-          console.log("[UploadForm] Uploading to Supabase Storage...")
-          const { createClient } = await import("@supabase/supabase-js")
-          const supabase = createClient(supabaseUrl, supabaseKey, {
-            db: { schema: 'public' },
-            auth: {
-              persistSession: false,
-              autoRefreshToken: false,
-            },
-          })
+          // Step 2: Upload directly to Supabase
+          // For files > 50MB (free tier limit), use TUS resumable uploads
+          const FREE_TIER_LIMIT = 50 * 1024 * 1024 // 50MB
+          const useResumableUpload = file.size > FREE_TIER_LIMIT
 
-          // Use standard upload - Supabase supports up to 5GB with standard upload
-          // For files > 6MB, Supabase recommends resumable uploads, but standard should work
-          console.log(`[UploadForm] Uploading file (${(file.size / 1024 / 1024).toFixed(2)} MB)...`)
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file, {
-              contentType: file.type,
-              upsert: false,
-              // Add cache control for better performance
-              cacheControl: '3600',
+          let fileUrl: string
+
+          if (useResumableUpload) {
+            // Use TUS resumable upload for large files (required for free tier files > 50MB)
+            console.log(`[UploadForm] Large file detected (${(file.size / 1024 / 1024).toFixed(2)} MB), using TUS resumable upload...`)
+            
+            const tus = (await import("tus-js-client")).default
+            
+            // Extract project ID from Supabase URL
+            const projectId = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
+            if (!projectId) {
+              throw new Error("Could not extract project ID from Supabase URL")
+            }
+
+            // Use direct storage hostname for better performance
+            const storageEndpoint = `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`
+
+            await new Promise<void>((resolve, reject) => {
+              const upload = new tus.Upload(file, {
+                endpoint: storageEndpoint,
+                retryDelays: [0, 3000, 5000, 10000, 20000],
+                headers: {
+                  authorization: `Bearer ${supabaseKey}`,
+                  'x-upsert': 'false',
+                },
+                uploadDataDuringCreation: true,
+                removeFingerprintOnSuccess: true,
+                metadata: {
+                  bucketName: bucket,
+                  objectName: filePath,
+                  contentType: file.type,
+                  cacheControl: '3600',
+                },
+                chunkSize: 6 * 1024 * 1024, // 6MB chunks (required by Supabase)
+                onError: (error) => {
+                  console.error("[UploadForm] TUS upload error:", error)
+                  reject(new Error(error.message || "Failed to upload file"))
+                },
+                onProgress: (bytesUploaded, bytesTotal) => {
+                  const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2)
+                  console.log(`[UploadForm] Upload progress: ${percentage}% (${(bytesUploaded / 1024 / 1024).toFixed(2)} MB / ${(bytesTotal / 1024 / 1024).toFixed(2)} MB)`)
+                },
+                onSuccess: () => {
+                  console.log("[UploadForm] TUS upload completed successfully")
+                  resolve()
+                },
+              })
+
+              // Check for previous uploads to resume
+              upload.findPreviousUploads().then((previousUploads) => {
+                if (previousUploads.length) {
+                  console.log("[UploadForm] Resuming previous upload...")
+                  upload.resumeFromPreviousUpload(previousUploads[0])
+                }
+                upload.start()
+              }).catch(reject)
             })
 
-          if (uploadError) {
-            console.error("[UploadForm] Supabase upload error:", uploadError)
-            // Check if it's a size limit error
-            if (uploadError.message?.includes("maximum allowed size") || uploadError.message?.includes("exceeded")) {
-              throw new Error(`File size limit exceeded. Your bucket limit is 500MB, but Supabase may have additional limits. Try using a smaller file or contact Supabase support to increase limits.`)
+            // Get public URL after successful upload
+            const { createClient } = await import("@supabase/supabase-js")
+            const supabase = createClient(supabaseUrl, supabaseKey)
+            const { data: urlData } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(filePath)
+            fileUrl = urlData.publicUrl
+          } else {
+            // Use standard upload for smaller files
+            console.log(`[UploadForm] Uploading file (${(file.size / 1024 / 1024).toFixed(2)} MB)...`)
+            
+            const { createClient } = await import("@supabase/supabase-js")
+            const supabase = createClient(supabaseUrl, supabaseKey, {
+              db: { schema: 'public' },
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+              },
+            })
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from(bucket)
+              .upload(filePath, file, {
+                contentType: file.type,
+                upsert: false,
+                cacheControl: '3600',
+              })
+
+            if (uploadError) {
+              console.error("[UploadForm] Supabase upload error:", uploadError)
+              throw new Error(uploadError.message || "Failed to upload file to storage")
             }
-            throw new Error(uploadError.message || "Failed to upload file to storage")
+
+            console.log("[UploadForm] File uploaded successfully to Supabase Storage")
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(filePath)
+            fileUrl = urlData.publicUrl
           }
 
-          console.log("[UploadForm] File uploaded successfully to Supabase Storage")
-
-          // Step 3: Get public URL
-          const { data: urlData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath)
-
-          const fileUrl = urlData.publicUrl
           console.log("[UploadForm] File URL:", fileUrl)
 
           // Step 2: Notify our API with the file URL to process it

@@ -62,36 +62,63 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
       const data = await response.json()
       const audiobookId = data.audiobookId
 
-      // Simulate generation process (in production, this would poll the API)
-      const tasks = [
-        { task: "Preparing chapters...", progress: 10 },
-        { task: "Converting to speech...", progress: 30 },
-        { task: "Rendering Chapter 1...", progress: 50 },
-        { task: "Rendering Chapter 2...", progress: 65 },
-        { task: "Stitching audio files...", progress: 80 },
-        { task: "Adding intro/outro...", progress: 90 },
-        { task: "Finalizing file...", progress: 100 },
-      ]
+      // Poll for real status instead of simulating
+      setCurrentTask("Starting generation...")
+      setProgress(5)
 
-      for (const { task, progress: prog } of tasks) {
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-        setCurrentTask(task)
-        setProgress(prog)
-      }
+      let pollCount = 0
+      const maxPolls = 200 // 10 minutes max (200 * 3 seconds)
 
-      // Fetch the completed audiobook
-      const audiobookResponse = await fetch(`/api/audiobook/${audiobookId}`)
-      if (audiobookResponse.ok) {
-        const audiobook = await audiobookResponse.json()
-        setAudioUrl(audiobook.audioUrl || "/placeholder-audio.mp3")
-        setAudioDuration(audiobook.duration || 0)
-      } else {
-        // Fallback for now
-        setAudioUrl("/placeholder-audio.mp3")
-        setAudioDuration(2609)
-      }
+      const pollInterval = setInterval(async () => {
+        pollCount++
+        
+        try {
+          const audiobookResponse = await fetch(`/api/audiobook/${audiobookId}`)
+          if (audiobookResponse.ok) {
+            const audiobook = await audiobookResponse.json()
+            
+            // Update progress based on status
+            if (audiobook.status === "generating") {
+              // Still generating - increment progress gradually
+              setProgress((prev) => Math.min(prev + 2, 95))
+              setCurrentTask("Generating audio...")
+            } else if (audiobook.status === "completed") {
+              // Generation complete
+              clearInterval(pollInterval)
+              setProgress(100)
+              setCurrentTask("Complete!")
+              
+              if (audiobook.audioUrl) {
+                setAudioUrl(audiobook.audioUrl)
+                setAudioDuration(audiobook.duration || 0)
+                setCurrentStep("completed")
+              } else {
+                clearInterval(pollInterval)
+                throw new Error("Audiobook completed but no audio URL found")
+              }
+            } else if (audiobook.status === "failed") {
+              // Generation failed
+              clearInterval(pollInterval)
+              throw new Error(audiobook.error || "Audiobook generation failed")
+            }
+          } else {
+            // If we can't fetch status, increment progress anyway
+            setProgress((prev) => Math.min(prev + 1, 95))
+          }
+        } catch (pollError) {
+          console.error("Polling error:", pollError)
+          // Continue polling on error
+        }
 
-      setCurrentStep("completed")
+        // Timeout after max polls
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval)
+          if (currentStep === "generating") {
+            setCurrentStep("voice-selection")
+            alert("Audiobook generation timed out. Please try again.")
+          }
+        }
+      }, 3000) // Poll every 3 seconds
     } catch (error) {
       console.error("Audiobook generation error:", error)
       // TODO: Show error state

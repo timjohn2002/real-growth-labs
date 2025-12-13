@@ -81,6 +81,29 @@ export function AudiobookPlayer({ audioUrl, duration }: AudiobookPlayerProps) {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
+  // Get actual duration from audio element if available
+  useEffect(() => {
+    const audio = audioRef.current
+    if (audio && audioUrl) {
+      const handleLoadedMetadata = () => {
+        if (audio.duration && audio.duration > 0) {
+          // Duration will be set by parent component, but we can use audio element's duration as fallback
+        }
+      }
+      audio.addEventListener("loadedmetadata", handleLoadedMetadata)
+      return () => audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
+    }
+  }, [audioUrl])
+
+  if (!audioUrl || audioUrl === "/placeholder-audio.mp3") {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <p>Audio file not available</p>
+        <p className="text-sm mt-2">The audiobook may still be generating or failed to generate.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <audio ref={audioRef} src={audioUrl} preload="metadata" />

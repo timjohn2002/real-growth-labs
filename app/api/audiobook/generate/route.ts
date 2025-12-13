@@ -108,27 +108,53 @@ async function generateAudiobook(
       chunks.push(fullText.substring(i, i + maxChunkLength))
     }
 
+    // Update status to generating
+    await prisma.audiobook.update({
+      where: { id: audiobookId },
+      data: { status: "generating" },
+    })
+
     // Generate audio for each chunk
     const audioBuffers: Buffer[] = []
+    const totalChunks = chunks.length
     
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+      console.log(`[generateAudiobook] Generating audio chunk ${i + 1}/${totalChunks}...`)
+      
       const audioBuffer = await generateTTS(chunk, {
         voice: voice as any,
         model: "tts-1-hd", // Higher quality
       })
       audioBuffers.push(audioBuffer)
+      
+      // Update progress (0-80% for generation, 80-100% for upload)
+      const generationProgress = Math.floor(((i + 1) / totalChunks) * 80)
+      console.log(`[generateAudiobook] Progress: ${generationProgress}%`)
     }
 
-    // Combine audio buffers (in production, use a proper audio library)
+    // Combine audio buffers
+    // Note: Simply concatenating MP3 buffers works for OpenAI TTS output
+    // as they produce valid MP3 files that can be concatenated
+    console.log(`[generateAudiobook] Combining ${audioBuffers.length} audio chunks...`)
     const combinedBuffer = Buffer.concat(audioBuffers)
+    console.log(`[generateAudiobook] Combined buffer size: ${(combinedBuffer.length / 1024 / 1024).toFixed(2)} MB`)
     
-    // Upload to storage
+    // Upload to storage (use Supabase by default)
     const filename = `audiobook-${audiobookId}-${Date.now()}.mp3`
+    console.log(`[generateAudiobook] Uploading audiobook file: ${filename} (${(combinedBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+    
     const audioUrl = await uploadFile(combinedBuffer, filename, {
-      provider: (process.env.STORAGE_PROVIDER as any) || "local",
-      bucket: process.env.STORAGE_BUCKET,
+      provider: (process.env.STORAGE_PROVIDER as any) || "supabase",
+      bucket: process.env.STORAGE_BUCKET || "content-vault",
       folder: "audiobooks",
     })
+    
+    console.log(`[generateAudiobook] Audiobook uploaded successfully: ${audioUrl}`)
+    
+    if (!audioUrl) {
+      throw new Error("Failed to upload audiobook file - no URL returned")
+    }
 
     // Calculate duration (rough estimate: ~150 words per minute)
     const wordCount = fullText.split(/\s+/).length

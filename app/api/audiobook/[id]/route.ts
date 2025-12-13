@@ -35,7 +35,15 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ audiobook })
+    // Return in format expected by frontend
+    return NextResponse.json({
+      audioUrl: audiobook.audioUrl,
+      duration: audiobook.duration || 0,
+      status: audiobook.status,
+      voice: audiobook.voice,
+      fileSize: audiobook.fileSize,
+      error: audiobook.error,
+    })
   } catch (error) {
     console.error("Get audiobook error:", error)
     return NextResponse.json(

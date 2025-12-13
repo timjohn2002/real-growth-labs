@@ -29,12 +29,31 @@ export function CompletedState({
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleDownload = () => {
-    if (audioUrl) {
+  const handleDownload = async () => {
+    if (!audioUrl || audioUrl === "/placeholder-audio.mp3") {
+      alert("Audio file is not available for download. The audiobook may still be generating.")
+      return
+    }
+
+    try {
+      // Fetch the audio file
+      const response = await fetch(audioUrl)
+      if (!response.ok) {
+        throw new Error("Failed to fetch audio file")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
-      link.href = audioUrl
-      link.download = "audiobook.mp3"
+      link.href = url
+      link.download = `audiobook-${Date.now()}.mp3`
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Download error:", error)
+      alert("Failed to download audiobook. Please try again.")
     }
   }
 

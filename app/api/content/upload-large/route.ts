@@ -5,7 +5,13 @@ import { createClient } from "@supabase/supabase-js"
  * Server-side upload endpoint for large files
  * Uses Supabase service role key to bypass RLS
  * This handles the actual file upload to Supabase Storage
+ * 
+ * Note: Vercel has a 4.5MB request body limit for serverless functions.
+ * For files larger than this, we need to use client-side direct upload.
  */
+export const maxDuration = 300 // 5 minutes for large uploads
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const { getUserIdFromRequest } = await import("@/lib/auth")

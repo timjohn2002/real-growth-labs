@@ -103,45 +103,53 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         const useDirectUpload = file.size > vercelLimit
 
         if (useDirectUpload) {
-          // For large files, upload via server-side endpoint (uses service role key)
-          console.log("[UploadForm] Starting server-side upload for large file...")
+          // For large files, upload directly from client using service role key
+          // Vercel has a 4.5MB limit, so we can't use server-side upload
+          console.log("[UploadForm] Starting client-side upload for large file...")
           
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("type", type)
-          formData.append("title", title || file.name)
-
-          // Step 1: Upload file to Supabase via server (bypasses RLS)
-          const uploadResponse = await fetch("/api/content/upload-large", {
+          // Step 1: Get upload token with service role key (for large files only)
+          const tokenResponse = await fetch("/api/content/get-upload-token", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
             credentials: "include",
+            body: JSON.stringify({
+              filename: file.name,
+              fileType: type,
+            }),
           })
 
-          if (!uploadResponse.ok) {
-            let errorMessage = "Failed to upload file"
-            // Clone response before reading (can only read body once)
-            const clonedResponse = uploadResponse.clone()
-            try {
-              const data = await uploadResponse.json()
-              errorMessage = data.error || errorMessage
-              console.error("[UploadForm] Upload error response:", data)
-            } catch (parseError) {
-              // If JSON parsing fails, try reading as text from cloned response
-              try {
-                const text = await clonedResponse.text()
-                errorMessage = text || errorMessage
-                console.error("[UploadForm] Failed to parse error response:", text)
-              } catch (textError) {
-                errorMessage = `Upload failed with status ${uploadResponse.status}`
-                console.error("[UploadForm] Could not read error response:", textError)
-              }
-            }
-            throw new Error(errorMessage)
+          if (!tokenResponse.ok) {
+            const tokenData = await tokenResponse.json()
+            throw new Error(tokenData.error || "Failed to get upload token")
           }
 
-          const { fileUrl, filePath } = await uploadResponse.json()
+          const { path: filePath, supabaseUrl, supabaseKey, bucket } = await tokenResponse.json()
+
+          // Step 2: Upload directly to Supabase using service role key (bypasses RLS)
+          console.log("[UploadForm] Uploading to Supabase Storage...")
+          const { createClient } = await import("@supabase/supabase-js")
+          const supabase = createClient(supabaseUrl, supabaseKey)
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file, {
+              contentType: file.type,
+              upsert: false,
+            })
+
+          if (uploadError) {
+            console.error("[UploadForm] Supabase upload error:", uploadError)
+            throw new Error(uploadError.message || "Failed to upload file to storage")
+          }
+
           console.log("[UploadForm] File uploaded successfully to Supabase Storage")
+
+          // Step 3: Get public URL
+          const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath)
+
+          const fileUrl = urlData.publicUrl
           console.log("[UploadForm] File URL:", fileUrl)
 
           // Step 2: Notify our API with the file URL to process it

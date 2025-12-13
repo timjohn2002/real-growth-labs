@@ -315,18 +315,16 @@ export default function AudiobookPage() {
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Regenerate
                     </Button>
-                    {selectedAudiobook.audioUrl && (
-                      <Button
-                        onClick={handleDownload}
-                        variant="outline"
-                        disabled={selectedAudiobook.status !== "completed"}
-                        className="bg-[#a6261c] hover:bg-[#8e1e16] text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: selectedAudiobook.status === "completed" ? BRAND_COLOR : undefined }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    )}
+                    <Button
+                      onClick={handleDownload}
+                      variant="outline"
+                      disabled={!selectedAudiobook.audioUrl || selectedAudiobook.status !== "completed"}
+                      className={selectedAudiobook.status === "completed" && selectedAudiobook.audioUrl ? "bg-[#a6261c] hover:bg-[#8e1e16] text-white" : ""}
+                      style={selectedAudiobook.status === "completed" && selectedAudiobook.audioUrl ? { backgroundColor: BRAND_COLOR } : undefined}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
                     <Button
                       variant="outline"
                       className="text-red-600 hover:text-red-700"

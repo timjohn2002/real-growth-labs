@@ -68,6 +68,7 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
 
       let pollCount = 0
       const maxPolls = 200 // 10 minutes max (200 * 3 seconds)
+      let stuckAt95Count = 0
 
       const pollInterval = setInterval(async () => {
         pollCount++
@@ -79,9 +80,23 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
             
             // Update progress based on status
             if (audiobook.status === "generating") {
-              // Still generating - increment progress gradually
-              setProgress((prev) => Math.min(prev + 2, 95))
-              setCurrentTask("Generating audio...")
+              // Still generating - increment progress gradually, but allow it to reach 99% while uploading
+              setProgress((prev) => {
+                // If we're already at 95% or higher, increment more slowly to 99%
+                if (prev >= 95) {
+                  stuckAt95Count++
+                  // After being stuck at 95% for 5 polls (15 seconds), show uploading message
+                  if (stuckAt95Count > 5) {
+                    setCurrentTask("Uploading audio file...")
+                  }
+                  return Math.min(prev + 0.5, 99)
+                }
+                stuckAt95Count = 0
+                return Math.min(prev + 2, 95)
+              })
+              if (stuckAt95Count <= 5) {
+                setCurrentTask("Generating audio...")
+              }
             } else if (audiobook.status === "completed") {
               // Generation complete
               clearInterval(pollInterval)
@@ -103,7 +118,13 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
             }
           } else {
             // If we can't fetch status, increment progress anyway
-            setProgress((prev) => Math.min(prev + 1, 95))
+            setProgress((prev) => {
+              // Allow progress to reach 99% even if we can't fetch status
+              if (prev >= 95) {
+                return Math.min(prev + 0.5, 99)
+              }
+              return Math.min(prev + 1, 95)
+            })
           }
         } catch (pollError) {
           console.error("Polling error:", pollError)

@@ -64,7 +64,7 @@ export function VoiceSelectionStep({
       {/* Voice Selection */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Voice Selection</h3>
-        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 pl-1">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 pl-3">
           {voices.map((voice, index) => {
             const isSelected = selectedVoice === voice.id
             return (
@@ -73,17 +73,14 @@ export function VoiceSelectionStep({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => setSelectedVoice(voice.id)}
-                className={`w-full text-left p-4 rounded-lg border-2 transition-all relative ${
+                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                   isSelected
                     ? "border-[#a6261c] bg-red-50"
                     : "border-gray-200 hover:border-[#a6261c] bg-white"
                 }`}
-                style={{
-                  boxSizing: "border-box",
-                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

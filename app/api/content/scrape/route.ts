@@ -253,37 +253,82 @@ async function scrapeUrl(contentItemId: string, url: string) {
 }
 
 function extractTextFromHTML(html: string): string {
-  // Remove script and style tags
-  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+  // Remove script, style, and other non-content tags completely
+  let text = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "")
+    .replace(/<math[^>]*>[\s\S]*?<\/math>/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+    .replace(/<meta[^>]*>/gi, "")
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, "")
   
-  // Extract text from common content tags
-  const contentSelectors = [
-    /<article[^>]*>([\s\S]*?)<\/article>/gi,
-    /<main[^>]*>([\s\S]*?)<\/main>/gi,
-    /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-    /<p[^>]*>([\s\S]*?)<\/p>/gi,
-  ]
-
+  // Try to extract main content from semantic HTML5 tags first
   let extractedText = ""
-  for (const selector of contentSelectors) {
-    const matches = html.matchAll(selector)
-    for (const match of matches) {
-      extractedText += match[1] + " "
+  
+  // Priority 1: Article tag (most common for blog posts)
+  const articleMatch = text.match(/<article[^>]*>([\s\S]*?)<\/article>/i)
+  if (articleMatch) {
+    extractedText = articleMatch[1]
+  } else {
+    // Priority 2: Main tag
+    const mainMatch = text.match(/<main[^>]*>([\s\S]*?)<\/main>/i)
+    if (mainMatch) {
+      extractedText = mainMatch[1]
+    } else {
+      // Priority 3: Content divs (common class names)
+      const contentDivMatch = text.match(/<div[^>]*(?:class|id)=["'][^"']*(?:content|post|article|entry|main-content|post-content|article-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)
+      if (contentDivMatch) {
+        extractedText = contentDivMatch[1]
+      } else {
+        // Priority 4: Body tag
+        const bodyMatch = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+        if (bodyMatch) {
+          extractedText = bodyMatch[1]
+        } else {
+          // Fallback: use entire HTML
+          extractedText = text
+        }
+      }
     }
   }
 
-  // If no content found, extract all text
-  if (!extractedText.trim()) {
-    text = html.replace(/<[^>]+>/g, " ")
-  } else {
-    text = extractedText
-  }
+  // Remove all remaining HTML tags
+  extractedText = extractedText.replace(/<[^>]+>/g, " ")
+  
+  // Decode HTML entities
+  extractedText = extractedText
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&[a-z]+;/gi, " ") // Remove any other HTML entities
+  
+  // Clean up whitespace - multiple spaces, newlines, tabs
+  extractedText = extractedText
+    .replace(/\s+/g, " ") // Replace all whitespace with single space
+    .replace(/\s*[.,!?;:]\s*/g, "$1 ") // Fix spacing around punctuation
+    .trim()
 
-  // Clean up whitespace
-  text = text.replace(/\s+/g, " ").trim()
+  // Remove very short lines and excessive line breaks
+  const lines = extractedText.split(/\s+/).filter(line => line.length > 0)
+  extractedText = lines.join(" ")
 
-  return text
+  // Final cleanup
+  extractedText = extractedText
+    .replace(/\s{2,}/g, " ") // Remove multiple spaces
+    .trim()
+
+  return extractedText
 }
 
 function extractTitle(html: string): string | null {

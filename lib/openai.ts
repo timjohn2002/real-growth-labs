@@ -95,11 +95,6 @@ export async function transcribeAudioFromBuffer(
   const { language = "en", prompt } = options
 
   try {
-    // Use form-data package for Node.js (works better than native FormData with Buffers)
-    const FormDataModule = await import("form-data")
-    const FormDataClass = FormDataModule.default
-    const formData = new FormDataClass()
-    
     // Determine proper content type based on file extension
     let contentType = "audio/mpeg" // default
     if (filename.endsWith('.mp4')) {
@@ -114,13 +109,16 @@ export async function transcribeAudioFromBuffer(
       contentType = "audio/mpeg"
     }
     
-    // Create a Blob from the Buffer for better compatibility
-    const blob = new Blob([audioBuffer], { type: contentType })
-    const file = new File([blob], filename, { type: contentType })
+    // Convert Buffer to Uint8Array for Blob compatibility
+    const uint8Array = new Uint8Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.byteLength)
+    const blob = new Blob([uint8Array], { type: contentType })
     
     // Use native FormData (available in Node.js 18+)
+    // Create a File-like object for FormData
     const formDataNative = new FormData()
-    formDataNative.append("file", file)
+    // FormData.append accepts Blob with filename option
+    const fileBlob = new Blob([uint8Array], { type: contentType })
+    formDataNative.append("file", fileBlob, filename)
     formDataNative.append("model", "whisper-1")
     formDataNative.append("language", language)
     if (prompt) {

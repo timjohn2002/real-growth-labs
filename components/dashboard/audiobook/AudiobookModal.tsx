@@ -21,7 +21,7 @@ interface AudiobookModalProps {
 
 export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book" }: AudiobookModalProps) {
   const [currentStep, setCurrentStep] = useState<ModalStep>("voice-selection")
-  const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
+  const [selectedVoice, setSelectedVoice] = useState<string | null>("alloy") // Default to valid OpenAI voice
   const [options, setOptions] = useState({
     addIntro: true,
     addOutro: true,

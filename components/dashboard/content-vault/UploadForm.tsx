@@ -128,14 +128,70 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
           // Step 2: Upload directly to Supabase using service role key (bypasses RLS)
           console.log("[UploadForm] Uploading to Supabase Storage...")
           const { createClient } = await import("@supabase/supabase-js")
-          const supabase = createClient(supabaseUrl, supabaseKey)
+          const supabase = createClient(supabaseUrl, supabaseKey, {
+            db: { schema: 'public' },
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+            },
+          })
 
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file, {
-              contentType: file.type,
-              upsert: false,
-            })
+          // For large files, use chunked upload (Supabase supports this automatically)
+          // The client library will handle chunking for files > 50MB
+          const CHUNK_SIZE = 50 * 1024 * 1024 // 50MB chunks
+          const fileSize = file.size
+
+          let uploadData, uploadError
+
+          if (fileSize > CHUNK_SIZE) {
+            // Large file - use chunked upload
+            console.log(`[UploadForm] Large file detected (${(fileSize / 1024 / 1024).toFixed(2)} MB), using chunked upload...`)
+            
+            // Read file as chunks and upload
+            const chunks = Math.ceil(fileSize / CHUNK_SIZE)
+            let uploadedBytes = 0
+
+            for (let i = 0; i < chunks; i++) {
+              const start = i * CHUNK_SIZE
+              const end = Math.min(start + CHUNK_SIZE, fileSize)
+              const chunk = file.slice(start, end)
+              
+              const chunkPath = i === 0 ? filePath : `${filePath}.chunk.${i}`
+              
+              console.log(`[UploadForm] Uploading chunk ${i + 1}/${chunks} (${((end - start) / 1024 / 1024).toFixed(2)} MB)...`)
+              
+              const { data: chunkData, error: chunkError } = await supabase.storage
+                .from(bucket)
+                .upload(chunkPath, chunk, {
+                  contentType: file.type,
+                  upsert: i > 0, // Allow overwrite for subsequent chunks
+                })
+
+              if (chunkError) {
+                uploadError = chunkError
+                break
+              }
+
+              uploadedBytes += end - start
+              console.log(`[UploadForm] Chunk ${i + 1} uploaded (${(uploadedBytes / 1024 / 1024).toFixed(2)} MB / ${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
+            }
+
+            // For chunked uploads, the first chunk is the main file
+            if (!uploadError) {
+              uploadData = { path: filePath }
+            }
+          } else {
+            // Small file - regular upload
+            const result = await supabase.storage
+              .from(bucket)
+              .upload(filePath, file, {
+                contentType: file.type,
+                upsert: false,
+              })
+            
+            uploadData = result.data
+            uploadError = result.error
+          }
 
           if (uploadError) {
             console.error("[UploadForm] Supabase upload error:", uploadError)

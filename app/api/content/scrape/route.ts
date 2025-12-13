@@ -731,8 +731,6 @@ async function processYouTubeVideoWithYtDlp(
         outputTemplate,
         "--no-playlist",
         "--no-warnings",
-        "--extract-flat",
-        "false",
         "--verbose", // Add verbose logging
       ])
 

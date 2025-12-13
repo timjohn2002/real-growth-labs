@@ -31,20 +31,141 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // If item has been processing for more than 30 minutes, mark as error
+    // If item has been processing for more than 15 minutes, try to retry or mark as error
     if (item.status === "processing") {
       const now = new Date()
       const createdAt = new Date(item.createdAt)
       const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60)
+      
+      // Parse metadata to check progress
+      const metadata = item.metadata ? JSON.parse(item.metadata) : {}
+      const progress = metadata.processingProgress || 0
+      const processingStage = metadata.processingStage || ""
 
+      // If stuck at 5% (queued) for more than 10 minutes, the worker likely isn't running
+      if (progress <= 5 && minutesSinceCreation > 10) {
+        // Try to retry processing if it's a YouTube video
+        if (item.type === "video" && item.source) {
+          const sourceUrl = item.source
+          const isYouTube = sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be")
+          
+          if (isYouTube) {
+            // Check if Redis/queue is available
+            const { isRedisAvailable } = await import("@/lib/queue")
+            
+            if (!isRedisAvailable()) {
+              // No queue available - mark as error with helpful message
+              await prisma.contentItem.update({
+                where: { id: contentItemId },
+                data: {
+                  status: "error",
+                  error: `Processing timeout after ${Math.round(minutesSinceCreation)} minutes. ` +
+                         "The YouTube processing worker is not running or Redis is not configured. " +
+                         "Please ensure the YouTube worker is running on a dedicated server with yt-dlp installed.",
+                  metadata: JSON.stringify({
+                    ...metadata,
+                    processingStage: "Error - Worker Not Available",
+                    processingProgress: 0,
+                    errorDetails: "Worker not running or Redis not configured",
+                  }),
+                },
+              })
+              
+              return NextResponse.json({
+                status: "error",
+                message: "Processing failed - worker not available",
+                error: "The YouTube processing worker is not running. Please ensure Redis is configured and the worker is running.",
+              })
+            } else {
+              // Queue is available but job might be stuck - try to retry
+              try {
+                const { getYouTubeQueue } = await import("@/lib/queue")
+                const youtubeQueue = getYouTubeQueue()
+                
+                if (youtubeQueue) {
+                  // Check if job exists in queue
+                  const jobId = `youtube-${contentItemId}`
+                  const job = await youtubeQueue.getJob(jobId)
+                  
+                  if (job) {
+                    const jobState = await job.getState()
+                    if (jobState === "failed" || jobState === "stuck") {
+                      // Retry the job
+                      await job.retry()
+                      await prisma.contentItem.update({
+                        where: { id: contentItemId },
+                        data: {
+                          metadata: JSON.stringify({
+                            ...metadata,
+                            processingStage: "Retrying...",
+                            processingProgress: 5,
+                            retriedAt: new Date().toISOString(),
+                          }),
+                        },
+                      })
+                      
+                      return NextResponse.json({
+                        status: "processing",
+                        message: "Job retried successfully",
+                        retried: true,
+                      })
+                    }
+                  } else {
+                    // Job doesn't exist - create a new one
+                    const newJob = await youtubeQueue.add(
+                      `youtube-${contentItemId}`,
+                      {
+                        contentItemId,
+                        url: sourceUrl,
+                      },
+                      {
+                        jobId: `youtube-${contentItemId}`,
+                        priority: 1,
+                      }
+                    )
+                    
+                    await prisma.contentItem.update({
+                      where: { id: contentItemId },
+                      data: {
+                        metadata: JSON.stringify({
+                          ...metadata,
+                          processingStage: "Queued (Retry)",
+                          processingProgress: 5,
+                          retriedAt: new Date().toISOString(),
+                          jobId: newJob.id,
+                        }),
+                      },
+                    })
+                    
+                    return NextResponse.json({
+                      status: "processing",
+                      message: "Job re-queued successfully",
+                      requeued: true,
+                    })
+                  }
+                }
+              } catch (retryError) {
+                console.error("Failed to retry job:", retryError)
+              }
+            }
+          }
+        }
+      }
+
+      // If still processing after 30 minutes, mark as error
       if (minutesSinceCreation > 30) {
         await prisma.contentItem.update({
           where: { id: contentItemId },
           data: {
             status: "error",
             error: `Processing timeout after ${Math.round(minutesSinceCreation)} minutes. ` +
-                   "This usually means yt-dlp is not available in the serverless environment. " +
-                   "Please use a dedicated worker process with yt-dlp installed, or try a shorter video.",
+                   "This usually means the processing worker is not running or the video is too long. " +
+                   "Please ensure the YouTube worker is running on a dedicated server with yt-dlp installed.",
+            metadata: JSON.stringify({
+              ...metadata,
+              processingStage: "Error - Timeout",
+              processingProgress: 0,
+            }),
           },
         })
         

@@ -57,10 +57,24 @@ export default function ContentVaultPage() {
         const data = await response.json()
         setContentItems(data.items || [])
         
-        // Check for stuck processing items (processing for more than 25 minutes)
+        // Check for stuck processing items (processing for more than 10 minutes at 5% or 25 minutes total)
         const stuckItems = data.items?.filter((item: ContentItem) => {
           if (item.status !== "processing") return false
-          // Parse uploadedAt to check time
+          
+          // Check if stuck at low progress (5% or less) for more than 10 minutes
+          const progress = item.metadata?.processingProgress || 0
+          if (progress <= 5) {
+            // Parse uploadedAt to check time
+            const uploadedMatch = item.uploadedAt?.match(/(\d+)\s*(minute|hour|day)/)
+            if (uploadedMatch) {
+              const value = parseInt(uploadedMatch[1])
+              const unit = uploadedMatch[2]
+              if (unit === "minute" && value > 10) return true
+              if (unit === "hour" || unit === "day") return true
+            }
+          }
+          
+          // Also check for items processing for more than 25 minutes regardless of progress
           const uploadedMatch = item.uploadedAt?.match(/(\d+)\s*(minute|hour|day)/)
           if (uploadedMatch) {
             const value = parseInt(uploadedMatch[1])
@@ -68,6 +82,7 @@ export default function ContentVaultPage() {
             if (unit === "minute" && value > 25) return true
             if (unit === "hour" || unit === "day") return true
           }
+          
           return false
         })
         

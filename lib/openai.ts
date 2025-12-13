@@ -95,12 +95,11 @@ export async function transcribeAudioFromBuffer(
   const { language = "en", prompt } = options
 
   try {
-    // Create FormData for Node.js environment
-    const FormData = (await import("form-data")).default
+    // Use form-data package for Node.js multipart/form-data
+    const FormDataModule = await import("form-data")
+    const FormData = FormDataModule.default
     const formData = new FormData()
     
-    // Append the audio/video buffer as a file
-    // Whisper API supports: mp3, mp4, mpeg, mpga, m4a, wav, webm
     // Determine proper content type based on file extension
     let contentType = "audio/mpeg" // default
     if (filename.endsWith('.mp4')) {
@@ -115,11 +114,10 @@ export async function transcribeAudioFromBuffer(
       contentType = "audio/mpeg"
     }
     
-    // Append file with proper options
+    // Append file as Buffer - form-data will handle it correctly
     formData.append("file", audioBuffer, {
       filename,
       contentType,
-      knownLength: audioBuffer.length, // Help FormData calculate size correctly
     })
     formData.append("model", "whisper-1")
     formData.append("language", language)
@@ -127,15 +125,19 @@ export async function transcribeAudioFromBuffer(
       formData.append("prompt", prompt)
     }
 
-    // Get headers from form-data package
-    const headers = formData.getHeaders()
-    headers["Authorization"] = `Bearer ${OPENAI_API_KEY}`
-
+    // Get headers from form-data (includes Content-Type with boundary)
+    const formHeaders = formData.getHeaders()
+    
+    // Use node-fetch or ensure proper handling of form-data stream
+    // For Node.js, we need to use the form-data package correctly
     const response = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
       method: "POST",
-      headers,
-      body: formData as any, // FormData from form-data package
-    })
+      headers: {
+        ...formHeaders,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData as any,
+    } as RequestInit)
 
     if (!response.ok) {
       const error = await response.text()

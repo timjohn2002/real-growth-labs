@@ -9,24 +9,34 @@ const BRAND_COLOR = "#a6261c"
 
 const voices = [
   {
-    id: "default",
-    name: "Real Growth Labs Default",
-    description: "Neutral male voice",
+    id: "alloy",
+    name: "Alloy",
+    description: "Neutral, balanced voice",
   },
   {
-    id: "premium-female",
-    name: "Premium Female Narrator",
-    description: "Professional female voice",
+    id: "echo",
+    name: "Echo",
+    description: "Clear and confident",
   },
   {
-    id: "deep-authority",
-    name: "Deep Authority Voice",
-    description: "Confident and authoritative",
+    id: "fable",
+    name: "Fable",
+    description: "Warm and expressive",
   },
   {
-    id: "conversational",
-    name: "Conversational Friendly Voice",
-    description: "Warm and approachable",
+    id: "onyx",
+    name: "Onyx",
+    description: "Deep and authoritative",
+  },
+  {
+    id: "nova",
+    name: "Nova",
+    description: "Bright and energetic",
+  },
+  {
+    id: "shimmer",
+    name: "Shimmer",
+    description: "Smooth and professional",
   },
 ]
 

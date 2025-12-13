@@ -163,12 +163,9 @@ export function initializeAudiobookWorker() {
       async (job) => {
         const { audiobookId, book, voice, options } = job.data
 
-        // Import the generation function dynamically to avoid circular dependencies
-        const { generateAudiobook } = await import("@/app/api/audiobook/generate/route")
-        
-        // Call the generation function
-        // Note: generateAudiobook expects the full book object with Prisma types
-        await generateAudiobook(audiobookId, book as any, voice, options)
+        // Note: generateAudiobook is now handled directly in the route
+        // This worker is for YouTube processing only
+        throw new Error("Audiobook generation worker is deprecated. Use the API route directly.")
         
         return { success: true, audiobookId }
       },

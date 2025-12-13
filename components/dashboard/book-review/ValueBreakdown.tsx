@@ -19,18 +19,7 @@ const levelColors = {
   Low: "#6b7280",
 }
 
-export function ValueBreakdown({ metrics = [] }: ValueBreakdownProps) {
-  if (!metrics || metrics.length === 0) {
-    return (
-      <Card className="border-gray-200 shadow-sm">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Value Score Deep Dive</h3>
-          <p className="text-sm text-gray-500">No value data available</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
+export function ValueBreakdown({ metrics }: ValueBreakdownProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

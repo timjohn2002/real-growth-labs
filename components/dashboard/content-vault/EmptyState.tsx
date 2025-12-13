@@ -27,7 +27,7 @@ export function EmptyState({ onAddContent }: EmptyStateProps) {
       </motion.div>
       <h3 className="text-xl font-semibold text-foreground mb-2">Your Content Vault is empty</h3>
       <p className="text-muted-foreground text-center max-w-md mb-6">
-        Upload podcasts, videos, or notes to begin building your book.
+        Upload videos, URLs, or notes to begin building your book.
       </p>
       <Button
         onClick={onAddContent}

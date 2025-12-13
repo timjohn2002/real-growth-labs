@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get("file") as File
-    const type = formData.get("type") as string // "audio" | "video" | "text"
+    const type = formData.get("type") as string // "video" | "text" | "image"
     const title = formData.get("title") as string
 
     if (!file || !type || !title) {
@@ -32,21 +32,14 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     const allowedTypes: Record<string, string[]> = {
-      audio: ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-m4a", "audio/mp4", "video/mp4"], // MP4 can contain audio
       video: ["video/mp4", "video/webm", "video/quicktime"],
       text: ["text/plain"],
       image: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg"],
     }
 
-    // Also check file extension as fallback for MP4 files
-    const fileExtension = file.name.split('.').pop()?.toLowerCase()
-    const isValidType = allowedTypes[type]?.includes(file.type) || 
-      (type === "audio" && fileExtension === "mp4") ||
-      (type === "audio" && fileExtension === "m4a")
-
-    if (!isValidType) {
+    if (!allowedTypes[type]?.includes(file.type)) {
       return NextResponse.json(
-        { error: `Invalid file type for ${type}. Allowed: ${allowedTypes[type]?.join(", ")}${type === "audio" ? ", MP4" : ""}` },
+        { error: `Invalid file type for ${type}. Allowed: ${allowedTypes[type]?.join(", ")}` },
         { status: 400 }
       )
     }
@@ -78,7 +71,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Start processing based on type
-    if (type === "audio" || type === "video") {
+    if (type === "video") {
       // Process transcription with file buffer directly
       processTranscription(contentItem.id, fileBuffer, file.name, file.type).catch(console.error)
     } else if (type === "image") {
@@ -120,9 +113,9 @@ async function processTranscription(contentItemId: string, fileBuffer: Buffer, f
     console.log(`Transcribing ${mimeType} file: ${filename}`)
     
     // Determine file extension and content type
-    // Whisper API can handle both audio and video files
-    const extension = filename.split('.').pop() || (mimeType.includes('video') ? 'mp4' : 'mp3')
-    const contentType = mimeType.includes('video') ? 'video/mp4' : 'audio/mpeg'
+    // Whisper API can handle video files
+    const extension = filename.split('.').pop() || 'mp4'
+    const contentType = 'video/mp4'
     
     const transcription = await transcribeAudioFromBuffer(
       fileBuffer,

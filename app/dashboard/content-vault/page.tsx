@@ -16,7 +16,7 @@ const BRAND_COLOR = "#a6261c"
 interface ContentItem {
   id: string
   title: string
-  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
+  type: "video" | "url" | "text" | "image"
   wordCount?: number
   status: "pending" | "processing" | "ready" | "error"
   summary?: string
@@ -40,7 +40,7 @@ export default function ContentVaultPage() {
   const [activeFilter, setActiveFilter] = useState("all")
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [uploadType, setUploadType] = useState<"podcast" | "video" | "audio" | "url" | "text" | "image" | null>(null)
+  const [uploadType, setUploadType] = useState<"video" | "url" | "text" | "image" | null>(null)
   const [improvingSummaryId, setImprovingSummaryId] = useState<string | null>(null)
   
   // TODO: Get userId from auth context/session
@@ -128,7 +128,7 @@ export default function ContentVaultPage() {
   const handleAddContent = (type: string) => {
     setIsModalOpen(false)
     // Map modal type names to our type system
-    const typeMap: Record<string, "podcast" | "video" | "audio" | "url" | "text" | "image"> = {
+    const typeMap: Record<string, "video" | "url" | "text" | "image"> = {
       "Video Upload": "video",
       "Paste URL": "url",
       "Paste Text / Notes": "text",
@@ -305,7 +305,7 @@ export default function ContentVaultPage() {
         <div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Content Vault</h1>
           <p className="text-muted-foreground">
-            Your central repository for podcasts, videos, notes, and links.
+            Your central repository for videos, notes, and links.
           </p>
         </div>
         <Button

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { X, Upload, FileText, Link as LinkIcon, Mic, Video, Headphones, Image as ImageIcon } from "lucide-react"
+import { X, Upload, FileText, Link as LinkIcon, Video, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +12,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 const BRAND_COLOR = "#a6261c"
 
 interface UploadFormProps {
-  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
+  type: "video" | "url" | "text" | "image"
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
@@ -38,7 +38,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         const fileSizeMB = (selectedFile.size / 1024 / 1024).toFixed(2)
         setError(
           `File size (${fileSizeMB}MB) exceeds Vercel's 4.5MB limit. ` +
-          `Please compress your file or use a video/audio URL instead. ` +
+          `Please compress your file or use a video URL instead. ` +
           `Tip: You can upload YouTube URLs directly in the "URL" option.`
         )
         setFile(null)
@@ -95,22 +95,6 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         if (data.message && data.message.includes("YouTube")) {
           // Show success message for YouTube
           console.log("YouTube video processing started")
-        }
-      } else if (type === "podcast") {
-        // Process podcast
-        const response = await fetch("/api/content/podcast", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url,
-            title: title || "Podcast Episode",
-            userId,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || "Failed to process podcast")
         }
       } else if (type === "text") {
         // Create text content
@@ -190,12 +174,8 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
   const getTypeIcon = () => {
     switch (type) {
-      case "audio":
-        return Headphones
       case "video":
         return Video
-      case "podcast":
-        return Mic
       case "url":
         return LinkIcon
       case "text":
@@ -209,12 +189,8 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
   const getTypeLabel = () => {
     switch (type) {
-      case "audio":
-        return "Audio Upload"
       case "video":
         return "Video Upload"
-      case "podcast":
-        return "Podcast Link"
       case "url":
         return "Paste URL"
       case "text":
@@ -271,8 +247,8 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
               />
             </div>
 
-            {/* File Upload (Audio/Video/Image) */}
-            {(type === "audio" || type === "video" || type === "image") && (
+            {/* File Upload (Video/Image) */}
+            {(type === "video" || type === "image") && (
               <div>
                 <Label>File</Label>
                 <div className="mt-2">
@@ -280,9 +256,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                     ref={fileInputRef}
                     type="file"
                     accept={
-                      type === "audio"
-                        ? "audio/mpeg,audio/wav,audio/mp3,audio/x-m4a,audio/mp4,video/mp4,.mp4,.m4a,.mp3,.wav"
-                        : type === "video"
+                      type === "video"
                         ? "video/mp4,video/webm,video/quicktime"
                         : "image/jpeg,image/png,image/gif,image/webp,image/jpg"
                     }
@@ -312,12 +286,10 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                       <div>
                         <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          Click to upload {type === "audio" ? "audio" : type === "video" ? "video" : "image"} file
+                          Click to upload {type === "video" ? "video" : "image"} file
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {type === "audio"
-                            ? "MP3, WAV, M4A, MP4 (Max 4.5MB)"
-                            : type === "video"
+                          {type === "video"
                             ? "MP4, WebM, QuickTime (Max 4.5MB)"
                             : "JPEG, PNG, GIF, WebP"}
                         </p>
@@ -328,28 +300,20 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
               </div>
             )}
 
-            {/* URL Input (Podcast/URL) */}
-            {(type === "podcast" || type === "url") && (
+            {/* URL Input */}
+            {type === "url" && (
               <div>
-                <Label htmlFor="url">
-                  {type === "podcast" ? "Podcast Link" : "URL"}
-                </Label>
+                <Label htmlFor="url">URL</Label>
                 <Input
                   id="url"
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder={
-                    type === "podcast"
-                      ? "https://podcasts.apple.com/..."
-                      : "https://example.com/article"
-                  }
+                  placeholder="https://example.com/article"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {type === "podcast"
-                    ? "Enter a podcast episode URL or RSS feed"
-                    : "Enter a URL to scrape content from"}
+                  Enter a URL to scrape content from
                 </p>
               </div>
             )}

@@ -10,7 +10,7 @@ const BRAND_COLOR = "#a6261c"
 interface ContentItem {
   id: string
   title: string
-  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
+  type: "video" | "url" | "text" | "image"
   wordCount?: number
   status: "pending" | "processing" | "ready" | "error"
   summary?: string

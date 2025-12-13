@@ -33,7 +33,7 @@ export function BookFocusPreview({ bookId, bookTitle }: BookFocusPreviewProps) {
           <p className="text-sm text-foreground mb-4">
             You are closest to completing: <span className="font-semibold text-[#a6261c]">{bookTitle}</span>
           </p>
-          <Link href={`/dashboard/book-editor?id=${bookId}`}>
+          <Link href={`/dashboard/book-editor?book=${bookId}`}>
             <Button
               className="w-full bg-[#a6261c] hover:bg-[#8e1e16] text-white"
               style={{ backgroundColor: BRAND_COLOR }}

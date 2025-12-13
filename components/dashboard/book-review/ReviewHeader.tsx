@@ -10,15 +10,14 @@ interface ReviewHeaderProps {
   lastAnalyzed: string
   onRunAgain: () => void
   isAnalyzing?: boolean
-  bookId?: string | null
 }
 
-export function ReviewHeader({ lastAnalyzed, onRunAgain, isAnalyzing = false, bookId }: ReviewHeaderProps) {
+export function ReviewHeader({ lastAnalyzed, onRunAgain, isAnalyzing = false }: ReviewHeaderProps) {
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href={bookId ? `/dashboard/book-editor?id=${bookId}` : "/dashboard/book-editor"}>
+          <Link href="/dashboard/book-editor">
             <button className="text-gray-600 hover:text-gray-900 transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>

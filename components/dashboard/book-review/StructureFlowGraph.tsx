@@ -20,18 +20,7 @@ const statusConfig = {
   weak: { color: "#6b7280", icon: XCircle, label: "Needs work" },
 }
 
-export function StructureFlowGraph({ sections = [] }: StructureFlowGraphProps) {
-  if (!sections || sections.length === 0) {
-    return (
-      <Card className="border-gray-200 shadow-sm">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Structure Analysis</h3>
-          <p className="text-sm text-gray-500">No structure data available</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
+export function StructureFlowGraph({ sections }: StructureFlowGraphProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

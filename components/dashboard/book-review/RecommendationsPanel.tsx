@@ -19,23 +19,9 @@ interface RecommendationsPanelProps {
 }
 
 export function RecommendationsPanel({
-  recommendations = [],
+  recommendations,
   onApplyFix,
 }: RecommendationsPanelProps) {
-  if (!recommendations || recommendations.length === 0) {
-    return (
-      <Card className="border-gray-200 shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="h-5 w-5 text-[#a6261c]" />
-            <h3 className="text-lg font-semibold text-gray-900">AI Recommendations</h3>
-          </div>
-          <p className="text-sm text-gray-500">No recommendations available</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}

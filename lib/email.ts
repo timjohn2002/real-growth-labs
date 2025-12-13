@@ -24,38 +24,9 @@ export async function sendPasswordResetEmail(
   }
 
   try {
-    // Use verified domain: labs.realgrowth.art
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art"
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
     
-    // Validate from email is from verified domain
-    if (!fromEmail.includes("@labs.realgrowth.art")) {
-      console.error("❌ From email must be from verified domain labs.realgrowth.art")
-      console.error("Current from email:", fromEmail)
-      return {
-        success: false,
-        error: `From email must be from verified domain. Current: ${fromEmail}`,
-      }
-    }
-    
-    console.log("=".repeat(60))
-    console.log("📧 PREPARING TO SEND EMAIL")
-    console.log("=".repeat(60))
-    console.log("From:", fromEmail)
-    console.log("To:", email)
-    console.log("RESEND_API_KEY exists:", !!process.env.RESEND_API_KEY)
-    console.log("RESEND_API_KEY length:", process.env.RESEND_API_KEY?.length || 0)
-    console.log("=".repeat(60))
-    
-    console.log("=".repeat(60))
-    console.log("📧 RESEND EMAIL SEND REQUEST")
-    console.log("=".repeat(60))
-    console.log("From:", fromEmail)
-    console.log("To:", email)
-    console.log("Subject: Reset Your Password - Real Growth Labs")
-    console.log("=".repeat(60))
-
-    // Ensure the reset link is properly encoded
-    const encodedResetLink = encodeURI(resetLink)
+    console.log("Sending password reset email:", { to: email, from: fromEmail })
     
     const result = await resend.emails.send({
       from: fromEmail,
@@ -75,23 +46,15 @@ export async function sendPasswordResetEmail(
               <p style="color: #666; margin-bottom: 30px;">
                 You requested to reset your password for your Real Growth Labs account.
               </p>
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 20px;">
-                <tr>
-                  <td style="background-color: #a6261c; border-radius: 6px; text-align: center;">
-                    <a 
-                      href="${encodedResetLink}" 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="display: inline-block; background-color: #a6261c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;"
-                    >
-                      Reset Password
-                    </a>
-                  </td>
-                </tr>
-              </table>
+              <a 
+                href="${resetLink}" 
+                style="display: inline-block; background-color: #a6261c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-bottom: 20px;"
+              >
+                Reset Password
+              </a>
               <p style="color: #666; font-size: 14px; margin-top: 30px;">
                 Or copy and paste this link into your browser:<br>
-                <a href="${encodedResetLink}" style="color: #a6261c; word-break: break-all; text-decoration: underline;">${resetLink}</a>
+                <a href="${resetLink}" style="color: #a6261c; word-break: break-all;">${resetLink}</a>
               </p>
               <p style="color: #999; font-size: 12px; margin-top: 30px;">
                 This link will expire in 1 hour.<br>
@@ -115,57 +78,15 @@ export async function sendPasswordResetEmail(
       `,
     })
 
-    console.log("=".repeat(60))
-    console.log("📧 RESEND API RESPONSE")
-    console.log("=".repeat(60))
-    console.log("Full response:", JSON.stringify(result, null, 2))
-    console.log("Response type:", typeof result)
-    console.log("Response keys:", Object.keys(result || {}))
-    console.log("=".repeat(60))
+    console.log("Email sent successfully:", JSON.stringify(result, null, 2))
     
     // Extract email ID from Resend response
-    // Resend API returns: { id: "..." } directly
-    // Resend SDK might wrap it: { data: { id: "..." } }
-    const emailId = (result as any)?.id || (result as any)?.data?.id
+    const emailId = (result as any).data?.id || (result as any).id
+    console.log("Resend Email ID:", emailId)
     
-    console.log("Extracted Email ID:", emailId)
-    console.log("Result structure:", {
-      hasId: !!(result as any)?.id,
-      hasData: !!(result as any)?.data,
-      hasDataId: !!(result as any)?.data?.id,
-      resultKeys: Object.keys(result || {}),
-      dataKeys: (result as any)?.data ? Object.keys((result as any).data) : null,
-    })
-    
-    // Check for errors in response
-    if ((result as any)?.error) {
-      console.error("❌ Resend returned an error:", (result as any).error)
-      return {
-        success: false,
-        error: (result as any).error.message || "Resend API error",
-        details: JSON.stringify((result as any).error, null, 2),
-      }
-    }
-    
-    // If no email ID, treat as failure
     if (!emailId) {
-      console.error("❌ CRITICAL: No email ID returned from Resend!")
-      console.error("This usually means the email was NOT sent.")
-      console.error("Possible causes:")
-      console.error("  1. Invalid RESEND_API_KEY")
-      console.error("  2. From email not authorized for domain")
-      console.error("  3. Domain not verified in Resend")
-      console.error("  4. Resend API issue")
-      
-      return {
-        success: false,
-        error: "No email ID returned from Resend. Email was likely not sent. Please check your Resend configuration.",
-        details: `Full response: ${JSON.stringify(result, null, 2)}`,
-      }
+      console.warn("Warning: No email ID returned from Resend. Email may not have been sent.")
     }
-    
-    console.log("✅ Email sent successfully! Email ID:", emailId)
-    console.log("=".repeat(60))
     
     return { 
       success: true, 
@@ -216,8 +137,7 @@ export async function sendWelcomeEmail(
   }
 
   try {
-    // Use verified domain: labs.realgrowth.art
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@labs.realgrowth.art"
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
     
     await resend.emails.send({
       from: fromEmail,

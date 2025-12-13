@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, Loader2 } from "lucide-react"
+import { Video, Link as LinkIcon, FileText, Image as ImageIcon, Eye, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const BRAND_COLOR = "#a6261c"
@@ -10,7 +10,7 @@ const BRAND_COLOR = "#a6261c"
 interface ContentItem {
   id: string
   title: string
-  type: "podcast" | "video" | "audio" | "url" | "text" | "image"
+  type: "video" | "url" | "text" | "image"
   wordCount?: number
   status: "pending" | "processing" | "ready" | "error"
   summary?: string
@@ -32,12 +32,8 @@ interface ContentCardProps {
 
 const getTypeIcon = (type: string) => {
   switch (type) {
-    case "podcast":
-      return Mic
     case "video":
       return Video
-    case "audio":
-      return Headphones
     case "url":
       return LinkIcon
     case "text":

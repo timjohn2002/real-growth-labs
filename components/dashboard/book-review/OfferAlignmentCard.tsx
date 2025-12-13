@@ -24,7 +24,7 @@ const valueColors = {
 
 export function OfferAlignmentCard({
   overallScore,
-  metrics = [],
+  metrics,
   recommendation,
 }: OfferAlignmentCardProps) {
   return (

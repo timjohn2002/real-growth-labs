@@ -136,14 +136,8 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
             // Use TUS resumable upload for large files (required for free tier files > 50MB)
             console.log(`[UploadForm] Large file detected (${(file.size / 1024 / 1024).toFixed(2)} MB), using TUS resumable upload...`)
             
-            // Import TUS client
-            const tusModule = await import("tus-js-client")
-            // tus-js-client exports Upload directly, not as default
-            const Upload = tusModule.Upload || tusModule.default?.Upload || (tusModule.default as any)
-            
-            if (!Upload) {
-              throw new Error("Failed to import TUS Upload class")
-            }
+            // Import TUS client - Upload is a named export
+            const { Upload } = await import("tus-js-client")
             
             // Extract project ID from Supabase URL
             const projectId = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]

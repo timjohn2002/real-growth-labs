@@ -248,7 +248,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                     type="file"
                     accept={
                       type === "audio"
-                        ? "audio/mpeg,audio/wav,audio/mp3,audio/x-m4a"
+                        ? "audio/mpeg,audio/wav,audio/mp3,audio/x-m4a,audio/mp4,video/mp4,.mp4,.m4a,.mp3,.wav"
                         : type === "video"
                         ? "video/mp4,video/webm,video/quicktime"
                         : "image/jpeg,image/png,image/gif,image/webp,image/jpg"
@@ -283,7 +283,7 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {type === "audio"
-                            ? "MP3, WAV, M4A"
+                            ? "MP3, WAV, M4A, MP4"
                             : type === "video"
                             ? "MP4, WebM, QuickTime"
                             : "JPEG, PNG, GIF, WebP"}

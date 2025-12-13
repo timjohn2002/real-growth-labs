@@ -90,11 +90,10 @@ export async function POST(request: NextRequest) {
                   if (job) {
                     // Check if job failed by checking failedReason property
                     // BullMQ jobs have a failedReason property (not a method)
-                    const jobState = await job.getState()
                     const failedReason = job.failedReason
                     
-                    // Retry if job has failed or is in a state that indicates it needs retry
-                    if (failedReason || jobState === "failed") {
+                    // Retry if job has failed (failedReason will be set if job failed)
+                    if (failedReason) {
                       // Retry the job
                       await job.retry()
                       await prisma.contentItem.update({

@@ -56,9 +56,13 @@ export async function uploadFile(
       let buffer: Buffer
       if (file instanceof Buffer) {
         buffer = file
-      } else {
+      } else if (file instanceof File) {
+        // File is a browser File object
         const arrayBuffer = await file.arrayBuffer()
         buffer = Buffer.from(arrayBuffer)
+      } else {
+        // Fallback: assume it's already a Buffer or can be converted
+        buffer = Buffer.isBuffer(file) ? file : Buffer.from(file as any)
       }
 
       console.log(`[uploadFile] Uploading to Supabase Storage: ${filePath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)

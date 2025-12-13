@@ -67,13 +67,27 @@ export async function uploadFile(
 
       console.log(`[uploadFile] Uploading to Supabase Storage: ${filePath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
 
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, buffer, {
-          contentType: "audio/mpeg",
-          upsert: true, // Allow overwriting
-        })
+              // Determine content type based on file extension or provided type
+              let contentType = "application/octet-stream"
+              if (path.endsWith(".png")) {
+                contentType = "image/png"
+              } else if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+                contentType = "image/jpeg"
+              } else if (path.endsWith(".mp3")) {
+                contentType = "audio/mpeg"
+              } else if (path.endsWith(".mp4")) {
+                contentType = "video/mp4"
+              } else if (file instanceof File) {
+                contentType = file.type || contentType
+              }
+
+              // Upload to Supabase Storage
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from(bucket)
+                .upload(filePath, buffer, {
+                  contentType,
+                  upsert: true, // Allow overwriting
+                })
 
       if (uploadError) {
         console.error("[uploadFile] Supabase upload error:", uploadError)

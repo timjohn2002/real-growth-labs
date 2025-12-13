@@ -10,6 +10,7 @@ import { ExportModal } from "@/components/dashboard/book-editor/ExportModal"
 import { AudiobookModal } from "@/components/dashboard/audiobook/AudiobookModal"
 import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { BookLibraryModal } from "@/components/dashboard/book-editor/BookLibraryModal"
+import { BookCoverModal } from "@/components/dashboard/book-editor/BookCoverModal"
 import { markdownToHTML, htmlToMarkdown } from "@/lib/markdown-to-html"
 import { useRouter } from "next/navigation"
 
@@ -37,6 +38,8 @@ export default function FullBookEditorPage() {
   const [isContentVaultOpen, setIsContentVaultOpen] = useState(false)
   const [contentToInsert, setContentToInsert] = useState<string | null>(null)
   const [isBookLibraryOpen, setIsBookLibraryOpen] = useState(false)
+  const [isBookCoverModalOpen, setIsBookCoverModalOpen] = useState(false)
+  const [bookCoverImage, setBookCoverImage] = useState<string | null>(null)
 
   const [chapters, setChapters] = useState<Chapter[]>([])
 
@@ -79,6 +82,7 @@ export default function FullBookEditorPage() {
         const data = await response.json()
         setBookTitle(data.title)
         setBookStatus(data.status as "draft" | "published")
+        setBookCoverImage(data.coverImage || null)
         
         // Convert markdown content to HTML for TipTap editor
         const formattedChapters = (data.chapters || []).map((ch: any) => ({
@@ -276,9 +280,16 @@ export default function FullBookEditorPage() {
     }
   }
 
-  const handlePreview = () => {
-    console.log("Preview book")
-    // TODO: Open preview modal/page
+  const handleCreateCover = () => {
+    setIsBookCoverModalOpen(true)
+  }
+
+  const handleCoverGenerated = (coverUrl: string) => {
+    setBookCoverImage(coverUrl)
+    // Reload book to get updated cover image
+    if (bookId) {
+      loadBook(bookId)
+    }
   }
 
   const handleManualSave = async () => {
@@ -401,7 +412,7 @@ export default function FullBookEditorPage() {
         status={bookStatus}
         lastUpdated={lastUpdated}
         onTitleChange={setBookTitle}
-        onPreview={handlePreview}
+        onCreateCover={handleCreateCover}
         onExport={() => setIsExportModalOpen(true)}
         onGenerateAudiobook={() => setIsAudiobookModalOpen(true)}
         onRunBookReview={() => router.push(`/dashboard/book-review?id=${bookId}`)}
@@ -506,6 +517,31 @@ export default function FullBookEditorPage() {
         isOpen={isBookLibraryOpen}
         onClose={() => setIsBookLibraryOpen(false)}
         onSelect={handleImportBook}
+      />
+
+      {/* Book Cover Modal */}
+      <BookCoverModal
+        isOpen={isBookCoverModalOpen}
+        onClose={() => setIsBookCoverModalOpen(false)}
+        bookId={bookId}
+        bookTitle={bookTitle}
+        introductionContent={
+          chapters.find(
+            (ch) =>
+              ch.title.toLowerCase().includes("intro") ||
+              ch.number === 1
+          )?.content
+            ? chapters
+                .find(
+                  (ch) =>
+                    ch.title.toLowerCase().includes("intro") ||
+                    ch.number === 1
+                )
+                ?.content.replace(/<[^>]*>/g, "")
+                .trim()
+            : undefined
+        }
+        onCoverGenerated={handleCoverGenerated}
       />
     </div>
   )

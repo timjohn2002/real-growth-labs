@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Eye, Download, MoreVertical, CheckCircle2, Clock, Headphones, BarChart3, FolderOpen } from "lucide-react"
+import { ArrowLeft, Image, Download, MoreVertical, CheckCircle2, Clock, Headphones, BarChart3, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ interface EditorTopBarProps {
   status: "draft" | "published"
   lastUpdated: string
   onTitleChange: (title: string) => void
-  onPreview: () => void
+  onCreateCover: () => void
   onExport: () => void
   onGenerateAudiobook?: () => void
   onRunBookReview?: () => void
@@ -30,7 +30,7 @@ export function EditorTopBar({
   status,
   lastUpdated,
   onTitleChange,
-  onPreview,
+  onCreateCover,
   onExport,
   onGenerateAudiobook,
   onRunBookReview,
@@ -113,9 +113,9 @@ export function EditorTopBar({
               Generate Audiobook
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onPreview}>
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
+          <Button variant="ghost" size="sm" onClick={onCreateCover}>
+            <Image className="h-4 w-4 mr-2" />
+            Create Book Cover
           </Button>
           <Button variant="ghost" size="sm" onClick={onExport}>
             <Download className="h-4 w-4 mr-2" />

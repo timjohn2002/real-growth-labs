@@ -144,6 +144,14 @@ function generateBookHTML(book: any, chapters: any[]): string {
       margin: 0 auto;
       padding: 20px;
     }
+    .cover-image {
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      margin: 0 auto 2em;
+      display: block;
+      page-break-after: always;
+    }
     h1 {
       font-size: 2.5em;
       margin-bottom: 0.5em;
@@ -182,6 +190,7 @@ function generateBookHTML(book: any, chapters: any[]): string {
   </style>
 </head>
 <body>
+  ${book.coverImage ? `<img src="${book.coverImage}" alt="${book.title} Cover" class="cover-image" />` : ""}
   <h1>${book.title}</h1>
   ${book.description ? `<div class="subtitle">${book.description}</div>` : ""}
 `

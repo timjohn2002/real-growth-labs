@@ -95,10 +95,10 @@ export async function transcribeAudioFromBuffer(
   const { language = "en", prompt } = options
 
   try {
-    // Use form-data package for Node.js multipart/form-data
+    // Use form-data package for Node.js (works better than native FormData with Buffers)
     const FormDataModule = await import("form-data")
-    const FormData = FormDataModule.default
-    const formData = new FormData()
+    const FormDataClass = FormDataModule.default
+    const formData = new FormDataClass()
     
     // Determine proper content type based on file extension
     let contentType = "audio/mpeg" // default
@@ -114,30 +114,27 @@ export async function transcribeAudioFromBuffer(
       contentType = "audio/mpeg"
     }
     
-    // Append file as Buffer - form-data will handle it correctly
-    formData.append("file", audioBuffer, {
-      filename,
-      contentType,
-    })
-    formData.append("model", "whisper-1")
-    formData.append("language", language)
+    // Create a Blob from the Buffer for better compatibility
+    const blob = new Blob([audioBuffer], { type: contentType })
+    const file = new File([blob], filename, { type: contentType })
+    
+    // Use native FormData (available in Node.js 18+)
+    const formDataNative = new FormData()
+    formDataNative.append("file", file)
+    formDataNative.append("model", "whisper-1")
+    formDataNative.append("language", language)
     if (prompt) {
-      formData.append("prompt", prompt)
+      formDataNative.append("prompt", prompt)
     }
 
-    // Get headers from form-data (includes Content-Type with boundary)
-    const formHeaders = formData.getHeaders()
-    
-    // Use node-fetch or ensure proper handling of form-data stream
-    // For Node.js, we need to use the form-data package correctly
     const response = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
       method: "POST",
       headers: {
-        ...formHeaders,
         Authorization: `Bearer ${OPENAI_API_KEY}`,
+        // Don't set Content-Type - fetch will set it with boundary automatically
       },
-      body: formData as any,
-    } as RequestInit)
+      body: formDataNative,
+    })
 
     if (!response.ok) {
       const error = await response.text()

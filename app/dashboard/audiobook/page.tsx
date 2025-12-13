@@ -311,20 +311,22 @@ export default function AudiobookPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-3 pt-4 border-t border-border">
-                    {selectedAudiobook.audioUrl && selectedAudiobook.status === "completed" && (
+                    <Button variant="outline" onClick={handleRegenerate}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Regenerate
+                    </Button>
+                    {selectedAudiobook.audioUrl && (
                       <Button
                         onClick={handleDownload}
-                        className="bg-[#a6261c] hover:bg-[#8e1e16] text-white"
-                        style={{ backgroundColor: BRAND_COLOR }}
+                        variant="outline"
+                        disabled={selectedAudiobook.status !== "completed"}
+                        className="bg-[#a6261c] hover:bg-[#8e1e16] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: selectedAudiobook.status === "completed" ? BRAND_COLOR : undefined }}
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Download
                       </Button>
                     )}
-                    <Button variant="outline" onClick={handleRegenerate}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Regenerate
-                    </Button>
                     <Button
                       variant="outline"
                       className="text-red-600 hover:text-red-700"

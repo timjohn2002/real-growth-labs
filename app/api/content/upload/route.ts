@@ -31,15 +31,21 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     const allowedTypes: Record<string, string[]> = {
-      audio: ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-m4a"],
+      audio: ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-m4a", "audio/mp4", "video/mp4"], // MP4 can contain audio
       video: ["video/mp4", "video/webm", "video/quicktime"],
       text: ["text/plain"],
       image: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg"],
     }
 
-    if (!allowedTypes[type]?.includes(file.type)) {
+    // Also check file extension as fallback for MP4 files
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    const isValidType = allowedTypes[type]?.includes(file.type) || 
+      (type === "audio" && fileExtension === "mp4") ||
+      (type === "audio" && fileExtension === "m4a")
+
+    if (!isValidType) {
       return NextResponse.json(
-        { error: `Invalid file type for ${type}. Allowed: ${allowedTypes[type]?.join(", ")}` },
+        { error: `Invalid file type for ${type}. Allowed: ${allowedTypes[type]?.join(", ")}${type === "audio" ? ", MP4" : ""}` },
         { status: 400 }
       )
     }

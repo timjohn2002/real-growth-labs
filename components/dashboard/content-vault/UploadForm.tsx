@@ -126,9 +126,25 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         })
 
         if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || "Failed to upload file")
+          let errorMessage = "Failed to upload file"
+          try {
+            const data = await response.json()
+            errorMessage = data.error || errorMessage
+          } catch (parseError) {
+            // If response is not JSON, try to get text
+            try {
+              const text = await response.text()
+              errorMessage = text || errorMessage
+            } catch {
+              // Use default error message
+            }
+          }
+          throw new Error(errorMessage)
         }
+        
+        // Only try to parse JSON if response is ok
+        const data = await response.json()
+        // Success - file uploaded
       } else {
         throw new Error("Please select a file")
       }

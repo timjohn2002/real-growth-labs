@@ -88,10 +88,13 @@ export async function POST(request: NextRequest) {
                   const job = await youtubeQueue.getJob(jobId)
                   
                   if (job) {
-                    // Check if job failed by checking failedReason
-                    // BullMQ doesn't return "failed" in getState(), so we check failedReason instead
-                    const failedReason = await job.getFailedReason()
-                    if (failedReason !== null) {
+                    // Check if job failed by checking failedReason property
+                    // BullMQ jobs have a failedReason property (not a method)
+                    const jobState = await job.getState()
+                    const failedReason = job.failedReason
+                    
+                    // Retry if job has failed or is in a state that indicates it needs retry
+                    if (failedReason || jobState === "failed") {
                       // Retry the job
                       await job.retry()
                       await prisma.contentItem.update({

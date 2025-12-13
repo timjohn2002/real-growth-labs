@@ -13,6 +13,7 @@ const contentTypes = [
     icon: Video,
     description: "Coming Soon",
     color: "#a6261c",
+    disabled: true, // Disable video upload feature
   },
   {
     name: "Paste URL",

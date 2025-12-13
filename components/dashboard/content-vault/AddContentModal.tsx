@@ -71,8 +71,16 @@ export function AddContentModal({ isOpen, onClose, onSelectType }: AddContentMod
                   whileTap={{ scale: 0.98 }}
                 >
                   <Card
-                    className="border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer h-full"
-                    onClick={() => onSelectType(type.name)}
+                    className={`border-gray-200 shadow-sm transition-all h-full ${
+                      type.disabled 
+                        ? "opacity-60 cursor-not-allowed" 
+                        : "hover:shadow-md cursor-pointer"
+                    }`}
+                    onClick={() => {
+                      if (!type.disabled) {
+                        onSelectType(type.name)
+                      }
+                    }}
                   >
                     <CardContent className="p-6 flex flex-col items-center text-center">
                       <div

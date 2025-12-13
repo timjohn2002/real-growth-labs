@@ -71,15 +71,16 @@ Book Introduction/Content: ${introSummary}
 
 Requirements for the DALL-E 3 prompt:
 1. Must be a flat, graphic book cover design (NOT a photograph of a physical book)
-2. Must include the book title "${book.title}" prominently and clearly readable
+2. DO NOT include any text, words, or letters in the design - this will be added separately
 3. Should reflect the book's content and theme based on the introduction
 4. Simple, minimal, and modern aesthetic
 5. Professional and enticing design
 6. Suitable for both print and digital formats
 7. Pure graphic design - no 3D effects, shadows, or photographic elements
 8. High quality, artistic illustration
+9. Leave space in the center or top area for text overlay (title will be added programmatically)
 
-Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use to create this cover. Focus on visual elements, color palette suggestions, and design style that matches the book's theme.`
+Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use to create this cover. Focus ONLY on visual elements, color palette suggestions, and design style that matches the book's theme. Do not mention text or words.`
 
     const optimizedPrompt = await callGPT(promptGenerationPrompt, {
       model: "gpt-4o",
@@ -137,7 +138,122 @@ Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use t
       )
     }
 
-    const imageBuffer = Buffer.from(await imageResponse2.arrayBuffer())
+    let imageBuffer = Buffer.from(await imageResponse2.arrayBuffer())
+
+    // Overlay book title on the cover using sharp
+    try {
+      const sharp = (await import("sharp")).default
+      
+      // Load the image
+      const image = sharp(imageBuffer)
+      const metadata = await image.metadata()
+      const width = metadata.width || 1024
+      const height = metadata.height || 1024
+      
+      // Calculate font size based on image dimensions and title length
+      const title = book.title
+      const titleLength = title.length
+      // Adjust font size based on title length - longer titles need smaller fonts
+      let baseFontSize = Math.floor(width * 0.12)
+      if (titleLength > 30) {
+        baseFontSize = Math.floor(width * 0.08)
+      } else if (titleLength > 20) {
+        baseFontSize = Math.floor(width * 0.09)
+      }
+      
+      // Escape HTML entities in title
+      const escapedTitle = title
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+      
+      // Split long titles into multiple lines (approximately 25 characters per line)
+      const words = title.split(" ")
+      const lines: string[] = []
+      let currentLine = ""
+      
+      for (const word of words) {
+        if ((currentLine + " " + word).length <= 25 && currentLine.length > 0) {
+          currentLine += " " + word
+        } else {
+          if (currentLine) lines.push(currentLine)
+          currentLine = word
+        }
+      }
+      if (currentLine) lines.push(currentLine)
+      
+      // If title is short, use single line
+      const finalLines = lines.length > 1 && titleLength > 20 ? lines : [title]
+      const lineHeight = baseFontSize * 1.2
+      const totalTextHeight = finalLines.length * lineHeight
+      const startY = height / 2 - (totalTextHeight / 2) + (lineHeight / 2)
+      
+      // Create SVG with text overlay
+      const textElements = finalLines
+        .map((line, index) => {
+          const y = startY + index * lineHeight
+          const escapedLine = line
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;")
+          
+          return `
+            <!-- Shadow for line ${index + 1} -->
+            <text x="${width / 2}" y="${y + 3}" class="title-shadow">${escapedLine}</text>
+            <text x="${width / 2}" y="${y}" class="title-text">${escapedLine}</text>
+          `
+        })
+        .join("")
+      
+      const svgText = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <style>
+              .title-text {
+                font-family: 'Georgia', 'Times New Roman', serif;
+                font-weight: bold;
+                font-size: ${baseFontSize}px;
+                fill: white;
+                text-anchor: middle;
+                dominant-baseline: middle;
+                letter-spacing: 1px;
+              }
+              .title-shadow {
+                font-family: 'Georgia', 'Times New Roman', serif;
+                font-weight: bold;
+                font-size: ${baseFontSize}px;
+                fill: rgba(0, 0, 0, 0.6);
+                text-anchor: middle;
+                dominant-baseline: middle;
+                letter-spacing: 1px;
+              }
+            </style>
+          </defs>
+          ${textElements}
+        </svg>
+      `
+      
+      // Composite the text overlay onto the image
+      imageBuffer = await image
+        .composite([
+          {
+            input: Buffer.from(svgText),
+            top: 0,
+            left: 0,
+          },
+        ])
+        .png()
+        .toBuffer()
+      
+      console.log(`[generateBookCover] Title "${title}" overlaid on cover successfully (${finalLines.length} line(s))`)
+    } catch (overlayError) {
+      console.warn(`[generateBookCover] Failed to overlay text, using original image:`, overlayError)
+      // Continue with original image if text overlay fails
+    }
 
     // Upload to Supabase Storage
     const { uploadFile } = await import("@/lib/storage")

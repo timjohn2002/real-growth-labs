@@ -1023,8 +1023,8 @@ async function processYouTubeVideoWithYtDlp(
           where: { id: contentItemId },
           data: {
             status: "ready",
-            transcript: transcription.text,
-            rawText: transcription.text,
+            transcript: transcriptText, // Use the trimmed but full transcript
+            rawText: transcriptText, // Store full transcript in rawText as well
             wordCount,
             summary,
             processedAt: new Date(),
@@ -1034,6 +1034,8 @@ async function processYouTubeVideoWithYtDlp(
               processingStage: "Complete",
               processingProgress: 100,
               transcriptionMethod: "yt-dlp",
+              transcriptLength: transcriptText.length,
+              wordCount: wordCount,
             }),
           },
         })

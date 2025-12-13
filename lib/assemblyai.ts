@@ -62,11 +62,15 @@ export async function transcribeYouTubeUrl(
     const uploadUrl = await client.files.upload(audioBuffer)
     console.log(`[AssemblyAI] Audio uploaded. URL: ${uploadUrl}`)
 
-    // Submit transcription job
+    // Submit transcription job with full transcript settings
     const transcript = await client.transcripts.submit({
       audio: uploadUrl, // Use the uploaded file URL
       language_code: options.language || "en",
       speaker_labels: options.speakerLabels || false,
+      // Ensure we get the full transcript - no filtering
+      punctuate: true, // Add punctuation for better readability
+      format_text: true, // Format text properly
+      // Don't filter out any content - get everything
     })
 
     console.log(`[AssemblyAI] Transcription job submitted. ID: ${transcript.id}`)

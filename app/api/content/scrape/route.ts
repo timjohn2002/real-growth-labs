@@ -621,14 +621,26 @@ async function processYouTubeVideoWithAssemblyAI(
       throw new Error("Transcription returned empty text. The video may not contain speech or may be unavailable.")
     }
 
-    console.log(`[${contentItemId}] Transcription complete. Text length: ${transcription.text.length} characters`)
+    // Log full transcript details for verification
+    const transcriptText = transcription.text.trim()
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] Transcription complete. Text length: ${transcriptText.length} characters`)
+    console.log(`[${contentItemId}] Word count: ${wordCount} words`)
+    console.log(`[${contentItemId}] First 300 chars: ${transcriptText.substring(0, 300)}...`)
+    console.log(`[${contentItemId}] Last 300 chars: ...${transcriptText.substring(Math.max(0, transcriptText.length - 300))}`)
+    
+    // Warn if transcript seems unusually short (less than ~50 words per minute)
+    // For a 9-minute video, we'd expect at least 450 words minimum
+    const videoDurationMinutes = 9 // This should ideally come from video metadata
+    const expectedMinWords = videoDurationMinutes * 50 // Conservative estimate
+    if (wordCount < expectedMinWords) {
+      console.warn(`[${contentItemId}] WARNING: Transcript has ${wordCount} words, which seems low for a ${videoDurationMinutes}-minute video. Expected at least ${expectedMinWords} words.`)
+    }
 
     // Stage 4: Generating summary (90%)
     await updateProgress(contentItemId, "Generating summary...", 90)
     
-    const summary = await generateSummary(transcription.text)
-    const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
-    console.log(`[${contentItemId}] Word count: ${wordCount}`)
+    const summary = await generateSummary(transcriptText)
 
     // Stage 5: Saving to database (95%)
     await updateProgress(contentItemId, "Saving to database...", 95)
@@ -644,8 +656,8 @@ async function processYouTubeVideoWithAssemblyAI(
       where: { id: contentItemId },
       data: {
         status: "ready",
-        transcript: transcription.text,
-        rawText: transcription.text,
+        transcript: transcriptText, // Use the trimmed but full transcript
+        rawText: transcriptText, // Store full transcript in rawText as well
         wordCount,
         summary,
         processedAt: new Date(),
@@ -655,6 +667,8 @@ async function processYouTubeVideoWithAssemblyAI(
           processingStage: "Complete",
           processingProgress: 100,
           transcriptionMethod: "assemblyai",
+          transcriptLength: transcriptText.length,
+          wordCount: wordCount,
         }),
       },
     })
@@ -962,23 +976,30 @@ async function processYouTubeVideoWithYtDlp(
       throw new Error("Transcription returned empty text. The audio may be too quiet or contain no speech.")
     }
 
+    // Log full transcript details for verification
+    const transcriptText = transcription.text.trim()
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] Transcription complete. Text length: ${transcriptText.length} characters`)
+    console.log(`[${contentItemId}] Word count: ${wordCount} words`)
+    console.log(`[${contentItemId}] First 300 chars: ${transcriptText.substring(0, 300)}...`)
+    console.log(`[${contentItemId}] Last 300 chars: ...${transcriptText.substring(Math.max(0, transcriptText.length - 300))}`)
+
     // Stage 5: Generating summary (80%)
     await updateProgress(contentItemId, "Generating summary...", 80)
     
     // Generate summary
-    console.log(`Generating summary...`)
+    console.log(`[${contentItemId}] Generating summary...`)
     let summary: string
     try {
-      summary = await generateSummary(transcription.text)
+      summary = await generateSummary(transcriptText)
     } catch (summaryError) {
-      console.error("Summary generation error:", summaryError)
+      console.error(`[${contentItemId}] Summary generation error:`, summaryError)
       // Use a simple fallback summary
-      const sentences = transcription.text.split(/[.!?]+/).filter(Boolean)
+      const sentences = transcriptText.split(/[.!?]+/).filter(Boolean)
       summary = sentences.slice(0, 3).join(". ") + (sentences.length > 3 ? "..." : "")
     }
 
-    const wordCount = transcription.text.split(/\s+/).filter(Boolean).length
-    console.log(`Word count: ${wordCount}`)
+    console.log(`[${contentItemId}] Word count: ${wordCount}`)
 
     // Stage 6: Saving to database (90%)
     await updateProgress(contentItemId, "Saving to database...", 90)

@@ -103,54 +103,40 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
         const useDirectUpload = file.size > vercelLimit
 
         if (useDirectUpload) {
-          // For large files, upload directly to Supabase Storage
-          // Step 1: Get upload path and Supabase config
-          const urlResponse = await fetch("/api/content/upload-url", {
+          // For large files, upload via server-side endpoint (uses service role key)
+          console.log("[UploadForm] Starting server-side upload for large file...")
+          
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("type", type)
+          formData.append("title", title || file.name)
+
+          // Step 1: Upload file to Supabase via server (bypasses RLS)
+          const uploadResponse = await fetch("/api/content/upload-large", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            body: formData,
             credentials: "include",
-            body: JSON.stringify({
-              filename: file.name,
-              fileType: type,
-            }),
           })
 
-          if (!urlResponse.ok) {
-            const urlData = await urlResponse.json()
-            throw new Error(urlData.error || "Failed to get upload configuration")
+          if (!uploadResponse.ok) {
+            let errorMessage = "Failed to upload file"
+            try {
+              const data = await uploadResponse.json()
+              errorMessage = data.error || errorMessage
+              console.error("[UploadForm] Upload error response:", data)
+            } catch (parseError) {
+              const text = await uploadResponse.text()
+              errorMessage = text || errorMessage
+              console.error("[UploadForm] Failed to parse error response:", text)
+            }
+            throw new Error(errorMessage)
           }
 
-          const { path: filePath, supabaseUrl, supabaseAnonKey, bucket } = await urlResponse.json()
-
-          // Step 2: Upload file directly to Supabase using client-side upload
-          console.log("[UploadForm] Starting Supabase Storage upload...")
-          const { createClient } = await import("@supabase/supabase-js")
-          const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-          console.log("[UploadForm] Uploading to bucket:", bucket, "path:", filePath)
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file, {
-              contentType: file.type,
-              upsert: false,
-            })
-
-          if (uploadError) {
-            console.error("[UploadForm] Supabase upload error:", uploadError)
-            throw new Error(uploadError.message || "Failed to upload file to storage")
-          }
-
+          const { fileUrl, filePath } = await uploadResponse.json()
           console.log("[UploadForm] File uploaded successfully to Supabase Storage")
-
-          // Step 3: Get public URL for the uploaded file
-          const { data: urlData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath)
-
-          const fileUrl = urlData.publicUrl
           console.log("[UploadForm] File URL:", fileUrl)
 
-          // Step 4: Notify our API with the file URL
+          // Step 2: Notify our API with the file URL to process it
           console.log("[UploadForm] Calling /api/content/upload-from-url...")
           const response = await fetch("/api/content/upload-from-url", {
             method: "POST",

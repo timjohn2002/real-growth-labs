@@ -125,9 +125,8 @@ Design requirements:
     const { uploadFile } = await import("@/lib/storage")
     const filename = `book-cover-${id}-${Date.now()}.png`
     
-    // Create a File-like object for uploadFile
-    const imageFile = new File([imageBuffer], filename, { type: "image/png" })
-    const coverImageUrl = await uploadFile(imageFile, filename, {
+    // Upload the buffer directly (uploadFile handles Buffer)
+    const coverImageUrl = await uploadFile(imageBuffer, filename, {
       provider: (process.env.STORAGE_PROVIDER as any) || "supabase",
       bucket: process.env.STORAGE_BUCKET || "content-vault",
       folder: "book-covers",

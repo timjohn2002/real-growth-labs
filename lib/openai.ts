@@ -118,11 +118,9 @@ export async function transcribeAudioFromBuffer(
     const blob = new Blob([arrayBuffer], { type: contentType })
     
     // Use native FormData (available in Node.js 18+)
-    // Create a File-like object for FormData
     const formDataNative = new FormData()
     // FormData.append accepts Blob with filename option
-    const fileBlob = new Blob([uint8Array], { type: contentType })
-    formDataNative.append("file", fileBlob, filename)
+    formDataNative.append("file", blob, filename)
     formDataNative.append("model", "whisper-1")
     formDataNative.append("language", language)
     if (prompt) {

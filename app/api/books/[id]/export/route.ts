@@ -134,23 +134,42 @@ function generateBookHTML(book: any, chapters: any[]): string {
   <title>${book.title}</title>
   <style>
     @page {
-      margin: 2cm;
+      margin: 0;
+      size: letter;
+    }
+    @page:first {
+      margin: 0;
     }
     body {
       font-family: 'Georgia', serif;
       line-height: 1.6;
       color: #333;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
+      margin: 0;
+      padding: 0;
+    }
+    .cover-page {
+      width: 100%;
+      height: 100vh;
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding: 0;
     }
     .cover-image {
       width: 100%;
-      max-width: 400px;
-      height: auto;
-      margin: 0 auto 2em;
+      height: 100vh;
+      object-fit: cover;
       display: block;
-      page-break-after: always;
+      margin: 0;
+      padding: 0;
+    }
+    .content-page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2cm;
     }
     h1 {
       font-size: 2.5em;
@@ -190,22 +209,28 @@ function generateBookHTML(book: any, chapters: any[]): string {
   </style>
 </head>
 <body>
-  ${book.coverImage ? `<img src="${book.coverImage}" alt="${book.title} Cover" class="cover-image" />` : ""}
-  <h1>${book.title}</h1>
-  ${book.description ? `<div class="subtitle">${book.description}</div>` : ""}
-`
+  ${book.coverImage ? `
+  <div class="cover-page">
+    <img src="${book.coverImage}" alt="${book.title} Cover" class="cover-image" />
+  </div>
+  ` : ""}
+  <div class="content-page">
+    <h1>${book.title}</h1>
+    ${book.description ? `<div class="subtitle">${book.description}</div>` : ""}
+  `
 
   chapters.forEach((chapter, index) => {
     const chapterContent = stripHTML(chapter.content || "")
     html += `
-  <div class="chapter">
-    <h2>${chapter.title || `Chapter ${index + 1}`}</h2>
-    <div>${chapterContent.split("\n").map((para: string) => para.trim() ? `<p>${para}</p>` : "").join("")}</div>
-  </div>
+    <div class="chapter">
+      <h2>${chapter.title || `Chapter ${index + 1}`}</h2>
+      <div>${chapterContent.split("\n").map((para: string) => para.trim() ? `<p>${para}</p>` : "").join("")}</div>
+    </div>
 `
   })
 
   html += `
+  </div>
 </body>
 </html>
 `

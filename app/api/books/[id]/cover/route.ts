@@ -61,15 +61,18 @@ export async function POST(
     // Limit intro text to first 500 characters for prompt
     const introSummary = introText.substring(0, 500)
     
-    const prompt = `Create a simple, minimal, and enticing book cover design for a book. The book is about: ${introSummary}. 
+    const prompt = `Create a flat, graphic book cover design (NOT a photograph of a physical book). The book title is "${book.title}". The book is about: ${introSummary}. 
     
 Design requirements:
+- Flat, graphic design book cover (NOT a photo of a book)
 - Simple and minimal aesthetic
 - Clean, modern design
 - Professional and enticing
-- Suitable for a book cover
-- No text on the cover (just visual design)
-- High quality, artistic illustration`
+- Include the book title "${book.title}" prominently displayed on the cover
+- The title should be clearly readable and integrated into the design
+- High quality, artistic illustration
+- Digital book cover design suitable for print and digital formats
+- No 3D effects, shadows, or photographic elements - pure graphic design`
 
     console.log(`[generateBookCover] Generating cover for book "${book.title}"...`)
 

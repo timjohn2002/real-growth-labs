@@ -287,10 +287,27 @@ export default function BookWizardPage() {
     return content
   }
 
-  const handleInsertContentVault = (contentItem: any) => {
-    // Get the content to insert (prefer summary first - this is the improved/latest version)
-    // Then fall back to rawText or transcript
-    const content = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
+  const handleInsertContentVault = (contentItem: any, contentType?: "summary" | "transcript" | "rawText") => {
+    // Use the specified content type, or fall back to auto-detection
+    let content = ""
+    if (contentType === "summary") {
+      content = contentItem.summary || ""
+      if (!content) {
+        alert("This content item has no summary available.")
+        return
+      }
+    } else if (contentType === "transcript") {
+      content = contentItem.transcript || ""
+      if (!content) {
+        alert("This content item has no transcript available.")
+        return
+      }
+    } else if (contentType === "rawText") {
+      content = contentItem.rawText || ""
+    } else {
+      // Auto-detect if no type specified
+      content = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
+    }
     
     if (!content) {
       alert("This content item has no text to insert.")

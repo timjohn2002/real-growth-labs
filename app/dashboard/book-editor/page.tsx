@@ -441,16 +441,34 @@ export default function FullBookEditorPage() {
         <ContentVaultModal
           isOpen={isContentVaultOpen}
           onClose={() => setIsContentVaultOpen(false)}
-          onSelect={(contentItem) => {
+          onSelect={(contentItem, contentType) => {
             // Handle images differently - insert image markdown
             if (contentItem.type === "image" && contentItem.fileUrl) {
               // Insert image markdown: ![alt text](image-url)
               const imageMarkdown = `![${contentItem.title}](${contentItem.fileUrl})`
               setContentToInsert(imageMarkdown)
             } else {
-              // For text content, prefer summary first - this is the improved/latest version
-              // Then fall back to rawText or transcript
-              const contentToInsert = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
+              // Use the specified content type, or fall back to auto-detection
+              let contentToInsert = ""
+              if (contentType === "summary") {
+                contentToInsert = contentItem.summary || ""
+                if (!contentToInsert) {
+                  alert("This content item has no summary available.")
+                  return
+                }
+              } else if (contentType === "transcript") {
+                contentToInsert = contentItem.transcript || ""
+                if (!contentToInsert) {
+                  alert("This content item has no transcript available.")
+                  return
+                }
+              } else if (contentType === "rawText") {
+                contentToInsert = contentItem.rawText || ""
+              } else {
+                // Auto-detect if no type specified
+                contentToInsert = contentItem.summary || contentItem.rawText || contentItem.transcript || ""
+              }
+              
               if (contentToInsert) {
                 setContentToInsert(contentToInsert)
               } else {

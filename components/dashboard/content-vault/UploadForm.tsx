@@ -120,14 +120,22 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
 
           if (!uploadResponse.ok) {
             let errorMessage = "Failed to upload file"
+            // Clone response before reading (can only read body once)
+            const clonedResponse = uploadResponse.clone()
             try {
               const data = await uploadResponse.json()
               errorMessage = data.error || errorMessage
               console.error("[UploadForm] Upload error response:", data)
             } catch (parseError) {
-              const text = await uploadResponse.text()
-              errorMessage = text || errorMessage
-              console.error("[UploadForm] Failed to parse error response:", text)
+              // If JSON parsing fails, try reading as text from cloned response
+              try {
+                const text = await clonedResponse.text()
+                errorMessage = text || errorMessage
+                console.error("[UploadForm] Failed to parse error response:", text)
+              } catch (textError) {
+                errorMessage = `Upload failed with status ${uploadResponse.status}`
+                console.error("[UploadForm] Could not read error response:", textError)
+              }
             }
             throw new Error(errorMessage)
           }

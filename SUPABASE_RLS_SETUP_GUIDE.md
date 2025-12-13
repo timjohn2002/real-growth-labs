@@ -1,5 +1,98 @@
 # Supabase RLS Policy Setup Guide
 
+## ⚠️ IMPORTANT: Two Types of RLS Policies
+
+Supabase has **TWO separate RLS systems**:
+1. **Database Table RLS** - Controls access to database tables (ContentItem, User, etc.)
+2. **Storage Bucket RLS** - Controls access to files in Storage buckets (content-vault)
+
+You need to configure BOTH!
+
+---
+
+## Part 1: Storage Bucket RLS Policies (For File Uploads)
+
+This is what's causing your upload error! The `storage.objects` table needs RLS policies.
+
+### Step 1: Go to Storage Policies
+
+1. In Supabase Dashboard, go to **Storage**
+2. Click on your **"content-vault"** bucket
+3. Go to the **"Policies"** tab
+4. You should see sections for "Buckets" and "Schema"
+
+### Step 2: Create Storage Policies
+
+Under the **"OTHER POLICIES UNDER STORAGE.OBJECTS"** section, click **"New policy"** and create these:
+
+**Policy 1: Allow authenticated uploads (INSERT)**
+- Policy name: `Allow authenticated uploads to content-vault`
+- Allowed operation: `INSERT`
+- Policy definition:
+  ```sql
+  bucket_id = 'content-vault'
+  ```
+- Target roles: `authenticated`
+
+**Policy 2: Allow authenticated reads (SELECT)**
+- Policy name: `Allow authenticated reads from content-vault`
+- Allowed operation: `SELECT`
+- Policy definition:
+  ```sql
+  bucket_id = 'content-vault'
+  ```
+- Target roles: `authenticated`
+
+**Policy 3: Allow authenticated updates (UPDATE)**
+- Policy name: `Allow authenticated updates to content-vault`
+- Allowed operation: `UPDATE`
+- Policy definition:
+  ```sql
+  bucket_id = 'content-vault'
+  ```
+- Target roles: `authenticated`
+
+**Policy 4: Allow authenticated deletes (DELETE)**
+- Policy name: `Allow authenticated deletes from content-vault`
+- Allowed operation: `DELETE`
+- Policy definition:
+  ```sql
+  bucket_id = 'content-vault'
+  ```
+- Target roles: `authenticated`
+
+### Alternative: SQL Method for Storage Policies
+
+If you prefer SQL, run this in SQL Editor:
+
+```sql
+-- Storage policies for content-vault bucket
+CREATE POLICY "Allow authenticated uploads to content-vault"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'content-vault');
+
+CREATE POLICY "Allow authenticated reads from content-vault"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'content-vault');
+
+CREATE POLICY "Allow authenticated updates to content-vault"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'content-vault')
+WITH CHECK (bucket_id = 'content-vault');
+
+CREATE POLICY "Allow authenticated deletes from content-vault"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'content-vault');
+```
+
+---
+
+## Part 2: Database Table RLS Policies (For Database Inserts)
+
 ## Quick Setup via Policy UI (Recommended)
 
 ### Step 1: Create Upload Policy

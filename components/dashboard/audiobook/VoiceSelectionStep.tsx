@@ -64,7 +64,7 @@ export function VoiceSelectionStep({
       {/* Voice Selection */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Voice Selection</h3>
-        <div className="space-y-3">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
           {voices.map((voice, index) => {
             const isSelected = selectedVoice === voice.id
             return (

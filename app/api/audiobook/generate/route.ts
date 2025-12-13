@@ -118,12 +118,20 @@ async function generateAudiobook(
     const audioBuffers: Buffer[] = []
     const totalChunks = chunks.length
     
+    // Map voice IDs to valid OpenAI voices
+    const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "sage", "coral"] as const
+    const openAIVoice = validVoices.includes(voice as any) ? (voice as typeof validVoices[number]) : "alloy"
+    
+    if (!validVoices.includes(voice as any)) {
+      console.warn(`[generateAudiobook] Invalid voice "${voice}", using "alloy" instead`)
+    }
+
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]
-      console.log(`[generateAudiobook] Generating audio chunk ${i + 1}/${totalChunks}...`)
+      console.log(`[generateAudiobook] Generating audio chunk ${i + 1}/${totalChunks} with voice "${openAIVoice}"...`)
       
       const audioBuffer = await generateTTS(chunk, {
-        voice: voice as any,
+        voice: openAIVoice,
         model: "tts-1-hd", // Higher quality
       })
       audioBuffers.push(audioBuffer)

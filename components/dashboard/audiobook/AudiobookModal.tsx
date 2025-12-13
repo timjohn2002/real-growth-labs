@@ -146,9 +146,9 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
     <DialogPrimitive.Root open={isOpen} onOpenChange={handleClose}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 border border-gray-200 bg-white p-8 shadow-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-2xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-gray-200 bg-white shadow-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-lg flex flex-col overflow-hidden">
           <DialogPrimitive.Title className="sr-only">Generate Audiobook</DialogPrimitive.Title>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 p-8 pb-4 flex-shrink-0">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Generate Audiobook</h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -165,7 +165,8 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
             )}
           </div>
 
-          <AnimatePresence mode="wait">
+          <div className="flex-1 overflow-y-auto px-8 pb-8">
+            <AnimatePresence mode="wait">
             {currentStep === "voice-selection" && (
               <motion.div
                 key="voice-selection"
@@ -212,6 +213,7 @@ export function AudiobookModal({ isOpen, onClose, bookId, bookTitle = "Your Book
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

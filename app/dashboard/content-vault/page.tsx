@@ -129,9 +129,7 @@ export default function ContentVaultPage() {
     setIsModalOpen(false)
     // Map modal type names to our type system
     const typeMap: Record<string, "podcast" | "video" | "audio" | "url" | "text" | "image"> = {
-      "Podcast Link": "podcast",
       "Video Upload": "video",
-      "Audio Upload": "audio",
       "Paste URL": "url",
       "Paste Text / Notes": "text",
       "Images": "image",
@@ -214,13 +212,6 @@ export default function ContentVaultPage() {
             body: JSON.stringify({ contentItemId: id }),
           })
         }
-      } else if (item.type === "audio") {
-        await fetch("/api/content/transcribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ contentItemId: id }),
-        })
       } else if (item.type === "url" && item.source) {
         await fetch("/api/content/scrape", {
           method: "POST",
@@ -298,7 +289,6 @@ export default function ContentVaultPage() {
   // Filter content based on active filter
   const filteredContent = contentItems.filter((item) => {
     if (activeFilter === "all") return true
-    if (activeFilter === "audio") return item.type === "podcast" || item.type === "audio"
     if (activeFilter === "video") return item.type === "video"
     if (activeFilter === "links") return item.type === "url"
     if (activeFilter === "text") return item.type === "text"

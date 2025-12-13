@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 
 const filters = [
   { id: "all", label: "All Content" },
-  { id: "audio", label: "Audio" },
   { id: "video", label: "Video" },
   { id: "links", label: "Links" },
   { id: "text", label: "Text" },

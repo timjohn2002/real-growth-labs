@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Mic, Video, Headphones, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react"
+import { X, Video, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 
@@ -9,21 +9,9 @@ const BRAND_COLOR = "#a6261c"
 
 const contentTypes = [
   {
-    name: "Podcast Link",
-    icon: Mic,
-    description: "Import from podcast platforms",
-    color: "#a6261c",
-  },
-  {
     name: "Video Upload",
     icon: Video,
     description: "Upload video files",
-    color: "#a6261c",
-  },
-  {
-    name: "Audio Upload",
-    icon: Headphones,
-    description: "Upload audio files",
     color: "#a6261c",
   },
   {

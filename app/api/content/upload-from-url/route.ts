@@ -8,8 +8,12 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: NextRequest) {
   try {
     // Log connection info
-    console.log(`[upload-from-url] DATABASE_URL format: ${process.env.DATABASE_URL?.includes('pooler') ? 'Pooler' : 'Direct'}`)
-    console.log(`[upload-from-url] DATABASE_URL host: ${process.env.DATABASE_URL?.match(/@([^:]+)/)?.[1]}`)
+    const dbUrl = process.env.DATABASE_URL || 'NOT SET'
+    console.log(`[upload-from-url] === START ===`)
+    console.log(`[upload-from-url] DATABASE_URL exists: ${!!process.env.DATABASE_URL}`)
+    console.log(`[upload-from-url] DATABASE_URL format: ${dbUrl.includes('pooler') ? 'Pooler ✅' : dbUrl.includes('db.') ? 'Direct' : 'Unknown'}`)
+    console.log(`[upload-from-url] DATABASE_URL host: ${dbUrl.match(/@([^:]+)/)?.[1] || 'N/A'}`)
+    console.log(`[upload-from-url] DATABASE_URL port: ${dbUrl.match(/:(\d+)\//)?.[1] || 'N/A'}`)
     
     const { getUserIdFromRequest } = await import("@/lib/auth")
     const userId = await getUserIdFromRequest(request)

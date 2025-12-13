@@ -123,9 +123,11 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
           const { path: filePath, supabaseUrl, supabaseAnonKey, bucket } = await urlResponse.json()
 
           // Step 2: Upload file directly to Supabase using client-side upload
+          console.log("[UploadForm] Starting Supabase Storage upload...")
           const { createClient } = await import("@supabase/supabase-js")
           const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+          console.log("[UploadForm] Uploading to bucket:", bucket, "path:", filePath)
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from(bucket)
             .upload(filePath, file, {
@@ -134,9 +136,11 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
             })
 
           if (uploadError) {
-            console.error("Supabase upload error:", uploadError)
+            console.error("[UploadForm] Supabase upload error:", uploadError)
             throw new Error(uploadError.message || "Failed to upload file to storage")
           }
+
+          console.log("[UploadForm] File uploaded successfully to Supabase Storage")
 
           // Step 3: Get public URL for the uploaded file
           const { data: urlData } = supabase.storage
@@ -144,8 +148,10 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
             .getPublicUrl(filePath)
 
           const fileUrl = urlData.publicUrl
+          console.log("[UploadForm] File URL:", fileUrl)
 
           // Step 4: Notify our API with the file URL
+          console.log("[UploadForm] Calling /api/content/upload-from-url...")
           const response = await fetch("/api/content/upload-from-url", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -161,18 +167,24 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
             }),
           })
 
+          console.log("[UploadForm] Response status:", response.status, response.statusText)
+
           if (!response.ok) {
             let errorMessage = "Failed to process uploaded file"
             try {
               const data = await response.json()
               errorMessage = data.error || data.details || errorMessage
-              console.error("Upload error response:", data)
+              console.error("[UploadForm] Upload error response:", data)
             } catch (parseError) {
               const text = await response.text()
               errorMessage = text || errorMessage
+              console.error("[UploadForm] Failed to parse error response:", text)
             }
             throw new Error(errorMessage)
           }
+
+          const result = await response.json()
+          console.log("[UploadForm] Upload successful:", result)
         } else {
           // For small files, use traditional upload through Vercel
           const formData = new FormData()

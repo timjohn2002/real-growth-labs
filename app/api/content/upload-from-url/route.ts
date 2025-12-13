@@ -7,6 +7,10 @@ import { prisma } from "@/lib/prisma"
  */
 export async function POST(request: NextRequest) {
   try {
+    // Log connection info
+    console.log(`[upload-from-url] DATABASE_URL format: ${process.env.DATABASE_URL?.includes('pooler') ? 'Pooler' : 'Direct'}`)
+    console.log(`[upload-from-url] DATABASE_URL host: ${process.env.DATABASE_URL?.match(/@([^:]+)/)?.[1]}`)
+    
     const { getUserIdFromRequest } = await import("@/lib/auth")
     const userId = await getUserIdFromRequest(request)
 
@@ -15,6 +19,26 @@ export async function POST(request: NextRequest) {
         { error: "Unauthorized" },
         { status: 401 }
       )
+    }
+    
+    // Test database connection with a simple query
+    try {
+      const testUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      })
+      console.log(`[upload-from-url] Database connection test: ${testUser ? 'SUCCESS' : 'USER NOT FOUND'}`)
+    } catch (testError: any) {
+      console.error(`[upload-from-url] Database connection test FAILED:`, testError.message)
+      if (testError.message?.includes("row-level security")) {
+        return NextResponse.json(
+          { 
+            error: "Database RLS is still enabled. Connection test failed with RLS error.",
+            details: testError.message
+          },
+          { status: 500 }
+        )
+      }
     }
 
     const { fileUrl, filePath, type, title, filename, size, mimeType } = await request.json()
@@ -27,23 +51,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Create content item in database
-    const contentItem = await prisma.contentItem.create({
-      data: {
-        userId,
-        title,
-        type,
-        status: "pending",
-        fileUrl,
-        metadata: JSON.stringify({
-          filename,
-          size,
-          mimeType,
-          storagePath: filePath,
-          uploadedVia: "supabase",
-        }),
-        tags: "[]",
-      },
-    })
+    console.log(`[upload-from-url] Creating content item for user: ${userId}`)
+    console.log(`[upload-from-url] DATABASE_URL: ${process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":****@")}`)
+    
+    try {
+      const contentItem = await prisma.contentItem.create({
+        data: {
+          userId,
+          title,
+          type,
+          status: "pending",
+          fileUrl,
+          metadata: JSON.stringify({
+            filename,
+            size,
+            mimeType,
+            storagePath: filePath,
+            uploadedVia: "supabase",
+          }),
+          tags: "[]",
+        },
+      })
+      console.log(`[upload-from-url] Content item created: ${contentItem.id}`)
 
     // Start processing based on type
     if (type === "video") {
@@ -60,15 +89,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({
-      id: contentItem.id,
-      status: "pending",
-      message: "Upload successful. Processing started.",
-    })
+      return NextResponse.json({
+        id: contentItem.id,
+        status: "pending",
+        message: "Upload successful. Processing started.",
+      })
+    } catch (dbError: any) {
+      console.error("[upload-from-url] Database error:", dbError)
+      console.error("[upload-from-url] Error code:", dbError.code)
+      console.error("[upload-from-url] Error message:", dbError.message)
+      console.error("[upload-from-url] Error meta:", dbError.meta)
+      
+      // Check if it's an RLS error
+      if (dbError.message?.includes("row-level security") || dbError.code === "P2003") {
+        return NextResponse.json(
+          { 
+            error: "Database security policy error. Please ensure RLS is disabled on ContentItem table and DATABASE_URL uses direct connection.",
+            details: dbError.message,
+            code: dbError.code
+          },
+          { status: 500 }
+        )
+      }
+      
+      throw dbError // Re-throw to be caught by outer catch
+    }
   } catch (error) {
-    console.error("Upload from URL error:", error)
+    console.error("[upload-from-url] Upload error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to process uploaded file"
     return NextResponse.json(
-      { error: "Failed to process uploaded file" },
+      { error: errorMessage },
       { status: 500 }
     )
   }

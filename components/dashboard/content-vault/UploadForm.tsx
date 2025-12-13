@@ -162,8 +162,16 @@ export function UploadForm({ type, isOpen, onClose, onSuccess, userId }: UploadF
           })
 
           if (!response.ok) {
-            const data = await response.json()
-            throw new Error(data.error || "Failed to process uploaded file")
+            let errorMessage = "Failed to process uploaded file"
+            try {
+              const data = await response.json()
+              errorMessage = data.error || data.details || errorMessage
+              console.error("Upload error response:", data)
+            } catch (parseError) {
+              const text = await response.text()
+              errorMessage = text || errorMessage
+            }
+            throw new Error(errorMessage)
           }
         } else {
           // For small files, use traditional upload through Vercel

@@ -289,7 +289,7 @@ export async function transcribeAudio(
 export async function generateTTS(
   text: string,
   options: {
-    voice?: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
+    voice?: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" | "ash" | "sage" | "coral"
     model?: "tts-1" | "tts-1-hd"
     speed?: number
   } = {}

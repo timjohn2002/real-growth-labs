@@ -101,13 +101,25 @@ export async function transcribeAudioFromBuffer(
     
     // Append the audio/video buffer as a file
     // Whisper API supports: mp3, mp4, mpeg, mpga, m4a, wav, webm
-    const contentType = filename.endsWith('.mp4') || filename.endsWith('.webm') 
-      ? "video/mp4" 
-      : "audio/mpeg"
+    // Determine proper content type based on file extension
+    let contentType = "audio/mpeg" // default
+    if (filename.endsWith('.mp4')) {
+      contentType = "video/mp4"
+    } else if (filename.endsWith('.webm')) {
+      contentType = "video/webm"
+    } else if (filename.endsWith('.m4a')) {
+      contentType = "audio/mp4"
+    } else if (filename.endsWith('.wav')) {
+      contentType = "audio/wav"
+    } else if (filename.endsWith('.mp3') || filename.endsWith('.mpeg') || filename.endsWith('.mpga')) {
+      contentType = "audio/mpeg"
+    }
     
+    // Append file with proper options
     formData.append("file", audioBuffer, {
       filename,
       contentType,
+      knownLength: audioBuffer.length, // Help FormData calculate size correctly
     })
     formData.append("model", "whisper-1")
     formData.append("language", language)
@@ -115,12 +127,13 @@ export async function transcribeAudioFromBuffer(
       formData.append("prompt", prompt)
     }
 
+    // Get headers from form-data package
+    const headers = formData.getHeaders()
+    headers["Authorization"] = `Bearer ${OPENAI_API_KEY}`
+
     const response = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        ...formData.getHeaders(), // Get proper headers for multipart/form-data
-      },
+      headers,
       body: formData as any, // FormData from form-data package
     })
 

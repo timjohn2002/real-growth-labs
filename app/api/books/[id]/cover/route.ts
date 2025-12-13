@@ -238,7 +238,7 @@ Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use t
       `
       
       // Composite the text overlay onto the image
-      imageBuffer = await image
+      const compositeBuffer = await image
         .composite([
           {
             input: Buffer.from(svgText),
@@ -248,6 +248,9 @@ Generate a concise, effective prompt (2-3 sentences max) that DALL-E 3 can use t
         ])
         .png()
         .toBuffer()
+      
+      // Convert to standard Buffer type to fix TypeScript compatibility
+      imageBuffer = Buffer.from(compositeBuffer)
       
       console.log(`[generateBookCover] Title "${title}" overlaid on cover successfully (${finalLines.length} line(s))`)
     } catch (overlayError) {

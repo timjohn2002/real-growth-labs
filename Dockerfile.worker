@@ -10,8 +10,8 @@ RUN apt-get update && \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* && \
-    pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip3 install --no-cache-dir yt-dlp
+    pip3 install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel && \
+    pip3 install --no-cache-dir --break-system-packages yt-dlp
 
 # Verify yt-dlp installation
 RUN yt-dlp --version

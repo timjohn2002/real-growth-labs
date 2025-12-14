@@ -101,7 +101,58 @@ export async function transcribeYouTubeUrl(
     console.log(`[AssemblyAI]   - Has words array: ${!!polledTranscript.words}`)
     console.log(`[AssemblyAI]   - Words array length: ${polledTranscript.words?.length || 0} words`)
     
-    // PRIORITY 1: Try sentences endpoint FIRST - it's most reliable for complete transcripts
+    // PRIORITY 1: Try SRT export FIRST - this should contain the COMPLETE transcript
+    // SRT format includes all words with timestamps and is not truncated
+    let srtText = ""
+    try {
+      console.log(`[AssemblyAI] 🔍 Fetching SRT export for COMPLETE transcript...`)
+      const srt = await client.transcripts.subtitles(polledTranscript.id, "srt")
+      if (srt) {
+        // Parse SRT format to extract just the text (remove timestamps and sequence numbers)
+        // SRT format: 
+        // 1
+        // 00:00:00,000 --> 00:00:05,000
+        // Text line 1
+        // Text line 2
+        // (blank line)
+        const srtLines = srt.split('\n')
+        const srtTextLines: string[] = []
+        let i = 0
+        while (i < srtLines.length) {
+          const line = srtLines[i].trim()
+          // Skip empty lines
+          if (!line) {
+            i++
+            continue
+          }
+          // Skip sequence numbers (just digits)
+          if (/^\d+$/.test(line)) {
+            i++
+            // Next line should be timestamp
+            if (i < srtLines.length && srtLines[i].includes('-->')) {
+              i++
+              // Now collect text lines until we hit an empty line
+              while (i < srtLines.length && srtLines[i].trim()) {
+                const textLine = srtLines[i].trim()
+                if (textLine && !textLine.includes('-->')) {
+                  srtTextLines.push(textLine)
+                }
+                i++
+              }
+            }
+          } else {
+            i++
+          }
+        }
+        srtText = srtTextLines.join(' ').trim()
+        const srtWordCount = srtText.split(/\s+/).filter(Boolean).length
+        console.log(`[AssemblyAI] ✓ SRT export: ${srtWordCount} words from ${srtTextLines.length} subtitle blocks`)
+      }
+    } catch (srtError) {
+      console.warn(`[AssemblyAI] ⚠️ Could not fetch SRT: ${srtError}`)
+    }
+    
+    // PRIORITY 2: Try sentences endpoint - it's most reliable for complete transcripts
     // The text property and even words array can be truncated for very long videos
     let sentencesText = ""
     try {
@@ -119,7 +170,7 @@ export async function transcribeYouTubeUrl(
       console.warn(`[AssemblyAI] ⚠️ Could not fetch sentences: ${sentencesError}`)
     }
     
-    // PRIORITY 2: Reconstruct from words array if available
+    // PRIORITY 3: Reconstruct from words array if available
     let wordsArrayText = ""
     if (polledTranscript.words && polledTranscript.words.length > 0) {
       console.log(`[AssemblyAI] 🔄 Reconstructing from ${polledTranscript.words.length} words array...`)
@@ -133,12 +184,12 @@ export async function transcribeYouTubeUrl(
       console.warn(`[AssemblyAI] ⚠️ Words array is missing or empty!`)
     }
     
-    // PRIORITY 3: Use text property as fallback
+    // PRIORITY 4: Use text property as fallback
     const textProperty = polledTranscript.text || ""
     const textWordCount = textProperty.split(/\s+/).filter(Boolean).length
     console.log(`[AssemblyAI] Text property: ${textWordCount} words, ${textProperty.length} chars`)
     
-    // PRIORITY 4: Try paragraphs endpoint BEFORE choosing best candidate
+    // PRIORITY 5: Try paragraphs endpoint BEFORE choosing best candidate
     let paragraphsText = ""
     try {
       const paragraphs = await client.transcripts.paragraphs(polledTranscript.id)
@@ -156,6 +207,7 @@ export async function transcribeYouTubeUrl(
     
     // Choose the source with the MOST words (most complete)
     const candidates = [
+      { text: srtText, wordCount: srtText.split(/\s+/).filter(Boolean).length, source: "srt_export" },
       { text: sentencesText, wordCount: sentencesText.split(/\s+/).filter(Boolean).length, source: "sentences_endpoint" },
       { text: wordsArrayText, wordCount: wordsArrayText.split(/\s+/).filter(Boolean).length, source: "words_array" },
       { text: paragraphsText, wordCount: paragraphsText.split(/\s+/).filter(Boolean).length, source: "paragraphs_endpoint" },

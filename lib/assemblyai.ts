@@ -163,51 +163,22 @@ export async function transcribeYouTubeUrl(
       throw new Error("No transcript text available from any source")
     }
     
-    // PRIORITY 2: Try sentences endpoint - this often has the most complete transcript
-    // Sentences endpoint can have more words than paragraphs or text property
-    try {
-      const sentences = await client.transcripts.sentences(polledTranscript.id)
-      if (sentences && sentences.sentences && sentences.sentences.length > 0) {
-        const sentencesText = sentences.sentences
-          .map((s: any) => s.text)
-          .join(" ")
-          .trim()
-        const sentencesWordCount = sentencesText.split(/\s+/).filter(Boolean).length
-        const currentWordCount = transcriptText.split(/\s+/).filter(Boolean).length
-        
-        console.log(`[AssemblyAI] Sentences endpoint: ${sentencesWordCount} words`)
-        console.log(`[AssemblyAI] Current transcript: ${currentWordCount} words`)
-        
-        // Use sentences if it has MORE words (more complete)
-        if (sentencesWordCount > currentWordCount) {
-          console.log(`[AssemblyAI] ✓ Sentences has MORE words (${sentencesWordCount} vs ${currentWordCount}). Using sentences for FULL transcript.`)
-          transcriptText = sentencesText
-          source = "sentences_endpoint"
-        } else {
-          console.log(`[AssemblyAI] Current transcript has same or more words. Keeping current.`)
-        }
-      }
-    } catch (sentencesError) {
-      console.log(`[AssemblyAI] Could not fetch sentences (optional): ${sentencesError}`)
-    }
-    
-    // PRIORITY 3: Try paragraphs endpoint as additional verification
+    // PRIORITY 4: Try paragraphs endpoint as additional verification
+    let paragraphsText = ""
     try {
       const paragraphs = await client.transcripts.paragraphs(polledTranscript.id)
       if (paragraphs && paragraphs.paragraphs && paragraphs.paragraphs.length > 0) {
-        const paragraphsText = paragraphs.paragraphs
+        paragraphsText = paragraphs.paragraphs
           .map((p: any) => p.text)
           .join("\n\n")
           .trim()
         const paragraphsWordCount = paragraphsText.split(/\s+/).filter(Boolean).length
-        const currentWordCount = transcriptText.split(/\s+/).filter(Boolean).length
+        console.log(`[AssemblyAI] ✓ Paragraphs endpoint: ${paragraphsWordCount} words from ${paragraphs.paragraphs.length} paragraphs`)
         
-        console.log(`[AssemblyAI] Paragraphs endpoint: ${paragraphsWordCount} words`)
-        console.log(`[AssemblyAI] Current transcript: ${currentWordCount} words`)
-        
-        // Use paragraphs if it has MORE words (more complete)
-        if (paragraphsWordCount > currentWordCount) {
-          console.log(`[AssemblyAI] ✓ Paragraphs has MORE words (${paragraphsWordCount} vs ${currentWordCount}). Using paragraphs for FULL transcript.`)
+        // Add paragraphs to candidates if it has more words
+        const paragraphsWordCount2 = paragraphsText.split(/\s+/).filter(Boolean).length
+        if (paragraphsWordCount2 > bestCandidate.wordCount) {
+          console.log(`[AssemblyAI] ✓ Paragraphs has MORE words (${paragraphsWordCount2} vs ${bestCandidate.wordCount}). Updating to use paragraphs.`)
           transcriptText = paragraphsText
           source = "paragraphs_endpoint"
         }

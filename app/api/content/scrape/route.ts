@@ -620,7 +620,17 @@ async function processYouTubeVideoWithAssemblyAI(
     // If it's suspiciously small, warn
     if (fileSizeMB < 1) {
       console.warn(`[${contentItemId}] ⚠️ WARNING: Audio file is very small (${fileSizeMB.toFixed(2)} MB). This might indicate incomplete download.`)
+    } else if (fileSizeMB < 3) {
+      console.warn(`[${contentItemId}] ⚠️ WARNING: Audio file seems small (${fileSizeMB.toFixed(2)} MB) for a 9-minute video. Expected at least 5-10 MB.`)
+    } else {
+      console.log(`[${contentItemId}] ✓ Audio file size looks reasonable for video length`)
     }
+    
+    // Log audio file details for debugging
+    console.log(`[${contentItemId}] 📊 Audio file details:`)
+    console.log(`[${contentItemId}]   - File path: ${audioPath}`)
+    console.log(`[${contentItemId}]   - File size: ${fileSizeMB.toFixed(2)} MB (${stats.size} bytes)`)
+    console.log(`[${contentItemId}]   - Buffer size: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`)
 
     // Stage 3: Transcribing with AssemblyAI (40-90%)
     await updateProgress(contentItemId, "Transcribing with AssemblyAI...", 40)

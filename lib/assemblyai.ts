@@ -101,22 +101,66 @@ export async function transcribeYouTubeUrl(
     console.log(`[AssemblyAI]   - Has words array: ${!!polledTranscript.words}`)
     console.log(`[AssemblyAI]   - Words array length: ${polledTranscript.words?.length || 0} words`)
     
-    // PRIORITY 1: Always reconstruct from words array if available (most complete)
+    // PRIORITY 1: Try sentences endpoint FIRST - it's most reliable for complete transcripts
+    // The text property and even words array can be truncated for very long videos
+    let sentencesText = ""
+    try {
+      console.log(`[AssemblyAI] 🔍 Fetching sentences endpoint for complete transcript...`)
+      const sentences = await client.transcripts.sentences(polledTranscript.id)
+      if (sentences && sentences.sentences && sentences.sentences.length > 0) {
+        sentencesText = sentences.sentences
+          .map((s: any) => s.text)
+          .join(" ")
+          .trim()
+        const sentencesWordCount = sentencesText.split(/\s+/).filter(Boolean).length
+        console.log(`[AssemblyAI] ✓ Sentences endpoint: ${sentencesWordCount} words from ${sentences.sentences.length} sentences`)
+      }
+    } catch (sentencesError) {
+      console.warn(`[AssemblyAI] ⚠️ Could not fetch sentences: ${sentencesError}`)
+    }
+    
+    // PRIORITY 2: Reconstruct from words array if available
+    let wordsArrayText = ""
     if (polledTranscript.words && polledTranscript.words.length > 0) {
-      console.log(`[AssemblyAI] 🔄 Reconstructing FULL transcript from ${polledTranscript.words.length} words array...`)
-      transcriptText = polledTranscript.words
+      console.log(`[AssemblyAI] 🔄 Reconstructing from ${polledTranscript.words.length} words array...`)
+      wordsArrayText = polledTranscript.words
         .map((w) => w.text)
         .join(" ")
         .trim()
-      source = "words_array"
-      console.log(`[AssemblyAI] ✓ Reconstructed transcript from words array: ${transcriptText.length} chars`)
+      const wordsWordCount = wordsArrayText.split(/\s+/).filter(Boolean).length
+      console.log(`[AssemblyAI] ✓ Words array: ${wordsWordCount} words`)
     } else {
-      // Fallback to text property if words array not available
-      console.warn(`[AssemblyAI] ⚠️ WARNING: Words array is missing or empty!`)
-      console.warn(`[AssemblyAI]   This means we can only use the text property, which may be truncated.`)
-      transcriptText = polledTranscript.text || ""
-      source = "text_property"
-      console.log(`[AssemblyAI] Using text property (may be incomplete): ${transcriptText.length} chars`)
+      console.warn(`[AssemblyAI] ⚠️ Words array is missing or empty!`)
+    }
+    
+    // PRIORITY 3: Use text property as fallback
+    const textProperty = polledTranscript.text || ""
+    const textWordCount = textProperty.split(/\s+/).filter(Boolean).length
+    console.log(`[AssemblyAI] Text property: ${textWordCount} words, ${textProperty.length} chars`)
+    
+    // Choose the source with the MOST words (most complete)
+    const candidates = [
+      { text: sentencesText, wordCount: sentencesText.split(/\s+/).filter(Boolean).length, source: "sentences_endpoint" },
+      { text: wordsArrayText, wordCount: wordsArrayText.split(/\s+/).filter(Boolean).length, source: "words_array" },
+      { text: textProperty, wordCount: textWordCount, source: "text_property" },
+    ]
+    
+    // Sort by word count (descending) and use the one with most words
+    candidates.sort((a, b) => b.wordCount - a.wordCount)
+    const bestCandidate = candidates.find(c => c.text && c.text.trim().length > 0)
+    
+    if (bestCandidate) {
+      transcriptText = bestCandidate.text
+      source = bestCandidate.source
+      console.log(`[AssemblyAI] ✅ Using ${source} with ${bestCandidate.wordCount} words (most complete)`)
+      
+      // Log all candidates for comparison
+      console.log(`[AssemblyAI] 📊 All candidates:`)
+      candidates.forEach(c => {
+        console.log(`[AssemblyAI]   - ${c.source}: ${c.wordCount} words`)
+      })
+    } else {
+      throw new Error("No transcript text available from any source")
     }
     
     // PRIORITY 2: Try sentences endpoint - this often has the most complete transcript

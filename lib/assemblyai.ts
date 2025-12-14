@@ -102,14 +102,41 @@ export async function transcribeYouTubeUrl(
       }
     }
 
-    if (!polledTranscript.text) {
+    // Get the full transcript text - ensure we're getting everything
+    const transcriptText = polledTranscript.text || ""
+    
+    if (!transcriptText || transcriptText.trim().length === 0) {
       throw new Error("Transcription completed but no text was returned.")
     }
 
-    console.log(`[AssemblyAI] Transcription completed. Text length: ${polledTranscript.text.length} characters`)
+    // Log full transcript details for debugging and verification
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    const audioDuration = (polledTranscript as any).audio_duration || 0
+    const durationMinutes = audioDuration / 60
+    
+    console.log(`[AssemblyAI] Transcription completed. Text length: ${transcriptText.length} characters`)
+    console.log(`[AssemblyAI] Word count: ${wordCount} words`)
+    if (audioDuration > 0) {
+      console.log(`[AssemblyAI] Audio duration: ${audioDuration} seconds (${durationMinutes.toFixed(2)} minutes)`)
+      
+      // Validate transcript length - typical speaking rate is 150-160 words per minute
+      const expectedMinWords = Math.floor(durationMinutes * 100) // Conservative: 100 words/min
+      const expectedMaxWords = Math.ceil(durationMinutes * 200) // Upper bound: 200 words/min
+      
+      if (wordCount < expectedMinWords) {
+        console.warn(`[AssemblyAI] WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at least ${expectedMinWords} words. This might indicate incomplete transcription.`)
+      } else if (wordCount > expectedMaxWords) {
+        console.warn(`[AssemblyAI] WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at most ${expectedMaxWords} words. This might indicate an issue.`)
+      } else {
+        console.log(`[AssemblyAI] Transcript length looks reasonable: ${wordCount} words for ${durationMinutes.toFixed(1)} minutes (~${Math.round(wordCount / durationMinutes)} words/min)`)
+      }
+    }
+    
+    console.log(`[AssemblyAI] First 300 chars: ${transcriptText.substring(0, 300)}...`)
+    console.log(`[AssemblyAI] Last 300 chars: ...${transcriptText.substring(Math.max(0, transcriptText.length - 300))}`)
 
     return {
-      text: polledTranscript.text,
+      text: transcriptText,
       words: polledTranscript.words?.map((w) => ({
         text: w.text,
         start: w.start,

@@ -63,47 +63,29 @@ export async function transcribeYouTubeUrl(
     console.log(`[AssemblyAI] Audio uploaded. URL: ${uploadUrl}`)
 
     // Submit transcription job with full transcript settings
-    // CRITICAL: We MUST request words array to get the complete transcript
-    // The 'text' property is often truncated for long videos
-    const transcript = await client.transcripts.submit({
+    // CRITICAL: Use transcribe() method which waits for completion and ensures full transcript
+    // The 'text' property from submit() + polling might be truncated for long videos
+    console.log(`[AssemblyAI] Submitting transcription and waiting for completion...`)
+    
+    // Use transcribe() instead of submit() + polling to ensure we get the complete transcript
+    // This method waits for completion and should return the full transcript
+    const polledTranscript = await client.transcripts.transcribe({
       audio: uploadUrl, // Use the uploaded file URL
       language_code: options.language || "en",
       speaker_labels: options.speakerLabels || false,
-      // CRITICAL: Request words array - this contains ALL words, not truncated
-      // Without this, we may only get a partial transcript
+      // CRITICAL: These settings ensure we get the complete transcript
       punctuate: true, // Add punctuation for better readability
       format_text: true, // Format text properly
-      // The words array will contain every single word with timestamps
-      // We'll reconstruct the full transcript from this array
+      // The words array should be automatically included with word-level timestamps
     })
 
-    console.log(`[AssemblyAI] Transcription job submitted. ID: ${transcript.id}`)
-    console.log(`[AssemblyAI] Status: ${transcript.status}`)
-
-    // Poll for completion
-    let polledTranscript = transcript
-    const maxWaitTime = 30 * 60 * 1000 // 30 minutes max
-    const startTime = Date.now()
-    const pollInterval = 3000 // Poll every 3 seconds
-
-    while (polledTranscript.status !== "completed" && polledTranscript.status !== "error") {
-      // Check timeout
-      if (Date.now() - startTime > maxWaitTime) {
-        throw new Error("Transcription timeout after 30 minutes. The video may be too long.")
-      }
-
-      // Wait before polling
-      await new Promise((resolve) => setTimeout(resolve, pollInterval))
-
-      // Poll for status
-      polledTranscript = await client.transcripts.get(polledTranscript.id)
-      console.log(`[AssemblyAI] Polling... Status: ${polledTranscript.status}`)
-
-      if (polledTranscript.status === "error") {
-        throw new Error(
-          `Transcription failed: ${polledTranscript.error || "Unknown error"}`
-        )
-      }
+    console.log(`[AssemblyAI] Transcription completed. ID: ${polledTranscript.id}`)
+    console.log(`[AssemblyAI] Status: ${polledTranscript.status}`)
+    
+    if (polledTranscript.status === "error") {
+      throw new Error(
+        `Transcription failed: ${polledTranscript.error || "Unknown error"}`
+      )
     }
 
     // CRITICAL: Get the FULL transcript text
@@ -137,8 +119,35 @@ export async function transcribeYouTubeUrl(
       console.log(`[AssemblyAI] Using text property (may be incomplete): ${transcriptText.length} chars`)
     }
     
-    // PRIORITY 2: Try paragraphs endpoint as additional verification
-    // This can sometimes have more complete formatting
+    // PRIORITY 2: Try sentences endpoint - this often has the most complete transcript
+    // Sentences endpoint can have more words than paragraphs or text property
+    try {
+      const sentences = await client.transcripts.sentences(polledTranscript.id)
+      if (sentences && sentences.sentences && sentences.sentences.length > 0) {
+        const sentencesText = sentences.sentences
+          .map((s: any) => s.text)
+          .join(" ")
+          .trim()
+        const sentencesWordCount = sentencesText.split(/\s+/).filter(Boolean).length
+        const currentWordCount = transcriptText.split(/\s+/).filter(Boolean).length
+        
+        console.log(`[AssemblyAI] Sentences endpoint: ${sentencesWordCount} words`)
+        console.log(`[AssemblyAI] Current transcript: ${currentWordCount} words`)
+        
+        // Use sentences if it has MORE words (more complete)
+        if (sentencesWordCount > currentWordCount) {
+          console.log(`[AssemblyAI] ✓ Sentences has MORE words (${sentencesWordCount} vs ${currentWordCount}). Using sentences for FULL transcript.`)
+          transcriptText = sentencesText
+          source = "sentences_endpoint"
+        } else {
+          console.log(`[AssemblyAI] Current transcript has same or more words. Keeping current.`)
+        }
+      }
+    } catch (sentencesError) {
+      console.log(`[AssemblyAI] Could not fetch sentences (optional): ${sentencesError}`)
+    }
+    
+    // PRIORITY 3: Try paragraphs endpoint as additional verification
     try {
       const paragraphs = await client.transcripts.paragraphs(polledTranscript.id)
       if (paragraphs && paragraphs.paragraphs && paragraphs.paragraphs.length > 0) {
@@ -157,13 +166,10 @@ export async function transcribeYouTubeUrl(
           console.log(`[AssemblyAI] ✓ Paragraphs has MORE words (${paragraphsWordCount} vs ${currentWordCount}). Using paragraphs for FULL transcript.`)
           transcriptText = paragraphsText
           source = "paragraphs_endpoint"
-        } else {
-          console.log(`[AssemblyAI] Current transcript has same or more words. Keeping current.`)
         }
       }
     } catch (paragraphsError) {
       console.log(`[AssemblyAI] Could not fetch paragraphs (optional): ${paragraphsError}`)
-      // Continue with words array - this is fine
     }
     
     // Log comparison with original text property for debugging

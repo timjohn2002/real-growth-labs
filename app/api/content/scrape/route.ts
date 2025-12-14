@@ -610,10 +610,17 @@ async function processYouTubeVideoWithAssemblyAI(
       throw new Error("Audio file was not created after download")
     }
 
-    // Read audio file
+    // Read audio file and verify it's complete
     const audioBuffer = await fs.readFile(audioPath)
     const stats = await fs.stat(audioPath)
-    console.log(`[${contentItemId}] Audio file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
+    const fileSizeMB = stats.size / 1024 / 1024
+    console.log(`[${contentItemId}] ✅ Audio file downloaded. Size: ${fileSizeMB.toFixed(2)} MB`)
+    
+    // Validate file size - a 9-minute video should be at least 5-10 MB of audio
+    // If it's suspiciously small, warn
+    if (fileSizeMB < 1) {
+      console.warn(`[${contentItemId}] ⚠️ WARNING: Audio file is very small (${fileSizeMB.toFixed(2)} MB). This might indicate incomplete download.`)
+    }
 
     // Stage 3: Transcribing with AssemblyAI (40-90%)
     await updateProgress(contentItemId, "Transcribing with AssemblyAI...", 40)

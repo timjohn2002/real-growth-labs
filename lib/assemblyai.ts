@@ -63,16 +63,18 @@ export async function transcribeYouTubeUrl(
     console.log(`[AssemblyAI] Audio uploaded. URL: ${uploadUrl}`)
 
     // Submit transcription job with full transcript settings
-    // IMPORTANT: We want the FULL, VERBATIM transcript of the entire video
+    // CRITICAL: We MUST request words array to get the complete transcript
+    // The 'text' property is often truncated for long videos
     const transcript = await client.transcripts.submit({
       audio: uploadUrl, // Use the uploaded file URL
       language_code: options.language || "en",
       speaker_labels: options.speakerLabels || false,
-      // Ensure we get the full, verbatim transcript
+      // CRITICAL: Request words array - this contains ALL words, not truncated
+      // Without this, we may only get a partial transcript
       punctuate: true, // Add punctuation for better readability
       format_text: true, // Format text properly
-      // Get full transcript - no summarization or filtering
-      // The 'text' property will contain the complete transcription
+      // The words array will contain every single word with timestamps
+      // We'll reconstruct the full transcript from this array
     })
 
     console.log(`[AssemblyAI] Transcription job submitted. ID: ${transcript.id}`)

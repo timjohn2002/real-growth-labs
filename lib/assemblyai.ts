@@ -138,10 +138,27 @@ export async function transcribeYouTubeUrl(
     const textWordCount = textProperty.split(/\s+/).filter(Boolean).length
     console.log(`[AssemblyAI] Text property: ${textWordCount} words, ${textProperty.length} chars`)
     
+    // PRIORITY 4: Try paragraphs endpoint BEFORE choosing best candidate
+    let paragraphsText = ""
+    try {
+      const paragraphs = await client.transcripts.paragraphs(polledTranscript.id)
+      if (paragraphs && paragraphs.paragraphs && paragraphs.paragraphs.length > 0) {
+        paragraphsText = paragraphs.paragraphs
+          .map((p: any) => p.text)
+          .join("\n\n")
+          .trim()
+        const paragraphsWordCount = paragraphsText.split(/\s+/).filter(Boolean).length
+        console.log(`[AssemblyAI] ✓ Paragraphs endpoint: ${paragraphsWordCount} words from ${paragraphs.paragraphs.length} paragraphs`)
+      }
+    } catch (paragraphsError) {
+      console.log(`[AssemblyAI] Could not fetch paragraphs (optional): ${paragraphsError}`)
+    }
+    
     // Choose the source with the MOST words (most complete)
     const candidates = [
       { text: sentencesText, wordCount: sentencesText.split(/\s+/).filter(Boolean).length, source: "sentences_endpoint" },
       { text: wordsArrayText, wordCount: wordsArrayText.split(/\s+/).filter(Boolean).length, source: "words_array" },
+      { text: paragraphsText, wordCount: paragraphsText.split(/\s+/).filter(Boolean).length, source: "paragraphs_endpoint" },
       { text: textProperty, wordCount: textWordCount, source: "text_property" },
     ]
     
@@ -155,30 +172,32 @@ export async function transcribeYouTubeUrl(
       console.log(`[AssemblyAI] ✅ Using ${source} with ${bestCandidate.wordCount} words (most complete)`)
       
       // Log all candidates for comparison
-      console.log(`[AssemblyAI] 📊 All candidates:`)
+      console.log(`[AssemblyAI] 📊 All candidates comparison:`)
       candidates.forEach(c => {
-        console.log(`[AssemblyAI]   - ${c.source}: ${c.wordCount} words`)
+        const marker = c.source === source ? "✅" : "  "
+        console.log(`[AssemblyAI]   ${marker} ${c.source}: ${c.wordCount} words`)
       })
     } else {
       throw new Error("No transcript text available from any source")
     }
     
-    // PRIORITY 4: Try paragraphs endpoint as additional verification
-    let paragraphsText = ""
+    // PRIORITY 4: Try paragraphs endpoint as additional verification (already tried sentences above)
     try {
       const paragraphs = await client.transcripts.paragraphs(polledTranscript.id)
       if (paragraphs && paragraphs.paragraphs && paragraphs.paragraphs.length > 0) {
-        paragraphsText = paragraphs.paragraphs
+        const paragraphsText = paragraphs.paragraphs
           .map((p: any) => p.text)
           .join("\n\n")
           .trim()
         const paragraphsWordCount = paragraphsText.split(/\s+/).filter(Boolean).length
-        console.log(`[AssemblyAI] ✓ Paragraphs endpoint: ${paragraphsWordCount} words from ${paragraphs.paragraphs.length} paragraphs`)
+        const currentWordCount = transcriptText.split(/\s+/).filter(Boolean).length
         
-        // Add paragraphs to candidates if it has more words
-        const paragraphsWordCount2 = paragraphsText.split(/\s+/).filter(Boolean).length
-        if (paragraphsWordCount2 > bestCandidate.wordCount) {
-          console.log(`[AssemblyAI] ✓ Paragraphs has MORE words (${paragraphsWordCount2} vs ${bestCandidate.wordCount}). Updating to use paragraphs.`)
+        console.log(`[AssemblyAI] Paragraphs endpoint: ${paragraphsWordCount} words`)
+        console.log(`[AssemblyAI] Current transcript: ${currentWordCount} words`)
+        
+        // Use paragraphs if it has MORE words (more complete)
+        if (paragraphsWordCount > currentWordCount) {
+          console.log(`[AssemblyAI] ✓ Paragraphs has MORE words (${paragraphsWordCount} vs ${currentWordCount}). Using paragraphs for FULL transcript.`)
           transcriptText = paragraphsText
           source = "paragraphs_endpoint"
         }

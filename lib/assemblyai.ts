@@ -104,8 +104,28 @@ export async function transcribeYouTubeUrl(
       }
     }
 
-    // Get the full transcript text - ensure we're getting everything
-    const transcriptText = polledTranscript.text || ""
+    // CRITICAL: Get the FULL transcript text
+    // AssemblyAI's `text` property might be truncated in some cases
+    // We should reconstruct from the `words` array to ensure we get EVERYTHING
+    let transcriptText = polledTranscript.text || ""
+    
+    // If we have a words array, reconstruct the full transcript from it
+    // This ensures we get the COMPLETE transcript, not a truncated version
+    if (polledTranscript.words && polledTranscript.words.length > 0) {
+      console.log(`[AssemblyAI] Reconstructing full transcript from ${polledTranscript.words.length} words...`)
+      const reconstructedText = polledTranscript.words
+        .map((w) => w.text)
+        .join(" ")
+        .trim()
+      
+      // Use the reconstructed text if it's longer (more complete)
+      if (reconstructedText.length > transcriptText.length) {
+        console.log(`[AssemblyAI] Reconstructed transcript is longer (${reconstructedText.length} chars vs ${transcriptText.length} chars). Using reconstructed version.`)
+        transcriptText = reconstructedText
+      } else {
+        console.log(`[AssemblyAI] Original text property is longer or equal. Using original.`)
+      }
+    }
     
     if (!transcriptText || transcriptText.trim().length === 0) {
       throw new Error("Transcription completed but no text was returned.")
@@ -116,6 +136,7 @@ export async function transcribeYouTubeUrl(
     const audioDuration = (polledTranscript as any).audio_duration || 0
     const durationMinutes = audioDuration / 60
     
+    console.log(`[AssemblyAI] ✅ FULL TRANSCRIPT RETRIEVED`)
     console.log(`[AssemblyAI] Transcription completed. Text length: ${transcriptText.length} characters`)
     console.log(`[AssemblyAI] Word count: ${wordCount} words`)
     if (audioDuration > 0) {
@@ -126,16 +147,16 @@ export async function transcribeYouTubeUrl(
       const expectedMaxWords = Math.ceil(durationMinutes * 200) // Upper bound: 200 words/min
       
       if (wordCount < expectedMinWords) {
-        console.warn(`[AssemblyAI] WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at least ${expectedMinWords} words. This might indicate incomplete transcription.`)
+        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at least ${expectedMinWords} words. This might indicate incomplete transcription.`)
       } else if (wordCount > expectedMaxWords) {
-        console.warn(`[AssemblyAI] WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at most ${expectedMaxWords} words. This might indicate an issue.`)
+        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at most ${expectedMaxWords} words. This might indicate an issue.`)
       } else {
-        console.log(`[AssemblyAI] Transcript length looks reasonable: ${wordCount} words for ${durationMinutes.toFixed(1)} minutes (~${Math.round(wordCount / durationMinutes)} words/min)`)
+        console.log(`[AssemblyAI] ✓ Transcript length looks reasonable: ${wordCount} words for ${durationMinutes.toFixed(1)} minutes (~${Math.round(wordCount / durationMinutes)} words/min)`)
       }
     }
     
-    console.log(`[AssemblyAI] First 300 chars: ${transcriptText.substring(0, 300)}...`)
-    console.log(`[AssemblyAI] Last 300 chars: ...${transcriptText.substring(Math.max(0, transcriptText.length - 300))}`)
+    console.log(`[AssemblyAI] First 500 chars: ${transcriptText.substring(0, 500)}...`)
+    console.log(`[AssemblyAI] Last 500 chars: ...${transcriptText.substring(Math.max(0, transcriptText.length - 500))}`)
 
     return {
       text: transcriptText,

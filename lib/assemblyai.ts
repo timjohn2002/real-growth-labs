@@ -96,9 +96,9 @@ export async function transcribeYouTubeUrl(
     
     // Log what we received - CRITICAL for debugging
     const audioDuration = (polledTranscript as any).audio_duration || 0
-    const durationMinutes = audioDuration / 60
+    const audioDurationMinutes = audioDuration / 60
     console.log(`[AssemblyAI] 📋 Transcript data received:`)
-    console.log(`[AssemblyAI]   - Audio duration: ${audioDuration} seconds (${durationMinutes.toFixed(2)} minutes)`)
+    console.log(`[AssemblyAI]   - Audio duration: ${audioDuration} seconds (${audioDurationMinutes.toFixed(2)} minutes)`)
     console.log(`[AssemblyAI]   - Has text property: ${!!polledTranscript.text}`)
     console.log(`[AssemblyAI]   - Text length: ${polledTranscript.text?.length || 0} chars`)
     console.log(`[AssemblyAI]   - Has words array: ${!!polledTranscript.words}`)
@@ -106,13 +106,13 @@ export async function transcribeYouTubeUrl(
     
     // CRITICAL: Check if audio duration matches expected transcript length
     if (audioDuration > 0) {
-      const expectedMinWords = Math.floor(durationMinutes * 100) // Conservative: 100 words/min
+      const expectedMinWords = Math.floor(audioDurationMinutes * 100) // Conservative: 100 words/min
       const textWordCount = (polledTranscript.text || "").split(/\s+/).filter(Boolean).length
-      console.log(`[AssemblyAI]   - Expected minimum words: ${expectedMinWords} (for ${durationMinutes.toFixed(2)} min video)`)
+      console.log(`[AssemblyAI]   - Expected minimum words: ${expectedMinWords} (for ${audioDurationMinutes.toFixed(2)} min video)`)
       console.log(`[AssemblyAI]   - Text property words: ${textWordCount}`)
       
       if (textWordCount < expectedMinWords * 0.5) {
-        console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: Text property has only ${textWordCount} words but expected at least ${expectedMinWords} for ${durationMinutes.toFixed(2)}-minute video!`)
+        console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: Text property has only ${textWordCount} words but expected at least ${expectedMinWords} for ${audioDurationMinutes.toFixed(2)}-minute video!`)
         console.error(`[AssemblyAI]   This suggests the transcript is severely truncated or the audio file is incomplete.`)
       }
     }
@@ -168,9 +168,9 @@ export async function transcribeYouTubeUrl(
         
         // Validate SRT word count against audio duration
         if (audioDuration > 0) {
-          const expectedMinWords = Math.floor(durationMinutes * 100)
-          if (srtWordCount < expectedMinWords * 0.5) {
-            console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: SRT export has only ${srtWordCount} words but expected at least ${expectedMinWords} for ${durationMinutes.toFixed(2)}-minute video!`)
+          const srtExpectedMinWords = Math.floor(audioDurationMinutes * 100)
+          if (srtWordCount < srtExpectedMinWords * 0.5) {
+            console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: SRT export has only ${srtWordCount} words but expected at least ${srtExpectedMinWords} for ${audioDurationMinutes.toFixed(2)}-minute video!`)
             console.error(`[AssemblyAI]   This suggests the SRT is also truncated or the audio file is incomplete.`)
           }
         }
@@ -306,25 +306,25 @@ export async function transcribeYouTubeUrl(
 
     // Log full transcript details for debugging and verification
     const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
-    const audioDuration = (polledTranscript as any).audio_duration || 0
-    const durationMinutes = audioDuration / 60
+    const finalAudioDuration = (polledTranscript as any).audio_duration || 0
+    const finalDurationMinutes = finalAudioDuration / 60
     
     console.log(`[AssemblyAI] ✅ FULL TRANSCRIPT RETRIEVED`)
     console.log(`[AssemblyAI] Transcription completed. Text length: ${transcriptText.length} characters`)
     console.log(`[AssemblyAI] Word count: ${wordCount} words`)
-    if (audioDuration > 0) {
-      console.log(`[AssemblyAI] Audio duration: ${audioDuration} seconds (${durationMinutes.toFixed(2)} minutes)`)
+    if (finalAudioDuration > 0) {
+      console.log(`[AssemblyAI] Audio duration: ${finalAudioDuration} seconds (${finalDurationMinutes.toFixed(2)} minutes)`)
       
       // Validate transcript length - typical speaking rate is 150-160 words per minute
-      const expectedMinWords = Math.floor(durationMinutes * 100) // Conservative: 100 words/min
-      const expectedMaxWords = Math.ceil(durationMinutes * 200) // Upper bound: 200 words/min
+      const finalExpectedMinWords = Math.floor(finalDurationMinutes * 100) // Conservative: 100 words/min
+      const finalExpectedMaxWords = Math.ceil(finalDurationMinutes * 200) // Upper bound: 200 words/min
       
-      if (wordCount < expectedMinWords) {
-        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at least ${expectedMinWords} words. This might indicate incomplete transcription.`)
-      } else if (wordCount > expectedMaxWords) {
-        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${durationMinutes.toFixed(1)}-minute audio. Expected at most ${expectedMaxWords} words. This might indicate an issue.`)
+      if (wordCount < finalExpectedMinWords) {
+        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${finalDurationMinutes.toFixed(1)}-minute audio. Expected at least ${finalExpectedMinWords} words. This might indicate incomplete transcription.`)
+      } else if (wordCount > finalExpectedMaxWords) {
+        console.warn(`[AssemblyAI] ⚠️ WARNING: Transcript has ${wordCount} words for ${finalDurationMinutes.toFixed(1)}-minute audio. Expected at most ${finalExpectedMaxWords} words. This might indicate an issue.`)
       } else {
-        console.log(`[AssemblyAI] ✓ Transcript length looks reasonable: ${wordCount} words for ${durationMinutes.toFixed(1)} minutes (~${Math.round(wordCount / durationMinutes)} words/min)`)
+        console.log(`[AssemblyAI] ✓ Transcript length looks reasonable: ${wordCount} words for ${finalDurationMinutes.toFixed(1)} minutes (~${Math.round(wordCount / finalDurationMinutes)} words/min)`)
       }
     }
     

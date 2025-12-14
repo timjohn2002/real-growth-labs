@@ -112,6 +112,13 @@ export async function transcribeYouTubeUrl(
     let transcriptText = ""
     let source = "unknown"
     
+    // Log what we received
+    console.log(`[AssemblyAI] 📋 Transcript data received:`)
+    console.log(`[AssemblyAI]   - Has text property: ${!!polledTranscript.text}`)
+    console.log(`[AssemblyAI]   - Text length: ${polledTranscript.text?.length || 0} chars`)
+    console.log(`[AssemblyAI]   - Has words array: ${!!polledTranscript.words}`)
+    console.log(`[AssemblyAI]   - Words array length: ${polledTranscript.words?.length || 0} words`)
+    
     // PRIORITY 1: Always reconstruct from words array if available (most complete)
     if (polledTranscript.words && polledTranscript.words.length > 0) {
       console.log(`[AssemblyAI] 🔄 Reconstructing FULL transcript from ${polledTranscript.words.length} words array...`)
@@ -123,9 +130,11 @@ export async function transcribeYouTubeUrl(
       console.log(`[AssemblyAI] ✓ Reconstructed transcript from words array: ${transcriptText.length} chars`)
     } else {
       // Fallback to text property if words array not available
+      console.warn(`[AssemblyAI] ⚠️ WARNING: Words array is missing or empty!`)
+      console.warn(`[AssemblyAI]   This means we can only use the text property, which may be truncated.`)
       transcriptText = polledTranscript.text || ""
       source = "text_property"
-      console.log(`[AssemblyAI] ⚠️ Words array not available, using text property`)
+      console.log(`[AssemblyAI] Using text property (may be incomplete): ${transcriptText.length} chars`)
     }
     
     // PRIORITY 2: Try paragraphs endpoint as additional verification

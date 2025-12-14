@@ -555,6 +555,8 @@ async function processYouTubeVideoWithAssemblyAI(
     // --audio-quality 0: Best quality
     // --extract-audio: Extract audio only
     // --audio-format mp3: Convert to MP3
+    // --no-part: Don't use .part files (ensures complete download)
+    // --continue: Continue partial downloads (but we want complete)
     const downloadPromise = ytDlpWrap.exec([
       url,
       "-x", // Extract audio
@@ -568,6 +570,7 @@ async function processYouTubeVideoWithAssemblyAI(
       "--no-warnings",
       "--no-check-certificate", // Avoid SSL issues
       "--prefer-ffmpeg", // Prefer ffmpeg for conversion
+      "--no-part", // Don't use .part files - ensure complete download
     ])
 
     const downloadTimeout = new Promise((_, reject) => {

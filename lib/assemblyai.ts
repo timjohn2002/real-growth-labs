@@ -94,12 +94,28 @@ export async function transcribeYouTubeUrl(
     let transcriptText = ""
     let source = "unknown"
     
-    // Log what we received
+    // Log what we received - CRITICAL for debugging
+    const audioDuration = (polledTranscript as any).audio_duration || 0
+    const durationMinutes = audioDuration / 60
     console.log(`[AssemblyAI] 📋 Transcript data received:`)
+    console.log(`[AssemblyAI]   - Audio duration: ${audioDuration} seconds (${durationMinutes.toFixed(2)} minutes)`)
     console.log(`[AssemblyAI]   - Has text property: ${!!polledTranscript.text}`)
     console.log(`[AssemblyAI]   - Text length: ${polledTranscript.text?.length || 0} chars`)
     console.log(`[AssemblyAI]   - Has words array: ${!!polledTranscript.words}`)
     console.log(`[AssemblyAI]   - Words array length: ${polledTranscript.words?.length || 0} words`)
+    
+    // CRITICAL: Check if audio duration matches expected transcript length
+    if (audioDuration > 0) {
+      const expectedMinWords = Math.floor(durationMinutes * 100) // Conservative: 100 words/min
+      const textWordCount = (polledTranscript.text || "").split(/\s+/).filter(Boolean).length
+      console.log(`[AssemblyAI]   - Expected minimum words: ${expectedMinWords} (for ${durationMinutes.toFixed(2)} min video)`)
+      console.log(`[AssemblyAI]   - Text property words: ${textWordCount}`)
+      
+      if (textWordCount < expectedMinWords * 0.5) {
+        console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: Text property has only ${textWordCount} words but expected at least ${expectedMinWords} for ${durationMinutes.toFixed(2)}-minute video!`)
+        console.error(`[AssemblyAI]   This suggests the transcript is severely truncated or the audio file is incomplete.`)
+      }
+    }
     
     // PRIORITY 1: Try SRT export FIRST - this should contain the COMPLETE transcript
     // SRT format includes all words with timestamps and is not truncated
@@ -147,6 +163,17 @@ export async function transcribeYouTubeUrl(
         srtText = srtTextLines.join(' ').trim()
         const srtWordCount = srtText.split(/\s+/).filter(Boolean).length
         console.log(`[AssemblyAI] ✓ SRT export: ${srtWordCount} words from ${srtTextLines.length} subtitle blocks`)
+        console.log(`[AssemblyAI]   - SRT raw length: ${srt.length} chars`)
+        console.log(`[AssemblyAI]   - SRT extracted text length: ${srtText.length} chars`)
+        
+        // Validate SRT word count against audio duration
+        if (audioDuration > 0) {
+          const expectedMinWords = Math.floor(durationMinutes * 100)
+          if (srtWordCount < expectedMinWords * 0.5) {
+            console.error(`[AssemblyAI] ⚠️⚠️⚠️ CRITICAL: SRT export has only ${srtWordCount} words but expected at least ${expectedMinWords} for ${durationMinutes.toFixed(2)}-minute video!`)
+            console.error(`[AssemblyAI]   This suggests the SRT is also truncated or the audio file is incomplete.`)
+          }
+        }
       }
     } catch (srtError) {
       console.warn(`[AssemblyAI] ⚠️ Could not fetch SRT: ${srtError}`)

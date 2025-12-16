@@ -440,11 +440,9 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     // This is more accurate, faster, and avoids truncation issues
     console.log(`[${contentItemId}] Attempting to extract YouTube auto-generated captions...`)
     try {
-      const captionResult = await processYouTubeVideoWithCaptions(contentItemId, url, videoInfo, overallTimeout)
-      if (captionResult) {
-        console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
-        return captionResult
-      }
+      await processYouTubeVideoWithCaptions(contentItemId, url, videoInfo, overallTimeout)
+      console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
+      return // Success - function already saved to database
     } catch (captionError) {
       console.warn(`[${contentItemId}] ⚠️ Failed to extract captions: ${captionError}`)
       console.log(`[${contentItemId}] Falling back to audio transcription method...`)

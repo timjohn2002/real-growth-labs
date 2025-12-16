@@ -508,7 +508,276 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
 }
 
 /**
- * Process YouTube video using AssemblyAI (preferred method)
+ * Process YouTube video by extracting auto-generated captions (NEW APPROACH - MOST ACCURATE)
+ * Uses yt-dlp to download YouTube's auto-generated subtitles directly
+ * This is faster, more accurate, and avoids truncation issues
+ */
+async function processYouTubeVideoWithCaptions(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+): Promise<void> {
+  let tempDir: string | null = null
+
+  try {
+    // Stage 1: Downloading captions (10-30%)
+    await updateProgress(contentItemId, "Extracting YouTube captions...", 10)
+    
+    // Create temporary directory
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "youtube-captions-"))
+    const outputTemplate = path.join(tempDir, `${contentItemId}.%(ext)s`)
+
+    // Initialize yt-dlp
+    let ytDlpPath: string | undefined
+    try {
+      const { execSync } = await import("child_process")
+      ytDlpPath = execSync("which yt-dlp", { encoding: "utf-8" }).trim()
+      console.log(`[${contentItemId}] Found yt-dlp at: ${ytDlpPath}`)
+    } catch (e) {
+      // Try common paths
+      const commonPaths = ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"]
+      for (const commonPath of commonPaths) {
+        try {
+          await fs.access(commonPath)
+          ytDlpPath = commonPath
+          break
+        } catch {
+          // Continue
+        }
+      }
+    }
+
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
+    if (isServerless && !ytDlpPath) {
+      throw new Error(
+        "yt-dlp is required to download YouTube captions. " +
+        "Please use a dedicated worker process with yt-dlp installed."
+      )
+    }
+
+    const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()
+
+    // Download auto-generated subtitles
+    console.log(`[${contentItemId}] Downloading YouTube auto-generated subtitles...`)
+    await updateProgress(contentItemId, "Downloading captions...", 20)
+    
+    const downloadPromise = ytDlpWrap.exec([
+      url,
+      "--write-auto-sub", // Write auto-generated subtitles
+      "--sub-lang", "en", // Prefer English subtitles
+      "--sub-format", "srt", // Use SRT format (easiest to parse)
+      "--skip-download", // Don't download video/audio, just subtitles
+      "-o",
+      outputTemplate,
+      "--no-playlist",
+      "--no-warnings",
+    ])
+
+    const downloadTimeout = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Caption download timeout after 5 minutes"))
+      }, 5 * 60 * 1000)
+    })
+
+    await Promise.race([downloadPromise, downloadTimeout])
+    console.log(`[${contentItemId}] Caption download completed`)
+
+    // Find downloaded subtitle file
+    const files = await fs.readdir(tempDir)
+    const subtitleFile = files.find(f => f.endsWith('.srt') || f.endsWith('.vtt') || f.endsWith('.en.srt') || f.endsWith('.en.vtt'))
+    
+    if (!subtitleFile) {
+      throw new Error("No subtitle file found. Video may not have auto-generated captions available.")
+    }
+
+    const subtitlePath = path.join(tempDir, subtitleFile)
+    console.log(`[${contentItemId}] Found subtitle file: ${subtitleFile}`)
+
+    // Stage 2: Parsing subtitles (30-70%)
+    await updateProgress(contentItemId, "Parsing captions...", 30)
+    
+    // Read and parse subtitle file
+    const subtitleContent = await fs.readFile(subtitlePath, "utf-8")
+    const transcriptText = parseSubtitleFile(subtitleContent, subtitleFile)
+    
+    if (!transcriptText || transcriptText.trim().length === 0) {
+      throw new Error("Failed to extract text from subtitle file")
+    }
+
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] ✅ Caption extraction complete. Word count: ${wordCount} words`)
+    console.log(`[${contentItemId}] Transcript length: ${transcriptText.length} characters`)
+
+    // Stage 3: Generating summary (70-90%)
+    await updateProgress(contentItemId, "Generating summary...", 70)
+    
+    const summary = await generateSummary(transcriptText)
+    console.log(`[${contentItemId}] Summary generated`)
+
+    // Stage 4: Saving to database (90-100%)
+    await updateProgress(contentItemId, "Saving to database...", 90)
+    
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcriptText,
+        rawText: transcriptText,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+        metadata: JSON.stringify({
+          ...existingMetadata,
+          processingStage: "Complete",
+          processingProgress: 100,
+          transcriptionMethod: "youtube_captions",
+          source: "youtube_auto_generated",
+        }),
+      },
+    })
+
+    // Clear timeout on success
+    clearTimeout(overallTimeout)
+
+    console.log(`✅ YouTube video processed successfully using captions: ${contentItemId}`)
+    console.log(`   - Title: ${videoInfo.title}`)
+    console.log(`   - Transcript length: ${transcriptText.length} characters`)
+    console.log(`   - Word count: ${wordCount}`)
+  } catch (error) {
+    clearTimeout(overallTimeout)
+    throw error
+  } finally {
+    // Clean up temporary files
+    if (tempDir) {
+      try {
+        const files = await fs.readdir(tempDir)
+        await Promise.all(files.map(f => fs.unlink(path.join(tempDir!, f))))
+        await fs.rmdir(tempDir)
+      } catch (e) {
+        console.error(`[${contentItemId}] Failed to delete temp directory:`, e)
+      }
+    }
+  }
+}
+
+/**
+ * Parse subtitle file (SRT or VTT format) to extract transcript text
+ */
+function parseSubtitleFile(content: string, filename: string): string {
+  const isVTT = filename.endsWith('.vtt')
+  
+  if (isVTT) {
+    return parseVTT(content)
+  } else {
+    return parseSRT(content)
+  }
+}
+
+/**
+ * Parse SRT format subtitle file
+ * SRT format:
+ * 1
+ * 00:00:00,000 --> 00:00:05,000
+ * Text line 1
+ * Text line 2
+ * (blank line)
+ */
+function parseSRT(content: string): string {
+  const lines = content.split('\n')
+  const textLines: string[] = []
+  let i = 0
+  
+  while (i < lines.length) {
+    const line = lines[i].trim()
+    
+    // Skip empty lines
+    if (!line) {
+      i++
+      continue
+    }
+    
+    // Skip sequence numbers (just digits)
+    if (/^\d+$/.test(line)) {
+      i++
+      // Next line should be timestamp
+      if (i < lines.length && lines[i].includes('-->')) {
+        i++
+        // Now collect text lines until we hit an empty line
+        while (i < lines.length && lines[i].trim()) {
+          const textLine = lines[i].trim()
+          if (textLine && !textLine.includes('-->')) {
+            textLines.push(textLine)
+          }
+          i++
+        }
+      }
+    } else {
+      i++
+    }
+  }
+  
+  return textLines.join(' ').trim()
+}
+
+/**
+ * Parse VTT format subtitle file
+ * VTT format:
+ * WEBVTT
+ * 
+ * 00:00:00.000 --> 00:00:05.000
+ * Text line 1
+ * Text line 2
+ * (blank line)
+ */
+function parseVTT(content: string): string {
+  const lines = content.split('\n')
+  const textLines: string[] = []
+  let i = 0
+  
+  // Skip WEBVTT header
+  while (i < lines.length && (lines[i].trim() === 'WEBVTT' || lines[i].trim().startsWith('WEBVTT') || !lines[i].trim())) {
+    i++
+  }
+  
+  while (i < lines.length) {
+    const line = lines[i].trim()
+    
+    // Skip empty lines
+    if (!line) {
+      i++
+      continue
+    }
+    
+    // Skip timestamps (lines with -->)
+    if (line.includes('-->')) {
+      i++
+      // Collect text lines until we hit an empty line or another timestamp
+      while (i < lines.length && lines[i].trim() && !lines[i].trim().includes('-->')) {
+        const textLine = lines[i].trim()
+        // Skip cue settings (lines with :: or styling)
+        if (!textLine.includes('::') && !textLine.startsWith('<')) {
+          textLines.push(textLine)
+        }
+        i++
+      }
+    } else {
+      i++
+    }
+  }
+  
+  return textLines.join(' ').trim()
+}
+
+/**
+ * Process YouTube video using AssemblyAI (fallback method)
  * Downloads audio with yt-dlp, then transcribes with AssemblyAI
  */
 async function processYouTubeVideoWithAssemblyAI(

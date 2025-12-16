@@ -824,6 +824,12 @@ async function processYouTubeVideoWithWebCaptions(
   videoInfo: { title: string; thumbnail: string | null },
   overallTimeout: NodeJS.Timeout
 ): Promise<void> {
+  // Set a timeout for the entire web caption extraction (2 minutes max)
+  const webTimeout = setTimeout(() => {
+    clearTimeout(overallTimeout)
+    throw new Error("Web caption extraction timeout after 2 minutes")
+  }, 2 * 60 * 1000)
+  
   try {
     // Extract video ID from URL
     const videoId = extractYouTubeVideoId(url)
@@ -836,76 +842,67 @@ async function processYouTubeVideoWithWebCaptions(
     console.log(`[${contentItemId}] Fetching captions from YouTube web interface for video: ${videoId}`)
     
     // Use YouTube's web API to get captions
-    // YouTube stores captions at: https://www.youtube.com/api/timedtext?lang=en&v={videoId}
-    const captionUrl = `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=srv3`
+    // Try multiple formats and language codes
+    const captionUrls = [
+      `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv3`, // Auto-generated English
+      `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv1`, // Alternative format
+      `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3`, // No language specified
+      `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=ttml`, // TTML format
+    ]
     
     await updateProgress(contentItemId, "Downloading captions...", 20)
-    const response = await fetch(captionUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    })
+    
+    let captionXml: string | null = null
+    let lastError: Error | null = null
+    
+    // Try each URL until one works (with timeout)
+    const fetchTimeout = 10000 // 10 seconds per URL
+    
+    for (const captionUrl of captionUrls) {
+      try {
+        console.log(`[${contentItemId}] Trying caption URL: ${captionUrl}`)
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Fetch timeout after ${fetchTimeout}ms`)), fetchTimeout)
+        })
+        
+        // Race between fetch and timeout
+        const fetchPromise = fetch(captionUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,*/*;q=0.5',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+          },
+          signal: AbortSignal.timeout(fetchTimeout), // Built-in timeout support
+        })
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise])
 
-    if (!response.ok) {
-      // Try without lang parameter (auto-generated)
-      const autoCaptionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3&lang=en`
-      const autoResponse = await fetch(autoCaptionUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        if (response.ok) {
+          captionXml = await response.text()
+          console.log(`[${contentItemId}] ✅ Successfully fetched captions from: ${captionUrl}`)
+          console.log(`[${contentItemId}] Caption XML length: ${captionXml.length} characters`)
+          break
+        } else {
+          console.log(`[${contentItemId}] Failed to fetch from ${captionUrl}: ${response.status} ${response.statusText}`)
         }
-      })
-      
-      if (!autoResponse.ok) {
-        throw new Error(`Failed to fetch captions: ${autoResponse.status} ${autoResponse.statusText}`)
+      } catch (fetchError) {
+        lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError))
+        console.warn(`[${contentItemId}] Error fetching from ${captionUrl}: ${lastError.message}`)
+        // Continue to next URL
       }
-      
-      const captionXml = await autoResponse.text()
-      const transcriptText = parseYouTubeXMLCaptions(captionXml)
-      
-      if (!transcriptText || transcriptText.trim().length === 0) {
-        throw new Error("No captions found in response")
-      }
-
-      const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
-      console.log(`[${contentItemId}] ✅ Web caption extraction complete. Word count: ${wordCount} words`)
-
-      // Generate summary and save
-      await updateProgress(contentItemId, "Generating summary...", 70)
-      const summary = await generateSummary(transcriptText)
-
-      await updateProgress(contentItemId, "Saving to database...", 90)
-      const existingItem = await prisma.contentItem.findUnique({
-        where: { id: contentItemId },
-        select: { metadata: true },
-      })
-      const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
-      
-      await prisma.contentItem.update({
-        where: { id: contentItemId },
-        data: {
-          status: "ready",
-          transcript: transcriptText,
-          rawText: transcriptText,
-          wordCount,
-          summary,
-          processedAt: new Date(),
-          error: null,
-          metadata: JSON.stringify({
-            ...existingMetadata,
-            processingStage: "Complete",
-            processingProgress: 100,
-            transcriptionMethod: "youtube_web_captions",
-            source: "youtube_web_api",
-          }),
-        },
-      })
-
-      clearTimeout(overallTimeout)
-      console.log(`✅ YouTube video processed successfully using web captions: ${contentItemId}`)
-      return
     }
 
-    const captionXml = await response.text()
+    if (!captionXml) {
+      throw new Error(
+        `Failed to fetch captions from YouTube. ` +
+        `The video may not have auto-generated captions available. ` +
+        `Last error: ${lastError?.message || "Unknown"}`
+      )
+    }
+
     const transcriptText = parseYouTubeXMLCaptions(captionXml)
     
     if (!transcriptText || transcriptText.trim().length === 0) {
@@ -957,20 +954,66 @@ async function processYouTubeVideoWithWebCaptions(
 /**
  * Parse YouTube XML caption format
  * Format: <transcript><text start="..." dur="...">text content</text></transcript>
+ * Also handles HTML entities and CDATA sections
  */
 function parseYouTubeXMLCaptions(xml: string): string {
-  const textMatches = xml.match(/<text[^>]*>([^<]+)<\/text>/g)
-  if (!textMatches || textMatches.length === 0) {
+  if (!xml || xml.trim().length === 0) {
     return ""
   }
   
-  const textLines = textMatches.map(match => {
-    // Extract text content between <text> and </text>
-    const textMatch = match.match(/<text[^>]*>([^<]+)<\/text>/)
-    return textMatch ? textMatch[1].trim() : ""
-  }).filter(Boolean)
+  // Try multiple parsing strategies
+  let textLines: string[] = []
   
-  return textLines.join(' ').trim()
+  // Strategy 1: Match <text> tags with content
+  const textMatches = xml.match(/<text[^>]*>([^<]+)<\/text>/g)
+  if (textMatches && textMatches.length > 0) {
+    textLines = textMatches.map(match => {
+      const textMatch = match.match(/<text[^>]*>([^<]+)<\/text>/)
+      if (textMatch && textMatch[1]) {
+        // Decode HTML entities
+        return textMatch[1]
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .trim()
+      }
+      return ""
+    }).filter(Boolean)
+  }
+  
+  // Strategy 2: If no matches, try CDATA sections
+  if (textLines.length === 0) {
+    const cdataMatches = xml.match(/<!\[CDATA\[(.*?)\]\]>/g)
+    if (cdataMatches) {
+      textLines = cdataMatches.map(match => {
+        const content = match.replace(/<!\[CDATA\[(.*?)\]\]>/, '$1')
+        return content.trim()
+      }).filter(Boolean)
+    }
+  }
+  
+  // Strategy 3: Try simple text extraction between tags
+  if (textLines.length === 0) {
+    const simpleMatches = xml.match(/>([^<]+)</g)
+    if (simpleMatches) {
+      textLines = simpleMatches.map(match => {
+        return match.replace(/[><]/g, '').trim()
+      }).filter(line => line.length > 0 && !line.match(/^\d+$/) && !line.includes('-->'))
+    }
+  }
+  
+  if (textLines.length === 0) {
+    console.warn("No text found in XML caption format. XML preview:", xml.substring(0, 500))
+    return ""
+  }
+  
+  const transcript = textLines.join(' ').trim()
+  console.log(`Parsed ${textLines.length} caption segments into transcript (${transcript.length} chars)`)
+  
+  return transcript
 }
 
 /**

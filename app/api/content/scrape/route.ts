@@ -436,14 +436,27 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     
     console.log(`[${contentItemId}] Video info retrieved: ${videoInfo.title}`)
 
-    // Check if AssemblyAI is configured - use it for transcription after downloading audio
-    // Note: We still need yt-dlp to download the audio, but AssemblyAI provides better transcription
+    // NEW APPROACH: Try to extract YouTube's auto-generated captions FIRST
+    // This is more accurate, faster, and avoids truncation issues
+    console.log(`[${contentItemId}] Attempting to extract YouTube auto-generated captions...`)
+    try {
+      const captionResult = await processYouTubeVideoWithCaptions(contentItemId, url, videoInfo, overallTimeout)
+      if (captionResult) {
+        console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
+        return captionResult
+      }
+    } catch (captionError) {
+      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions: ${captionError}`)
+      console.log(`[${contentItemId}] Falling back to audio transcription method...`)
+    }
+
+    // Fallback: Check if AssemblyAI is configured - use it for transcription after downloading audio
     if (isAssemblyAIConfigured()) {
       console.log(`[${contentItemId}] Using AssemblyAI for transcription (will download audio first)`)
       return await processYouTubeVideoWithAssemblyAI(contentItemId, url, videoInfo, overallTimeout)
     }
 
-    // Fallback to yt-dlp + OpenAI Whisper if AssemblyAI is not configured
+    // Final fallback: yt-dlp + OpenAI Whisper if AssemblyAI is not configured
     console.log(`[${contentItemId}] AssemblyAI not configured, using yt-dlp + OpenAI Whisper`)
     return await processYouTubeVideoWithYtDlp(contentItemId, url, videoInfo, overallTimeout)
   } catch (error) {

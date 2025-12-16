@@ -824,11 +824,14 @@ async function processYouTubeVideoWithWebCaptions(
   videoInfo: { title: string; thumbnail: string | null },
   overallTimeout: NodeJS.Timeout
 ): Promise<void> {
-  // Set a timeout for the entire web caption extraction (2 minutes max)
+  // Set a timeout for the entire web caption extraction (90 seconds max)
+  let webTimeoutCleared = false
   const webTimeout = setTimeout(() => {
-    clearTimeout(overallTimeout)
-    throw new Error("Web caption extraction timeout after 2 minutes")
-  }, 2 * 60 * 1000)
+    if (!webTimeoutCleared) {
+      console.error(`[${contentItemId}] Web caption extraction timeout after 90 seconds`)
+      clearTimeout(overallTimeout)
+    }
+  }, 90 * 1000)
   
   try {
     // Extract video ID from URL
@@ -840,6 +843,7 @@ async function processYouTubeVideoWithWebCaptions(
     // Stage 1: Fetching captions (10-30%)
     await updateProgress(contentItemId, "Fetching YouTube captions...", 10)
     console.log(`[${contentItemId}] Fetching captions from YouTube web interface for video: ${videoId}`)
+    console.log(`[${contentItemId}] Video URL: ${url}`)
     
     // Use YouTube's web API to get captions
     // Try multiple formats and language codes
@@ -856,42 +860,60 @@ async function processYouTubeVideoWithWebCaptions(
     let lastError: Error | null = null
     
     // Try each URL until one works (with timeout)
-    const fetchTimeout = 10000 // 10 seconds per URL
+    const fetchTimeout = 15000 // 15 seconds per URL
     
-    for (const captionUrl of captionUrls) {
+    for (let i = 0; i < captionUrls.length; i++) {
+      const captionUrl = captionUrls[i]
       try {
-        console.log(`[${contentItemId}] Trying caption URL: ${captionUrl}`)
+        console.log(`[${contentItemId}] Trying caption URL ${i + 1}/${captionUrls.length}: ${captionUrl}`)
+        await updateProgress(contentItemId, `Trying caption source ${i + 1}/${captionUrls.length}...`, 20 + (i * 5))
         
-        // Create a timeout promise
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error(`Fetch timeout after ${fetchTimeout}ms`)), fetchTimeout)
-        })
+        // Create AbortController for timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), fetchTimeout)
         
-        // Race between fetch and timeout
-        const fetchPromise = fetch(captionUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,*/*;q=0.5',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': `https://www.youtube.com/watch?v=${videoId}`,
-          },
-          signal: AbortSignal.timeout(fetchTimeout), // Built-in timeout support
-        })
-        
-        const response = await Promise.race([fetchPromise, timeoutPromise])
+        try {
+          const response = await fetch(captionUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,*/*;q=0.5',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+            },
+            signal: controller.signal,
+          })
 
-        if (response.ok) {
-          captionXml = await response.text()
-          console.log(`[${contentItemId}] ✅ Successfully fetched captions from: ${captionUrl}`)
-          console.log(`[${contentItemId}] Caption XML length: ${captionXml.length} characters`)
-          break
-        } else {
-          console.log(`[${contentItemId}] Failed to fetch from ${captionUrl}: ${response.status} ${response.statusText}`)
+          clearTimeout(timeoutId)
+
+          if (response.ok) {
+            const responseText = await response.text()
+            console.log(`[${contentItemId}] ✅ Successfully fetched captions from: ${captionUrl}`)
+            console.log(`[${contentItemId}] Response length: ${responseText.length} characters`)
+            console.log(`[${contentItemId}] Response preview: ${responseText.substring(0, 200)}...`)
+            
+            if (responseText.trim().length > 0) {
+              captionXml = responseText
+              break
+            } else {
+              console.warn(`[${contentItemId}] Response is empty from ${captionUrl}`)
+            }
+          } else {
+            console.log(`[${contentItemId}] Failed to fetch from ${captionUrl}: ${response.status} ${response.statusText}`)
+            const errorText = await response.text().catch(() => '')
+            console.log(`[${contentItemId}] Error response: ${errorText.substring(0, 200)}`)
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId)
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            lastError = new Error(`Request timeout after ${fetchTimeout}ms`)
+          } else {
+            lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError))
+          }
+          console.warn(`[${contentItemId}] Error fetching from ${captionUrl}: ${lastError.message}`)
         }
-      } catch (fetchError) {
-        lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError))
-        console.warn(`[${contentItemId}] Error fetching from ${captionUrl}: ${lastError.message}`)
-        // Continue to next URL
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        console.warn(`[${contentItemId}] Unexpected error with ${captionUrl}: ${lastError.message}`)
       }
     }
 

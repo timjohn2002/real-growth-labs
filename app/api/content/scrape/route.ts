@@ -943,10 +943,14 @@ async function processYouTubeVideoWithWebCaptions(
       },
     })
 
+    clearTimeout(webTimeout)
     clearTimeout(overallTimeout)
     console.log(`✅ YouTube video processed successfully using web captions: ${contentItemId}`)
   } catch (error) {
+    clearTimeout(webTimeout)
     clearTimeout(overallTimeout)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error(`[${contentItemId}] Web caption extraction error: ${errorMessage}`)
     throw error
   }
 }

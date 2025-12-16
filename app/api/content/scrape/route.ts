@@ -441,8 +441,8 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
     
     if (isServerless) {
-      // In serverless, use web-based method first (no yt-dlp available)
-      console.log(`[${contentItemId}] Serverless environment detected - using web-based caption extraction...`)
+      // In serverless, try web-based method first, but it's unreliable
+      console.log(`[${contentItemId}] Serverless environment detected - attempting web-based caption extraction...`)
       try {
         await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
         console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
@@ -450,11 +450,31 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       } catch (webError) {
         const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
         console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
-        // In serverless, we can't use yt-dlp or audio transcription, so throw error
-        throw new Error(
-          `YouTube caption extraction failed: ${webErrorMessage}. ` +
-          `The video may not have auto-generated captions available, or YouTube's API may be blocking the request.`
-        )
+        
+        // In serverless, we can't use yt-dlp, so provide clear error message
+        const errorMsg = `YouTube video processing is not available in serverless environments. ` +
+          `YouTube's API blocks direct caption access, and yt-dlp is required for reliable processing. ` +
+          `Please use a dedicated worker/server (e.g., Railway, Render) with yt-dlp installed, ` +
+          `or ensure the video has publicly accessible auto-generated captions. ` +
+          `Error details: ${webErrorMessage}`
+        
+        // Update status with helpful error message
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "error",
+            error: errorMsg,
+            metadata: JSON.stringify({
+              processingStage: "Failed",
+              processingProgress: 0,
+              errorDetails: webErrorMessage,
+              failedAt: new Date().toISOString(),
+              requiresDedicatedWorker: true,
+            }),
+          },
+        })
+        
+        throw new Error(errorMsg)
       }
     } else {
       // In non-serverless (dedicated server), try yt-dlp first, then web method
@@ -965,14 +985,36 @@ async function processYouTubeVideoWithWebCaptions(
       },
     })
 
+    webTimeoutCleared = true
     clearTimeout(webTimeout)
     clearTimeout(overallTimeout)
     console.log(`✅ YouTube video processed successfully using web captions: ${contentItemId}`)
   } catch (error) {
+    webTimeoutCleared = true
     clearTimeout(webTimeout)
     clearTimeout(overallTimeout)
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error(`[${contentItemId}] Web caption extraction error: ${errorMessage}`)
+    
+    // Update status to error if we're still in processing
+    try {
+      await prisma.contentItem.update({
+        where: { id: contentItemId },
+        data: {
+          status: "error",
+          error: `Web caption extraction failed: ${errorMessage}`,
+          metadata: JSON.stringify({
+            processingStage: "Failed",
+            processingProgress: 0,
+            errorDetails: errorMessage,
+            failedAt: new Date().toISOString(),
+          }),
+        },
+      })
+    } catch (dbError) {
+      console.error(`[${contentItemId}] Failed to update error status:`, dbError)
+    }
+    
     throw error
   }
 }

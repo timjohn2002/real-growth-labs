@@ -445,15 +445,19 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       return // Success - function already saved to database
     } catch (captionError) {
       const errorMessage = captionError instanceof Error ? captionError.message : String(captionError)
-      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions: ${errorMessage}`)
+      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions with yt-dlp: ${errorMessage}`)
       
-      // If yt-dlp is not available, we can't use any YouTube processing method
-      if (errorMessage.includes("yt-dlp") && errorMessage.includes("not available")) {
-        throw new Error(
-          "YouTube video processing is not available in this environment. " +
-          "yt-dlp is required but not installed. " +
-          "Please use a dedicated worker/server with yt-dlp installed, or contact support."
-        )
+      // If yt-dlp is not available, try alternative method using web scraping
+      if (errorMessage.includes("yt-dlp") && (errorMessage.includes("not available") || errorMessage.includes("serverless"))) {
+        console.log(`[${contentItemId}] yt-dlp not available, trying web-based caption extraction...`)
+        try {
+          await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
+          console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
+          return // Success - function already saved to database
+        } catch (webError) {
+          console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction also failed: ${webError}`)
+          // Continue to fallback methods
+        }
       }
       
       console.log(`[${contentItemId}] Falling back to audio transcription method...`)
@@ -789,6 +793,165 @@ function parseVTT(content: string): string {
       i++
     }
   }
+  
+  return textLines.join(' ').trim()
+}
+
+/**
+ * Process YouTube video by extracting captions via web scraping (works in serverless)
+ * Uses YouTube's web interface to get captions without requiring yt-dlp
+ */
+async function processYouTubeVideoWithWebCaptions(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+): Promise<void> {
+  try {
+    // Extract video ID from URL
+    const videoId = extractYouTubeVideoId(url)
+    if (!videoId) {
+      throw new Error("Failed to extract video ID from URL")
+    }
+
+    // Stage 1: Fetching captions (10-30%)
+    await updateProgress(contentItemId, "Fetching YouTube captions...", 10)
+    console.log(`[${contentItemId}] Fetching captions from YouTube web interface for video: ${videoId}`)
+    
+    // Use YouTube's web API to get captions
+    // YouTube stores captions at: https://www.youtube.com/api/timedtext?lang=en&v={videoId}
+    const captionUrl = `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=srv3`
+    
+    await updateProgress(contentItemId, "Downloading captions...", 20)
+    const response = await fetch(captionUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    })
+
+    if (!response.ok) {
+      // Try without lang parameter (auto-generated)
+      const autoCaptionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&fmt=srv3&lang=en`
+      const autoResponse = await fetch(autoCaptionUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      })
+      
+      if (!autoResponse.ok) {
+        throw new Error(`Failed to fetch captions: ${autoResponse.status} ${autoResponse.statusText}`)
+      }
+      
+      const captionXml = await autoResponse.text()
+      const transcriptText = parseYouTubeXMLCaptions(captionXml)
+      
+      if (!transcriptText || transcriptText.trim().length === 0) {
+        throw new Error("No captions found in response")
+      }
+
+      const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+      console.log(`[${contentItemId}] ✅ Web caption extraction complete. Word count: ${wordCount} words`)
+
+      // Generate summary and save
+      await updateProgress(contentItemId, "Generating summary...", 70)
+      const summary = await generateSummary(transcriptText)
+
+      await updateProgress(contentItemId, "Saving to database...", 90)
+      const existingItem = await prisma.contentItem.findUnique({
+        where: { id: contentItemId },
+        select: { metadata: true },
+      })
+      const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+      
+      await prisma.contentItem.update({
+        where: { id: contentItemId },
+        data: {
+          status: "ready",
+          transcript: transcriptText,
+          rawText: transcriptText,
+          wordCount,
+          summary,
+          processedAt: new Date(),
+          error: null,
+          metadata: JSON.stringify({
+            ...existingMetadata,
+            processingStage: "Complete",
+            processingProgress: 100,
+            transcriptionMethod: "youtube_web_captions",
+            source: "youtube_web_api",
+          }),
+        },
+      })
+
+      clearTimeout(overallTimeout)
+      console.log(`✅ YouTube video processed successfully using web captions: ${contentItemId}`)
+      return
+    }
+
+    const captionXml = await response.text()
+    const transcriptText = parseYouTubeXMLCaptions(captionXml)
+    
+    if (!transcriptText || transcriptText.trim().length === 0) {
+      throw new Error("No captions found in response")
+    }
+
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] ✅ Web caption extraction complete. Word count: ${wordCount} words`)
+
+    // Generate summary and save
+    await updateProgress(contentItemId, "Generating summary...", 70)
+    const summary = await generateSummary(transcriptText)
+
+    await updateProgress(contentItemId, "Saving to database...", 90)
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcriptText,
+        rawText: transcriptText,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+        metadata: JSON.stringify({
+          ...existingMetadata,
+          processingStage: "Complete",
+          processingProgress: 100,
+          transcriptionMethod: "youtube_web_captions",
+          source: "youtube_web_api",
+        }),
+      },
+    })
+
+    clearTimeout(overallTimeout)
+    console.log(`✅ YouTube video processed successfully using web captions: ${contentItemId}`)
+  } catch (error) {
+    clearTimeout(overallTimeout)
+    throw error
+  }
+}
+
+/**
+ * Parse YouTube XML caption format
+ * Format: <transcript><text start="..." dur="...">text content</text></transcript>
+ */
+function parseYouTubeXMLCaptions(xml: string): string {
+  const textMatches = xml.match(/<text[^>]*>([^<]+)<\/text>/g)
+  if (!textMatches || textMatches.length === 0) {
+    return ""
+  }
+  
+  const textLines = textMatches.map(match => {
+    // Extract text content between <text> and </text>
+    const textMatch = match.match(/<text[^>]*>([^<]+)<\/text>/)
+    return textMatch ? textMatch[1].trim() : ""
+  }).filter(Boolean)
   
   return textLines.join(' ').trim()
 }

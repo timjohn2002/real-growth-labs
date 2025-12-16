@@ -444,7 +444,18 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
       return // Success - function already saved to database
     } catch (captionError) {
-      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions: ${captionError}`)
+      const errorMessage = captionError instanceof Error ? captionError.message : String(captionError)
+      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions: ${errorMessage}`)
+      
+      // If yt-dlp is not available, we can't use any YouTube processing method
+      if (errorMessage.includes("yt-dlp") && errorMessage.includes("not available")) {
+        throw new Error(
+          "YouTube video processing is not available in this environment. " +
+          "yt-dlp is required but not installed. " +
+          "Please use a dedicated worker/server with yt-dlp installed, or contact support."
+        )
+      }
+      
       console.log(`[${contentItemId}] Falling back to audio transcription method...`)
     }
 
@@ -547,11 +558,19 @@ async function processYouTubeVideoWithCaptions(
     }
 
     const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
-    if (isServerless && !ytDlpPath) {
-      throw new Error(
-        "yt-dlp is required to download YouTube captions. " +
-        "Please use a dedicated worker process with yt-dlp installed."
-      )
+    if (!ytDlpPath) {
+      if (isServerless) {
+        throw new Error(
+          "yt-dlp is not available in serverless environment. " +
+          "YouTube caption extraction requires yt-dlp to be installed. " +
+          "Please use a dedicated worker/server with yt-dlp installed, or the video may not have auto-generated captions available."
+        )
+      } else {
+        throw new Error(
+          "yt-dlp is required to download YouTube captions. " +
+          "Please install yt-dlp: pip install yt-dlp or brew install yt-dlp"
+        )
+      }
     }
 
     const ytDlpWrap = ytDlpPath ? new YTDlpWrap(ytDlpPath) : new YTDlpWrap()

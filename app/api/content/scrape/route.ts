@@ -436,31 +436,48 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     
     console.log(`[${contentItemId}] Video info retrieved: ${videoInfo.title}`)
 
-    // NEW APPROACH: Try to extract YouTube's auto-generated captions FIRST
+    // NEW APPROACH: Try web-based caption extraction FIRST (works in serverless)
     // This is more accurate, faster, and avoids truncation issues
-    console.log(`[${contentItemId}] Attempting to extract YouTube auto-generated captions...`)
-    try {
-      await processYouTubeVideoWithCaptions(contentItemId, url, videoInfo, overallTimeout)
-      console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
-      return // Success - function already saved to database
-    } catch (captionError) {
-      const errorMessage = captionError instanceof Error ? captionError.message : String(captionError)
-      console.warn(`[${contentItemId}] ⚠️ Failed to extract captions with yt-dlp: ${errorMessage}`)
-      
-      // If yt-dlp is not available, try alternative method using web scraping
-      if (errorMessage.includes("yt-dlp") && (errorMessage.includes("not available") || errorMessage.includes("serverless"))) {
-        console.log(`[${contentItemId}] yt-dlp not available, trying web-based caption extraction...`)
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
+    
+    if (isServerless) {
+      // In serverless, use web-based method first (no yt-dlp available)
+      console.log(`[${contentItemId}] Serverless environment detected - using web-based caption extraction...`)
+      try {
+        await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
+        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
+        return // Success - function already saved to database
+      } catch (webError) {
+        const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
+        console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
+        // In serverless, we can't use yt-dlp or audio transcription, so throw error
+        throw new Error(
+          `YouTube caption extraction failed: ${webErrorMessage}. ` +
+          `The video may not have auto-generated captions available, or YouTube's API may be blocking the request.`
+        )
+      }
+    } else {
+      // In non-serverless (dedicated server), try yt-dlp first, then web method
+      console.log(`[${contentItemId}] Attempting to extract YouTube auto-generated captions with yt-dlp...`)
+      try {
+        await processYouTubeVideoWithCaptions(contentItemId, url, videoInfo, overallTimeout)
+        console.log(`[${contentItemId}] ✅ Successfully extracted transcript from YouTube captions`)
+        return // Success - function already saved to database
+      } catch (captionError) {
+        const errorMessage = captionError instanceof Error ? captionError.message : String(captionError)
+        console.warn(`[${contentItemId}] ⚠️ Failed to extract captions with yt-dlp: ${errorMessage}`)
+        
+        // Try web-based method as fallback
+        console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
         try {
           await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
           console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
           return // Success - function already saved to database
         } catch (webError) {
           console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction also failed: ${webError}`)
-          // Continue to fallback methods
+          console.log(`[${contentItemId}] Falling back to audio transcription method...`)
         }
       }
-      
-      console.log(`[${contentItemId}] Falling back to audio transcription method...`)
     }
 
     // Fallback: Check if AssemblyAI is configured - use it for transcription after downloading audio

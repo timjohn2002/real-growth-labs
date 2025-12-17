@@ -545,7 +545,6 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
         
         clearTimeout(overallTimeout)
         throw new Error(errorMsg)
-        }
       }
     } else {
       // In non-serverless (dedicated server), try yt-dlp first, then web method

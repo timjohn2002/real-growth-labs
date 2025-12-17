@@ -922,75 +922,52 @@ async function processYouTubeVideoWithCaptionExtractor(
     
     // Use youtube-caption-extractor to get captions
     // This package works in serverless environments
-    const subtitles = await getSubtitles({ 
-      videoID: videoId, 
-      lang: 'en' // Try English first
-    })
+    console.log(`[${contentItemId}] Fetching captions with youtube-caption-extractor...`)
+    let subtitles: any[] = []
+    
+    try {
+      // Try English first
+      subtitles = await getSubtitles({ 
+        videoID: videoId, 
+        lang: 'en'
+      })
+      console.log(`[${contentItemId}] Received ${subtitles?.length || 0} subtitle segments`)
+    } catch (enError) {
+      console.log(`[${contentItemId}] English captions not available, trying auto-generated...`)
+      try {
+        // Try without language (auto-generated)
+        subtitles = await getSubtitles({ 
+          videoID: videoId
+        })
+        console.log(`[${contentItemId}] Received ${subtitles?.length || 0} auto-generated subtitle segments`)
+      } catch (autoError) {
+        throw new Error(`Failed to fetch captions: ${autoError instanceof Error ? autoError.message : String(autoError)}`)
+      }
+    }
     
     if (!subtitles || subtitles.length === 0) {
-      // Try without language specification (auto-generated)
-      console.log(`[${contentItemId}] No English captions found, trying auto-generated...`)
-      const autoSubtitles = await getSubtitles({ 
-        videoID: videoId
-      })
-      
-      if (!autoSubtitles || autoSubtitles.length === 0) {
-        throw new Error("No captions found for this video. The video may not have auto-generated captions available.")
-      }
-      
-      // Extract text from subtitle objects
-      const transcriptText = autoSubtitles
-        .map((sub: any) => sub.text || sub.subtitle || '')
-        .filter(Boolean)
-        .join(' ')
-        .trim()
-      
-      if (!transcriptText || transcriptText.length === 0) {
-        throw new Error("Failed to extract text from captions")
-      }
-
-      const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
-      console.log(`[${contentItemId}] ✅ Caption extraction complete. Word count: ${wordCount} words`)
-
-      // Generate summary and save
-      await updateProgress(contentItemId, "Generating summary...", 70)
-      const summary = await generateSummary(transcriptText)
-
-      await updateProgress(contentItemId, "Saving to database...", 90)
-      const existingItem = await prisma.contentItem.findUnique({
-        where: { id: contentItemId },
-        select: { metadata: true },
-      })
-      const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
-      
-      await prisma.contentItem.update({
-        where: { id: contentItemId },
-        data: {
-          status: "ready",
-          transcript: transcriptText,
-          rawText: transcriptText,
-          wordCount,
-          summary,
-          processedAt: new Date(),
-          error: null,
-          metadata: JSON.stringify({
-            ...existingMetadata,
-            processingStage: "Complete",
-            processingProgress: 100,
-            transcriptionMethod: "youtube_caption_extractor",
-            source: "youtube_caption_extractor_package",
-          }),
-        },
-      })
-
-      clearTimeout(overallTimeout)
-      console.log(`✅ YouTube video processed successfully using caption extractor: ${contentItemId}`)
-      return
+      throw new Error("No captions found for this video. The video may not have auto-generated captions available.")
     }
     
     // Extract text from subtitle objects
+    // The package returns an array of objects with 'text' property
     const transcriptText = subtitles
-      .map((sub: any) => sub.text || sub.subtitle || '')
+      .map((sub: any) => {
+        // Handle different possible formats
+        if (typeof sub === 'string') {
+          return sub
+        }
+        if (sub.text) {
+          return sub.text
+        }
+        if (sub.subtitle) {
+          return sub.subtitle
+        }
+        if (sub.utf8) {
+          return sub.utf8
+        }
+        return ''
+      })
       .filter(Boolean)
       .join(' ')
       .trim()

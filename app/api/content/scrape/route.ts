@@ -7,6 +7,7 @@ import { transcribeAudioFromBuffer } from "@/lib/openai"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
+import { getSubtitles } from "youtube-caption-extractor"
 
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
@@ -440,9 +441,14 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     // This is more accurate, faster, and avoids truncation issues
     const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME
     
+    // NEW APPROACH: Try using a third-party service that can handle YouTube URLs
+    // First, try web-based caption extraction (free, but unreliable)
+    // Then fall back to queueing for worker if available
+    console.log(`[${contentItemId}] Attempting YouTube caption extraction...`)
+    
     if (isServerless) {
-      // In serverless, try web-based method first, but it's unreliable
-      console.log(`[${contentItemId}] Serverless environment detected - attempting web-based caption extraction...`)
+      // In serverless, try web-based method first
+      console.log(`[${contentItemId}] Serverless environment - trying web-based caption extraction...`)
       try {
         await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
         console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
@@ -451,14 +457,61 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
         const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
         console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
         
-        // In serverless, we can't use yt-dlp, so provide clear error message
-        const errorMsg = `YouTube video processing is not available in serverless environments. ` +
-          `YouTube's API blocks direct caption access, and yt-dlp is required for reliable processing. ` +
-          `Please use a dedicated worker/server (e.g., Railway, Render) with yt-dlp installed, ` +
-          `or ensure the video has publicly accessible auto-generated captions. ` +
-          `Error details: ${webErrorMessage}`
+        // Try queueing for worker if Redis is available
+        const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
         
-        // Update status with helpful error message
+        if (isRedisAvailable()) {
+          const youtubeQueue = getYouTubeQueue()
+          if (youtubeQueue) {
+            console.log(`[${contentItemId}] Queueing YouTube video for dedicated worker processing...`)
+            try {
+              await youtubeQueue.add(
+                `youtube-${contentItemId}`,
+                {
+                  contentItemId,
+                  url,
+                  videoInfo,
+                },
+                {
+                  jobId: `youtube-${contentItemId}`,
+                  attempts: 3,
+                  backoff: {
+                    type: "exponential",
+                    delay: 5000,
+                  },
+                }
+              )
+              
+              // Update status to processing (will be handled by worker)
+              await prisma.contentItem.update({
+                where: { id: contentItemId },
+                data: {
+                  status: "processing",
+                  metadata: JSON.stringify({
+                    processingStage: "Queued for worker",
+                    processingProgress: 5,
+                    queuedAt: new Date().toISOString(),
+                    message: "Video queued for processing by dedicated worker",
+                  }),
+                },
+              })
+              
+              console.log(`[${contentItemId}] ✅ YouTube video queued for worker processing`)
+              clearTimeout(overallTimeout)
+              return // Job is queued, worker will handle it
+            } catch (queueError) {
+              console.error(`[${contentItemId}] Failed to queue job:`, queueError)
+              // Fall through to error message
+            }
+          }
+        }
+        
+        // If all methods failed, show clear error
+        const errorMsg = `YouTube video processing failed. ` +
+          `Web-based caption extraction is unreliable and may be blocked by YouTube. ` +
+          `Please ensure the video has auto-generated captions enabled, or set up a dedicated worker server with yt-dlp. ` +
+          `Error: ${webErrorMessage}`
+        
         await prisma.contentItem.update({
           where: { id: contentItemId },
           data: {
@@ -469,11 +522,11 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
               processingProgress: 0,
               errorDetails: webErrorMessage,
               failedAt: new Date().toISOString(),
-              requiresDedicatedWorker: true,
             }),
           },
         })
         
+        clearTimeout(overallTimeout)
         throw new Error(errorMsg)
       }
     } else {

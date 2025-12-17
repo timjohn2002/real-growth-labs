@@ -447,13 +447,23 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     console.log(`[${contentItemId}] Attempting YouTube caption extraction...`)
     
     if (isServerless) {
-      // In serverless, try web-based method first
-      console.log(`[${contentItemId}] Serverless environment - trying web-based caption extraction...`)
+      // In serverless, use youtube-caption-extractor package (works without yt-dlp)
+      console.log(`[${contentItemId}] Serverless environment - using youtube-caption-extractor...`)
       try {
-        await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
-        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
+        await processYouTubeVideoWithCaptionExtractor(contentItemId, url, videoInfo, overallTimeout)
+        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using caption extractor`)
         return // Success - function already saved to database
-      } catch (webError) {
+      } catch (extractorError) {
+        const extractorErrorMessage = extractorError instanceof Error ? extractorError.message : String(extractorError)
+        console.warn(`[${contentItemId}] ⚠️ Caption extractor failed: ${extractorErrorMessage}`)
+        
+        // Fallback to web-based method
+        console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
+        try {
+          await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
+          console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
+          return // Success - function already saved to database
+        } catch (webError) {
         const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
         console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
         
@@ -888,7 +898,157 @@ function parseVTT(content: string): string {
 }
 
 /**
- * Process YouTube video by extracting captions via web scraping (works in serverless)
+ * Process YouTube video using youtube-caption-extractor package (NEW - WORKS IN SERVERLESS)
+ * This package is specifically designed for serverless environments
+ */
+async function processYouTubeVideoWithCaptionExtractor(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+): Promise<void> {
+  try {
+    // Extract video ID from URL
+    const videoId = extractYouTubeVideoId(url)
+    if (!videoId) {
+      throw new Error("Failed to extract video ID from URL")
+    }
+
+    // Stage 1: Fetching captions (10-30%)
+    await updateProgress(contentItemId, "Extracting YouTube captions...", 10)
+    console.log(`[${contentItemId}] Using youtube-caption-extractor for video: ${videoId}`)
+    
+    await updateProgress(contentItemId, "Downloading captions...", 20)
+    
+    // Use youtube-caption-extractor to get captions
+    // This package works in serverless environments
+    const subtitles = await getSubtitles({ 
+      videoID: videoId, 
+      lang: 'en' // Try English first
+    })
+    
+    if (!subtitles || subtitles.length === 0) {
+      // Try without language specification (auto-generated)
+      console.log(`[${contentItemId}] No English captions found, trying auto-generated...`)
+      const autoSubtitles = await getSubtitles({ 
+        videoID: videoId
+      })
+      
+      if (!autoSubtitles || autoSubtitles.length === 0) {
+        throw new Error("No captions found for this video. The video may not have auto-generated captions available.")
+      }
+      
+      // Extract text from subtitle objects
+      const transcriptText = autoSubtitles
+        .map((sub: any) => sub.text || sub.subtitle || '')
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+      
+      if (!transcriptText || transcriptText.length === 0) {
+        throw new Error("Failed to extract text from captions")
+      }
+
+      const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+      console.log(`[${contentItemId}] ✅ Caption extraction complete. Word count: ${wordCount} words`)
+
+      // Generate summary and save
+      await updateProgress(contentItemId, "Generating summary...", 70)
+      const summary = await generateSummary(transcriptText)
+
+      await updateProgress(contentItemId, "Saving to database...", 90)
+      const existingItem = await prisma.contentItem.findUnique({
+        where: { id: contentItemId },
+        select: { metadata: true },
+      })
+      const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+      
+      await prisma.contentItem.update({
+        where: { id: contentItemId },
+        data: {
+          status: "ready",
+          transcript: transcriptText,
+          rawText: transcriptText,
+          wordCount,
+          summary,
+          processedAt: new Date(),
+          error: null,
+          metadata: JSON.stringify({
+            ...existingMetadata,
+            processingStage: "Complete",
+            processingProgress: 100,
+            transcriptionMethod: "youtube_caption_extractor",
+            source: "youtube_caption_extractor_package",
+          }),
+        },
+      })
+
+      clearTimeout(overallTimeout)
+      console.log(`✅ YouTube video processed successfully using caption extractor: ${contentItemId}`)
+      return
+    }
+    
+    // Extract text from subtitle objects
+    const transcriptText = subtitles
+      .map((sub: any) => sub.text || sub.subtitle || '')
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    
+    if (!transcriptText || transcriptText.length === 0) {
+      throw new Error("Failed to extract text from captions")
+    }
+
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] ✅ Caption extraction complete. Word count: ${wordCount} words`)
+    console.log(`[${contentItemId}] Transcript length: ${transcriptText.length} characters`)
+
+    // Generate summary and save
+    await updateProgress(contentItemId, "Generating summary...", 70)
+    const summary = await generateSummary(transcriptText)
+
+    await updateProgress(contentItemId, "Saving to database...", 90)
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcriptText,
+        rawText: transcriptText,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+        metadata: JSON.stringify({
+          ...existingMetadata,
+          processingStage: "Complete",
+          processingProgress: 100,
+          transcriptionMethod: "youtube_caption_extractor",
+          source: "youtube_caption_extractor_package",
+        }),
+      },
+    })
+
+    clearTimeout(overallTimeout)
+    console.log(`✅ YouTube video processed successfully using caption extractor: ${contentItemId}`)
+    console.log(`   - Title: ${videoInfo.title}`)
+    console.log(`   - Transcript length: ${transcriptText.length} characters`)
+    console.log(`   - Word count: ${wordCount}`)
+  } catch (error) {
+    clearTimeout(overallTimeout)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error(`[${contentItemId}] Caption extractor error: ${errorMessage}`)
+    throw error
+  }
+}
+
+/**
+ * Process YouTube video by extracting captions via web scraping (fallback method)
  * Uses YouTube's web interface to get captions without requiring yt-dlp
  */
 async function processYouTubeVideoWithWebCaptions(

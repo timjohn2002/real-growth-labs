@@ -8,6 +8,7 @@ import fs from "fs/promises"
 import path from "path"
 import os from "os"
 import { getSubtitles } from "youtube-caption-extractor"
+import { YoutubeTranscript } from "youtube-transcript"
 
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
@@ -448,22 +449,27 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     
     if (isServerless) {
       // In serverless, use youtube-caption-extractor package (works without yt-dlp)
-      console.log(`[${contentItemId}] Serverless environment - using youtube-caption-extractor...`)
+      console.log(`[${contentItemId}] Serverless environment - trying multiple caption extraction methods...`)
+      let lastExtractorError: Error | null = null
+      
+      // Method 1: Try youtube-caption-extractor (primary)
       try {
         await processYouTubeVideoWithCaptionExtractor(contentItemId, url, videoInfo, overallTimeout)
         console.log(`[${contentItemId}] ✅ Successfully extracted transcript using caption extractor`)
         return // Success - function already saved to database
       } catch (extractorError) {
-        const extractorErrorMessage = extractorError instanceof Error ? extractorError.message : String(extractorError)
-        console.warn(`[${contentItemId}] ⚠️ Caption extractor failed: ${extractorErrorMessage}`)
-        
-        // Fallback to web-based method
-        console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
-        try {
-          await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
-          console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
-          return // Success - function already saved to database
-        } catch (webError) {
+        lastExtractorError = extractorError instanceof Error ? extractorError : new Error(String(extractorError))
+        console.warn(`[${contentItemId}] ⚠️ Caption extractor failed: ${lastExtractorError.message}`)
+        console.warn(`[${contentItemId}] Full extractor error:`, lastExtractorError)
+      }
+      
+      // Method 2: Fallback to web-based method
+      console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
+      try {
+        await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
+        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
+        return // Success - function already saved to database
+      } catch (webError) {
         const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
         console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
         
@@ -516,11 +522,12 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
           }
         }
         
-        // If all methods failed, show clear error
+        // If all methods failed, show clear error with details
+        const extractorErrorMsg = lastExtractorError ? `Caption extractor: ${lastExtractorError.message}. ` : ''
         const errorMsg = `YouTube video processing failed. ` +
-          `Web-based caption extraction is unreliable and may be blocked by YouTube. ` +
-          `Please ensure the video has auto-generated captions enabled, or set up a dedicated worker server with yt-dlp. ` +
-          `Error: ${webErrorMessage}`
+          `Tried multiple methods: ${extractorErrorMsg}Web-based extraction: ${webErrorMessage}. ` +
+          `The video may not have auto-generated captions available, or YouTube may be blocking requests. ` +
+          `Please ensure the video has captions enabled, or try a different video.`
         
         await prisma.contentItem.update({
           where: { id: contentItemId },
@@ -923,26 +930,60 @@ async function processYouTubeVideoWithCaptionExtractor(
     
     // Use youtube-caption-extractor to get captions
     // This package works in serverless environments
-    console.log(`[${contentItemId}] Fetching captions with youtube-caption-extractor...`)
+    console.log(`[${contentItemId}] Fetching captions with youtube-caption-extractor for video ID: ${videoId}`)
     let subtitles: any[] = []
+    let lastError: Error | null = null
     
     try {
       // Try English first
+      console.log(`[${contentItemId}] Attempting to fetch English captions...`)
       subtitles = await getSubtitles({ 
         videoID: videoId, 
         lang: 'en'
       })
-      console.log(`[${contentItemId}] Received ${subtitles?.length || 0} subtitle segments`)
+      console.log(`[${contentItemId}] ✅ Received ${subtitles?.length || 0} English subtitle segments`)
     } catch (enError) {
-      console.log(`[${contentItemId}] English captions not available, trying auto-generated...`)
+      lastError = enError instanceof Error ? enError : new Error(String(enError))
+      console.warn(`[${contentItemId}] ⚠️ English captions failed: ${lastError.message}`)
+      console.log(`[${contentItemId}] Trying auto-generated captions (no language specified)...`)
       try {
         // Try without language (auto-generated)
         subtitles = await getSubtitles({ 
           videoID: videoId
         })
-        console.log(`[${contentItemId}] Received ${subtitles?.length || 0} auto-generated subtitle segments`)
+        console.log(`[${contentItemId}] ✅ Received ${subtitles?.length || 0} auto-generated subtitle segments`)
+        lastError = null // Clear error since we succeeded
       } catch (autoError) {
-        throw new Error(`Failed to fetch captions: ${autoError instanceof Error ? autoError.message : String(autoError)}`)
+        lastError = autoError instanceof Error ? autoError : new Error(String(autoError))
+        console.error(`[${contentItemId}] ❌ Auto-generated captions also failed: ${lastError.message}`)
+        console.error(`[${contentItemId}] Full error details:`, {
+          message: lastError.message,
+          stack: lastError.stack,
+          videoId,
+        })
+        
+        // Try alternative package: youtube-transcript
+        console.log(`[${contentItemId}] Trying alternative package: youtube-transcript...`)
+        try {
+          const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId)
+          if (transcriptItems && transcriptItems.length > 0) {
+            // Convert to same format as getSubtitles
+            // youtube-transcript returns: { text: string, offset: number (ms), duration: number (ms) }
+            subtitles = transcriptItems.map((item: any) => ({
+              text: item.text,
+              start: item.offset / 1000, // Convert ms to seconds
+              dur: item.duration / 1000,
+            }))
+            console.log(`[${contentItemId}] ✅ Successfully fetched ${subtitles.length} transcript segments using youtube-transcript`)
+            lastError = null // Clear error since we succeeded
+          } else {
+            throw new Error("youtube-transcript returned empty results")
+          }
+        } catch (transcriptError) {
+          const transcriptErrorMessage = transcriptError instanceof Error ? transcriptError.message : String(transcriptError)
+          console.error(`[${contentItemId}] ❌ youtube-transcript also failed: ${transcriptErrorMessage}`)
+          throw new Error(`Both caption extraction methods failed. youtube-caption-extractor: ${lastError?.message || 'unknown'}, youtube-transcript: ${transcriptErrorMessage}. The video may not have captions available.`)
+        }
       }
     }
     

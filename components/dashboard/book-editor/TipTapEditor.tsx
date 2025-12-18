@@ -108,10 +108,25 @@ export function TipTapEditor({
       attributes: {
         class: "focus:outline-none px-8 py-6",
         contenteditable: "true",
+        'data-placeholder': placeholder,
+      },
+      handleDOMEvents: {
+        // Ensure keyboard events are handled
+        keydown: (view, event) => {
+          // Allow all keyboard input
+          return false // Don't prevent default
+        },
+        keyup: (view, event) => {
+          return false
+        },
+        input: (view, event) => {
+          return false
+        },
       },
     },
     enableInputRules: true,
     enablePasteRules: true,
+    autofocus: false, // Don't auto-focus on mount
   })
 
   useEffect(() => {
@@ -148,17 +163,47 @@ export function TipTapEditor({
     if (editor) {
       // Force editor to be editable
       editor.setEditable(true)
+      
       // Ensure the DOM element is also editable
       const editorElement = editor.view.dom
       if (editorElement instanceof HTMLElement) {
-        editorElement.setAttribute('contenteditable', 'true')
+        // Remove any readonly or disabled attributes
+        editorElement.removeAttribute('readonly')
+        editorElement.removeAttribute('disabled')
         editorElement.removeAttribute('contenteditable')
+        
+        // Set contenteditable explicitly
         editorElement.setAttribute('contenteditable', 'true')
+        editorElement.contentEditable = 'true'
+        
+        // Ensure it can receive focus
+        editorElement.tabIndex = 0
+        
+        // Add event listeners to ensure input works
+        const handleKeyDown = (e: KeyboardEvent) => {
+          // Allow all keyboard input - don't prevent default
+          console.log('[TipTapEditor] Key pressed:', e.key, 'Editor editable:', editor.isEditable)
+        }
+        
+        const handleInput = (e: Event) => {
+          console.log('[TipTapEditor] Input event fired')
+        }
+        
+        editorElement.addEventListener('keydown', handleKeyDown)
+        editorElement.addEventListener('input', handleInput)
+        
+        // Focus editor after a short delay
+        setTimeout(() => {
+          editorElement.focus()
+          editor.commands.focus()
+          console.log('[TipTapEditor] Editor focused, editable:', editor.isEditable, 'DOM contenteditable:', editorElement.contentEditable)
+        }, 200)
+        
+        return () => {
+          editorElement.removeEventListener('keydown', handleKeyDown)
+          editorElement.removeEventListener('input', handleInput)
+        }
       }
-      // Focus editor on mount to allow immediate typing
-      setTimeout(() => {
-        editor.commands.focus()
-      }, 100)
     }
   }, [editor])
 
@@ -632,17 +677,39 @@ export function TipTapEditor({
           }
         `}</style>
         <div 
-          onClick={() => {
+          style={{ position: 'relative', width: '100%', height: '100%' }}
+          onClick={(e) => {
             // Ensure editor is editable and focused when clicked
             if (editor) {
               editor.setEditable(true)
+              const editorElement = editor.view.dom as HTMLElement
+              if (editorElement) {
+                editorElement.setAttribute('contenteditable', 'true')
+                editorElement.contentEditable = 'true'
+                editorElement.focus()
+              }
               editor.commands.focus()
+              console.log('[TipTapEditor] Clicked, editor editable:', editor.isEditable)
             }
           }}
-          onFocus={() => {
+          onFocus={(e) => {
             // Ensure editor is editable when focused
             if (editor) {
               editor.setEditable(true)
+              const editorElement = editor.view.dom as HTMLElement
+              if (editorElement) {
+                editorElement.setAttribute('contenteditable', 'true')
+              }
+            }
+          }}
+          onKeyDown={(e) => {
+            // Ensure editor receives keyboard events
+            if (editor) {
+              const editorElement = editor.view.dom as HTMLElement
+              if (editorElement && document.activeElement !== editorElement) {
+                editorElement.focus()
+                editor.commands.focus()
+              }
             }
           }}
         >

@@ -449,108 +449,46 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     console.log(`[${contentItemId}] Attempting YouTube caption extraction...`)
     
     if (isServerless) {
-      // In serverless, try multiple methods - starting with paid APIs that work 100%
-      console.log(`[${contentItemId}] Serverless environment - trying multiple transcription methods...`)
-      let lastExtractorError: Error | null = null
+      // In serverless, ONLY use Apify (100% reliable, works without captions)
+      console.log(`[${contentItemId}] Serverless environment - using Apify YouTube Video Transcriber (ONLY METHOD)`)
       
-      // Method 1: Try Apify YouTube Video Transcriber (100% reliable, works without captions)
-      if (process.env.APIFY_API_TOKEN) {
-        try {
-          await processYouTubeVideoWithApify(contentItemId, url, videoInfo, overallTimeout)
-          console.log(`[${contentItemId}] ✅ Successfully transcribed using Apify`)
-          return // Success - function already saved to database
-        } catch (apifyError) {
-          lastExtractorError = apifyError instanceof Error ? apifyError : new Error(String(apifyError))
-          console.warn(`[${contentItemId}] ⚠️ Apify transcription failed: ${lastExtractorError.message}`)
-          // Continue to next method
-        }
+      // Check if Apify is configured
+      if (!process.env.APIFY_API_TOKEN) {
+        const errorMsg = `APIFY_API_TOKEN is not configured. ` +
+          `Please add your Apify API token to environment variables. ` +
+          `Get your token from: https://console.apify.com/account/integrations`
+        
+        await prisma.contentItem.update({
+          where: { id: contentItemId },
+          data: {
+            status: "error",
+            error: errorMsg,
+            metadata: JSON.stringify({
+              processingStage: "Configuration Error",
+              processingProgress: 0,
+              errorDetails: "APIFY_API_TOKEN missing",
+              failedAt: new Date().toISOString(),
+            }),
+          },
+        })
+        
+        clearTimeout(overallTimeout)
+        throw new Error(errorMsg)
       }
       
-      // Method 2: Try youtube-caption-extractor (if captions available)
+      // Use Apify ONLY - no fallbacks
       try {
-        await processYouTubeVideoWithCaptionExtractor(contentItemId, url, videoInfo, overallTimeout)
-        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using caption extractor`)
+        await processYouTubeVideoWithApify(contentItemId, url, videoInfo, overallTimeout)
+        console.log(`[${contentItemId}] ✅ Successfully transcribed using Apify`)
         return // Success - function already saved to database
-      } catch (extractorError) {
-        lastExtractorError = extractorError instanceof Error ? extractorError : new Error(String(extractorError))
-        console.warn(`[${contentItemId}] ⚠️ Caption extractor failed: ${lastExtractorError.message}`)
-      }
-      
-      // Method 3: Fallback to web-based method
-      console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
-      try {
-        await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
-        console.log(`[${contentItemId}] ✅ Successfully extracted transcript using web method`)
-        return // Success - function already saved to database
-      } catch (webError) {
-        const webErrorMessage = webError instanceof Error ? webError.message : String(webError)
-        console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
+      } catch (apifyError) {
+        const apifyErrorMessage = apifyError instanceof Error ? apifyError.message : String(apifyError)
+        console.error(`[${contentItemId}] ❌ Apify transcription failed: ${apifyErrorMessage}`)
         
-        // Try queueing for worker if Redis is available
-        // NOTE: Worker must be running separately (Railway/Render) for this to work
-        const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
-        
-        if (isRedisAvailable()) {
-          const youtubeQueue = getYouTubeQueue()
-          if (youtubeQueue) {
-            console.log(`[${contentItemId}] Queueing YouTube video for dedicated worker processing...`)
-            try {
-              // Check if a worker is actually running by checking queue health
-              // If no worker is running, don't queue - just show error
-              const queueHealth = await youtubeQueue.getWaitingCount()
-              console.log(`[${contentItemId}] Queue status - waiting jobs: ${queueHealth}`)
-              
-              await youtubeQueue.add(
-                `youtube-${contentItemId}`,
-                {
-                  contentItemId,
-                  url,
-                  videoInfo,
-                },
-                {
-                  jobId: `youtube-${contentItemId}`,
-                  attempts: 2,
-                  backoff: {
-                    type: "exponential",
-                    delay: 5000,
-                  },
-                }
-              )
-              
-              // Update status to processing (will be handled by worker)
-              // NOTE: If this stays at 5% for more than 2 minutes, the worker is likely not running
-              await prisma.contentItem.update({
-                where: { id: contentItemId },
-                data: {
-                  status: "processing",
-                  metadata: JSON.stringify({
-                    processingStage: "Queued for worker",
-                    processingProgress: 5,
-                    queuedAt: new Date().toISOString(),
-                    message: "Video queued for processing by dedicated worker. If this stays at 5%, the worker may not be running. Use the retry button to try direct processing instead.",
-                    requiresWorker: true,
-                    canRetryDirect: true, // Flag to allow direct retry
-                  }),
-                },
-              })
-              
-              console.log(`[${contentItemId}] ✅ YouTube video queued for worker processing`)
-              console.log(`[${contentItemId}] ⚠️ NOTE: Worker must be running separately (Railway/Render) for this to process`)
-              clearTimeout(overallTimeout)
-              return // Job is queued, worker will handle it
-            } catch (queueError) {
-              console.error(`[${contentItemId}] Failed to queue job:`, queueError)
-              // Fall through to error message
-            }
-          }
-        }
-        
-        // If all methods failed, show clear error with details
-        const extractorErrorMsg = lastExtractorError ? `Caption extractor: ${lastExtractorError.message}. ` : ''
-        const errorMsg = `YouTube video processing failed. ` +
-          `Tried multiple methods: ${extractorErrorMsg}Web-based extraction: ${webErrorMessage}. ` +
-          `The video may not have auto-generated captions available, or YouTube may be blocking requests. ` +
-          `Please ensure the video has captions enabled, or try a different video.`
+        // Show clear error message
+        const errorMsg = `Apify transcription failed: ${apifyErrorMessage}. ` +
+          `Please check your APIFY_API_TOKEN is valid and you have sufficient credits. ` +
+          `Visit https://console.apify.com to check your account status.`
         
         await prisma.contentItem.update({
           where: { id: contentItemId },
@@ -560,8 +498,9 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
             metadata: JSON.stringify({
               processingStage: "Failed",
               processingProgress: 0,
-              errorDetails: webErrorMessage,
+              errorDetails: apifyErrorMessage,
               failedAt: new Date().toISOString(),
+              transcriptionMethod: "apify_only",
             }),
           },
         })
@@ -957,16 +896,32 @@ async function processYouTubeVideoWithApify(
     
     // Run the YouTube Video Transcriber Actor
     await updateProgress(contentItemId, "Starting Apify transcription...", 30)
+    console.log(`[${contentItemId}] Calling Apify actor with URL: ${url}`)
+    
+    // The .call() method waits for the run to complete automatically
     const run = await client.actor('agentx/youtube-video-transcriber').call({
       video_url: url,
       target_lang: 'English',
     })
     
-    console.log(`[${contentItemId}] Apify actor run started: ${run.id}`)
+    console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${run.status}`)
+    
+    // Check if run was successful
+    if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run failed with status: ${run.status}. Check your Apify account for details.`)
+    }
     
     // Wait for the run to complete and get results
-    await updateProgress(contentItemId, "Processing transcription...", 50)
-    const { items } = await client.dataset(run.defaultDatasetId).listItems()
+    await updateProgress(contentItemId, "Retrieving transcription results...", 50)
+    
+    // Get the dataset items from the completed run
+    const datasetId = run.defaultDatasetId
+    if (!datasetId) {
+      throw new Error("No dataset ID returned from Apify run")
+    }
+    
+    console.log(`[${contentItemId}] Fetching results from dataset: ${datasetId}`)
+    const { items } = await client.dataset(datasetId).listItems()
     
     if (!items || !items.length) {
       throw new Error("No results returned from Apify")

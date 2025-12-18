@@ -901,7 +901,7 @@ async function processYouTubeVideoWithApify(
     // The .call() method waits for the run to complete automatically
     const run = await client.actor('agentx/youtube-video-transcriber').call({
       video_url: url,
-      target_lang: 'english', // Must be lowercase
+      target_lang: 'English', // Must match exact value from allowed list (capitalized)
     })
     
     console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${run.status}`)

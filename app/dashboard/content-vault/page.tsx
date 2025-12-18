@@ -42,18 +42,22 @@ export default function ContentVaultPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [uploadType, setUploadType] = useState<"video" | "url" | "text" | "image" | null>(null)
   const [improvingSummaryId, setImprovingSummaryId] = useState<string | null>(null)
   const previousStatuses = useRef<Map<string, string>>(new Map())
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // TODO: Get userId from auth context/session
   const userId = "user-1" // Placeholder - replace with actual auth
 
-  // Fetch content items
-  const fetchContent = async () => {
+  // Fetch content items (silent background update)
+  const fetchContent = async (isInitialLoad = false) => {
     try {
-      setIsLoading(true)
+      // Only show loading state on initial load, not during polling
+      if (isInitialLoad) {
+        setIsInitialLoading(true)
+      }
       const response = await fetch(`/api/content?userId=${userId}`, {
         credentials: "include",
       })
@@ -129,45 +133,83 @@ export default function ContentVaultPage() {
               console.error("Failed to check stuck item status:", e)
             }
           }
-          // Refresh after checking
-          setTimeout(() => fetchContent(), 2000)
+          // Refresh after checking (silent background update)
+          setTimeout(() => fetchContent(false), 2000)
         }
       }
     } catch (error) {
       console.error("Failed to fetch content:", error)
     } finally {
-      setIsLoading(false)
+      if (isInitialLoad) {
+        setIsInitialLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    fetchContent()
+    // Initial load
+    fetchContent(true)
     
-    // Poll for updates on processing items - more frequent for better progress accuracy
-    const interval = setInterval(() => {
-      const hasProcessing = contentItems.some(
-        (item) => item.status === "processing" || item.status === "pending"
-      )
-      if (hasProcessing) {
-        fetchContent()
+    // Set up polling for processing items - only poll when there are processing items
+    const startPolling = () => {
+      // Clear any existing interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
       }
-    }, 2000) // Poll every 2 seconds for more accurate progress updates
-
-    return () => clearInterval(interval)
+      
+      pollingIntervalRef.current = setInterval(() => {
+        setContentItems((currentItems) => {
+          const hasProcessing = currentItems.some(
+            (item) => item.status === "processing" || item.status === "pending"
+          )
+          
+          if (hasProcessing) {
+            // Silent background update - don't show loading state
+            fetchContent(false).catch(console.error)
+          } else {
+            // No processing items, stop polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current)
+              pollingIntervalRef.current = null
+            }
+          }
+          
+          return currentItems
+        })
+      }, 2000) // Poll every 2 seconds
+    }
+    
+    // Start polling after initial load completes
+    const timeoutId = setTimeout(() => {
+      startPolling()
+    }, 1000)
+    
+    return () => {
+      clearTimeout(timeoutId)
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
   }, [])
 
-  // Update polling when contentItems change
+  // Restart polling when contentItems change and there are processing items
   useEffect(() => {
     const hasProcessing = contentItems.some(
       (item) => item.status === "processing" || item.status === "pending"
     )
-    if (hasProcessing) {
-      const interval = setInterval(() => {
-        fetchContent()
-      }, 2000) // Poll every 2 seconds for more accurate progress updates
-      return () => clearInterval(interval)
+    
+    if (hasProcessing && !pollingIntervalRef.current) {
+      // Start polling if not already running
+      pollingIntervalRef.current = setInterval(() => {
+        fetchContent(false).catch(console.error)
+      }, 2000)
+    } else if (!hasProcessing && pollingIntervalRef.current) {
+      // Stop polling if no processing items
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
     }
-  }, [contentItems.length])
+  }, [contentItems])
 
   const handleAddContent = (type: string) => {
     setIsModalOpen(false)
@@ -198,8 +240,8 @@ export default function ContentVaultPage() {
       if (response.ok) {
         const data = await response.json()
         alert(data.message || "Processing retried successfully")
-        // Refresh content
-        fetchContent()
+        // Refresh content (silent background update)
+        fetchContent(false)
       } else {
         const error = await response.json()
         alert(error.error || "Failed to retry processing")
@@ -292,15 +334,15 @@ export default function ContentVaultPage() {
         })
       }
 
-      // Refresh content after a short delay
+      // Refresh content after a short delay (silent background update)
       setTimeout(() => {
-        fetchContent()
+        fetchContent(false)
       }, 1000)
     } catch (error) {
       console.error("Failed to reprocess:", error)
       alert(error instanceof Error ? error.message : "Failed to reprocess content")
-      // Refresh to show updated status
-      fetchContent()
+      // Refresh to show updated status (silent background update)
+      fetchContent(false)
     }
   }
 
@@ -390,7 +432,7 @@ export default function ContentVaultPage() {
       <ContentFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
       {/* Content Grid or Empty State */}
-      {isLoading ? (
+      {isInitialLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-muted-foreground">Loading content...</div>
         </div>
@@ -424,7 +466,7 @@ export default function ContentVaultPage() {
           isOpen={!!uploadType}
           onClose={() => setUploadType(null)}
           onSuccess={() => {
-            fetchContent()
+            fetchContent(false)
             setUploadType(null)
           }}
           userId={userId}

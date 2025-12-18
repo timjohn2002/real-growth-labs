@@ -114,15 +114,69 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check authentication
+    const { getUserIdFromRequest } = await import("@/lib/auth")
+    const userId = await getUserIdFromRequest(request)
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
-    // TODO: Implement actual delete logic
-    // await prisma.book.delete({ where: { id } })
     
-    return NextResponse.json({ message: "Book deleted successfully" })
+    // First, check if the book exists and belongs to the user
+    const book = await prisma.book.findUnique({
+      where: { id },
+    })
+
+    if (!book) {
+      return NextResponse.json(
+        { error: "Book not found" },
+        { status: 404 }
+      )
+    }
+
+    // Verify the book belongs to the authenticated user
+    if (book.userId !== userId) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only delete your own books" },
+        { status: 403 }
+      )
+    }
+
+    // Delete all chapters associated with this book first (cascade delete)
+    // Note: Prisma will handle cascade deletes automatically, but we do it explicitly for clarity
+    await prisma.chapter.deleteMany({
+      where: { bookId: id },
+    })
+
+    // Delete related audiobooks
+    await prisma.audiobook.deleteMany({
+      where: { bookId: id },
+    })
+
+    // Delete related book reviews
+    await prisma.bookReview.deleteMany({
+      where: { bookId: id },
+    })
+
+    // Then delete the book itself
+    await prisma.book.delete({
+      where: { id },
+    })
+    
+    return NextResponse.json({ 
+      message: "Book deleted successfully",
+      deletedId: id,
+    })
   } catch (error) {
+    console.error("Delete book error:", error)
     return NextResponse.json(
       { error: "Failed to delete book" },
-      { status: 400 }
+      { status: 500 }
     )
   }
 }

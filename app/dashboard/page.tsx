@@ -126,10 +126,10 @@ export default function DashboardPage() {
 
       if (response.ok) {
         // Remove book from state
-        setBooks(books.filter((b) => b.id !== bookId))
+        const updatedBooks = books.filter((b) => b.id !== bookId)
+        setBooks(updatedBooks)
         
         // Update stats
-        const updatedBooks = books.filter((b) => b.id !== bookId)
         const totalBooks = updatedBooks.length
         const published = updatedBooks.filter((b) => b.status === "published").length
         const inProgress = updatedBooks.filter((b) => 

@@ -33,6 +33,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/form-data": "^2.2.1",
+    "apify-client": "^2.21.0",
     "assemblyai": "^4.22.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.65.1",

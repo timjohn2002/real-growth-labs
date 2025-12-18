@@ -9,6 +9,7 @@ import path from "path"
 import os from "os"
 import { getSubtitles } from "youtube-caption-extractor"
 import { YoutubeTranscript } from "youtube-transcript"
+import { ApifyClient } from "apify-client"
 
 // Scrape content from URLs
 export async function POST(request: NextRequest) {
@@ -448,11 +449,24 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
     console.log(`[${contentItemId}] Attempting YouTube caption extraction...`)
     
     if (isServerless) {
-      // In serverless, use youtube-caption-extractor package (works without yt-dlp)
-      console.log(`[${contentItemId}] Serverless environment - trying multiple caption extraction methods...`)
+      // In serverless, try multiple methods - starting with paid APIs that work 100%
+      console.log(`[${contentItemId}] Serverless environment - trying multiple transcription methods...`)
       let lastExtractorError: Error | null = null
       
-      // Method 1: Try youtube-caption-extractor (primary)
+      // Method 1: Try Apify YouTube Video Transcriber (100% reliable, works without captions)
+      if (process.env.APIFY_API_TOKEN) {
+        try {
+          await processYouTubeVideoWithApify(contentItemId, url, videoInfo, overallTimeout)
+          console.log(`[${contentItemId}] ✅ Successfully transcribed using Apify`)
+          return // Success - function already saved to database
+        } catch (apifyError) {
+          lastExtractorError = apifyError instanceof Error ? apifyError : new Error(String(apifyError))
+          console.warn(`[${contentItemId}] ⚠️ Apify transcription failed: ${lastExtractorError.message}`)
+          // Continue to next method
+        }
+      }
+      
+      // Method 2: Try youtube-caption-extractor (if captions available)
       try {
         await processYouTubeVideoWithCaptionExtractor(contentItemId, url, videoInfo, overallTimeout)
         console.log(`[${contentItemId}] ✅ Successfully extracted transcript using caption extractor`)
@@ -460,10 +474,9 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
       } catch (extractorError) {
         lastExtractorError = extractorError instanceof Error ? extractorError : new Error(String(extractorError))
         console.warn(`[${contentItemId}] ⚠️ Caption extractor failed: ${lastExtractorError.message}`)
-        console.warn(`[${contentItemId}] Full extractor error:`, lastExtractorError)
       }
       
-      // Method 2: Fallback to web-based method
+      // Method 3: Fallback to web-based method
       console.log(`[${contentItemId}] Trying web-based caption extraction as fallback...`)
       try {
         await processYouTubeVideoWithWebCaptions(contentItemId, url, videoInfo, overallTimeout)
@@ -915,8 +928,110 @@ function parseVTT(content: string): string {
 }
 
 /**
- * Process YouTube video using youtube-caption-extractor package (NEW - WORKS IN SERVERLESS)
- * This package is specifically designed for serverless environments
+ * Process YouTube video using Apify YouTube Video Transcriber (100% RELIABLE - WORKS WITHOUT CAPTIONS)
+ * This is a paid service that handles everything - no captions required
+ */
+async function processYouTubeVideoWithApify(
+  contentItemId: string,
+  url: string,
+  videoInfo: { title: string; thumbnail: string | null },
+  overallTimeout: NodeJS.Timeout
+): Promise<void> {
+  const apifyToken = process.env.APIFY_API_TOKEN
+  if (!apifyToken) {
+    throw new Error("APIFY_API_TOKEN not configured")
+  }
+
+  try {
+    // Extract video ID from URL
+    const videoId = extractYouTubeVideoId(url)
+    if (!videoId) {
+      throw new Error("Failed to extract video ID from URL")
+    }
+
+    await updateProgress(contentItemId, "Transcribing with Apify (100% reliable)...", 20)
+    console.log(`[${contentItemId}] Using Apify YouTube Video Transcriber for video: ${videoId}`)
+    
+    // Initialize Apify client
+    const client = new ApifyClient({ token: apifyToken })
+    
+    // Run the YouTube Video Transcriber Actor
+    await updateProgress(contentItemId, "Starting Apify transcription...", 30)
+    const run = await client.actor('agentx/youtube-video-transcriber').call({
+      video_url: url,
+      target_lang: 'English',
+    })
+    
+    console.log(`[${contentItemId}] Apify actor run started: ${run.id}`)
+    
+    // Wait for the run to complete and get results
+    await updateProgress(contentItemId, "Processing transcription...", 50)
+    const { items } = await client.dataset(run.defaultDatasetId).listItems()
+    
+    if (!items || !items.length) {
+      throw new Error("No results returned from Apify")
+    }
+
+    const firstItem = items[0] as any
+    const transcription = firstItem?.transcription || firstItem?.text || firstItem?.transcript
+    
+    if (!transcription) {
+      throw new Error("No transcription found in Apify results")
+    }
+
+    const transcriptText = String(transcription).trim()
+    
+    if (!transcriptText || transcriptText.length === 0) {
+      throw new Error("Empty transcription from Apify")
+    }
+
+    const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
+    console.log(`[${contentItemId}] ✅ Apify transcription complete. Word count: ${wordCount} words`)
+
+    // Generate summary and save
+    await updateProgress(contentItemId, "Generating summary...", 70)
+    const summary = await generateSummary(transcriptText)
+
+    await updateProgress(contentItemId, "Saving to database...", 90)
+    const existingItem = await prisma.contentItem.findUnique({
+      where: { id: contentItemId },
+      select: { metadata: true },
+    })
+    const existingMetadata = existingItem?.metadata ? JSON.parse(existingItem.metadata) : {}
+    
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        status: "ready",
+        transcript: transcriptText,
+        rawText: transcriptText,
+        wordCount,
+        summary,
+        processedAt: new Date(),
+        error: null,
+        metadata: JSON.stringify({
+          ...existingMetadata,
+          processingStage: "Complete",
+          processingProgress: 100,
+          transcriptionMethod: "apify_youtube_transcriber",
+          source: "apify_api",
+        }),
+      },
+    })
+
+    clearTimeout(overallTimeout)
+    console.log(`✅ YouTube video transcribed successfully using Apify: ${contentItemId}`)
+  } catch (error) {
+    clearTimeout(overallTimeout)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error(`[${contentItemId}] Apify transcription error: ${errorMessage}`)
+    throw error
+  }
+}
+
+/**
+ * Process YouTube video using youtube-caption-extractor package (WORKS IN SERVERLESS)
+ * This package is specifically designed for serverless environments but requires captions
  */
 async function processYouTubeVideoWithCaptionExtractor(
   contentItemId: string,

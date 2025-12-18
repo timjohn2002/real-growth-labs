@@ -901,7 +901,7 @@ async function processYouTubeVideoWithApify(
     // The .call() method waits for the run to complete automatically
     const run = await client.actor('agentx/youtube-video-transcriber').call({
       video_url: url,
-      target_lang: 'English',
+      target_lang: 'english', // Must be lowercase
     })
     
     console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${run.status}`)
@@ -924,17 +924,46 @@ async function processYouTubeVideoWithApify(
     const { items } = await client.dataset(datasetId).listItems()
     
     if (!items || !items.length) {
-      throw new Error("No results returned from Apify")
+      console.error(`[${contentItemId}] Apify returned empty dataset. Run ID: ${run.id}, Status: ${run.status}`)
+      throw new Error("No results returned from Apify. The actor may have failed or the video may be unavailable.")
     }
 
+    // Apify returns data in this format:
+    // { source_transcript: { text: "...", language: "..." }, target_transcript: { text: "...", language: "..." }, ... }
     const firstItem = items[0] as any
-    const transcription = firstItem?.transcription || firstItem?.text || firstItem?.transcript
+    console.log(`[${contentItemId}] Apify result keys:`, Object.keys(firstItem))
     
-    if (!transcription) {
-      throw new Error("No transcription found in Apify results")
+    // Try to get transcription from the correct fields
+    let transcriptText = ''
+    
+    // Priority 1: target_transcript.text (translated transcript)
+    if (firstItem?.target_transcript?.text) {
+      transcriptText = String(firstItem.target_transcript.text).trim()
+      console.log(`[${contentItemId}] Using target_transcript.text (${firstItem.target_transcript.language})`)
     }
-
-    const transcriptText = String(transcription).trim()
+    // Priority 2: source_transcript.text (original transcript)
+    else if (firstItem?.source_transcript?.text) {
+      transcriptText = String(firstItem.source_transcript.text).trim()
+      console.log(`[${contentItemId}] Using source_transcript.text (${firstItem.source_transcript.language})`)
+    }
+    // Priority 3: Fallback to old field names (for compatibility)
+    else if (firstItem?.transcription) {
+      transcriptText = String(firstItem.transcription).trim()
+      console.log(`[${contentItemId}] Using transcription field`)
+    }
+    else if (firstItem?.text) {
+      transcriptText = String(firstItem.text).trim()
+      console.log(`[${contentItemId}] Using text field`)
+    }
+    else if (firstItem?.transcript) {
+      transcriptText = String(firstItem.transcript).trim()
+      console.log(`[${contentItemId}] Using transcript field`)
+    }
+    
+    if (!transcriptText || transcriptText.length === 0) {
+      console.error(`[${contentItemId}] Available fields in result:`, JSON.stringify(firstItem, null, 2))
+      throw new Error("No transcription text found in Apify results. Check the actor output format.")
+    }
     
     if (!transcriptText || transcriptText.length === 0) {
       throw new Error("Empty transcription from Apify")

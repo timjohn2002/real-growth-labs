@@ -40,21 +40,13 @@ export function BookEditor({
 }: BookEditorProps) {
   const [content, setContent] = useState(chapter?.content || "")
   const editorContentRef = useRef<HTMLDivElement>(null)
-  const historyRef = useRef<string[]>([])
-  const historyIndexRef = useRef<number>(-1)
   const [currentInsertContent, setCurrentInsertContent] = useState<string | null>(null)
 
-  // Initialize history when chapter changes
+  // Initialize content when chapter changes
   useEffect(() => {
     if (chapter) {
       const initialContent = chapter.content || ""
       setContent(initialContent)
-      historyRef.current = [initialContent]
-      historyIndexRef.current = 0
-      // Scroll to top when chapter changes
-      if (editorContentRef.current) {
-        editorContentRef.current.scrollTop = 0
-      }
     }
   }, [chapter?.id])
 
@@ -90,19 +82,21 @@ export function BookEditor({
         </div>
       </div>
 
-      {/* Editor Content */}
-      <div ref={editorContentRef} className="flex-1 overflow-y-auto p-8">
+      {/* Editor Content - Remove nested scroll, let TipTapEditor handle it */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Info Bar (first time) */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
-          <p className="text-sm text-blue-800 dark:text-blue-300">
-            Draft generated from your template + content vault. Edit freely — you won&apos;t break
-            the structure.
-          </p>
+        <div className="px-8 pt-6 pb-4 flex-shrink-0">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              Draft generated from your template + content vault. Edit freely — you won&apos;t break
+              the structure.
+            </p>
+          </div>
         </div>
 
         {/* Book Title & Subtitle (if first chapter) */}
         {chapter?.number === 1 && (
-          <div className="mb-8 space-y-4">
+          <div className="px-8 pb-4 flex-shrink-0 space-y-4">
             <div>
               <Input
                 value={bookTitle}
@@ -121,14 +115,16 @@ export function BookEditor({
         )}
 
         {/* Chapter Content Editor - Use TipTapEditor to support images */}
-        <TipTapEditor
-          content={content}
-          placeholder="Start writing your chapter content..."
-          onUpdate={handleContentChange}
-          onSelectionChange={onSelectionChange}
-          insertContent={currentInsertContent}
-          onInsertComplete={handleInsertComplete}
-        />
+        <div className="flex-1 min-h-0">
+          <TipTapEditor
+            content={content}
+            placeholder="Start writing your chapter content..."
+            onUpdate={handleContentChange}
+            onSelectionChange={onSelectionChange}
+            insertContent={currentInsertContent}
+            onInsertComplete={handleInsertComplete}
+          />
+        </div>
       </div>
     </div>
   )

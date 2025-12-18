@@ -82,6 +82,13 @@ export function TipTapEditor({
         // Use setContent with emitUpdate set to false to avoid triggering updates
         // TipTap setContent accepts: setContent(content: string | JSONContent, options?: SetContentOptions)
         editor.commands.setContent(content, { emitUpdate: false })
+        // Scroll to top when content changes (e.g., when switching chapters)
+        setTimeout(() => {
+          const editorElement = editor.view.dom.closest('.flex-1.overflow-y-auto')
+          if (editorElement) {
+            editorElement.scrollTop = 0
+          }
+        }, 0)
       }
     }
   }, [content, editor])
@@ -139,6 +146,19 @@ export function TipTapEditor({
           
           if (success) {
             console.log("Image inserted successfully via setImage")
+            // Scroll to show the inserted image after a brief delay
+            setTimeout(() => {
+              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
+                                           editor.view.dom.closest('[class*="overflow"]')
+              if (editorScrollContainer) {
+                // Find the inserted image and scroll to it
+                const images = editorScrollContainer.querySelectorAll('img')
+                if (images.length > 0) {
+                  const lastImage = images[images.length - 1]
+                  lastImage.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }
+            }, 100)
           } else {
             console.warn("setImage returned false, trying HTML fallback")
             // Fallback: try inserting as HTML img tag
@@ -305,8 +325,12 @@ export function TipTapEditor({
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-y-auto bg-background">
+      <div className="flex-1 overflow-y-auto bg-background min-h-0">
         <style jsx global>{`
+          .ProseMirror {
+            min-height: 100%;
+            padding: 1.5rem 2rem;
+          }
           .ProseMirror img {
             max-width: 100%;
             height: auto;

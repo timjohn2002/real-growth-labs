@@ -933,6 +933,14 @@ async function processYouTubeVideoWithApify(
     // { source_transcript: { text: "...", language: "..." }, target_transcript: { text: "...", language: "..." }, ... }
     const firstItem = items[0] as any
     console.log(`[${contentItemId}] Apify result keys:`, Object.keys(firstItem))
+    console.log(`[${contentItemId}] First item structure:`, {
+      hasSourceTranscript: !!firstItem?.source_transcript,
+      hasTargetTranscript: !!firstItem?.target_transcript,
+      sourceTranscriptKeys: firstItem?.source_transcript ? Object.keys(firstItem.source_transcript) : [],
+      targetTranscriptKeys: firstItem?.target_transcript ? Object.keys(firstItem.target_transcript) : [],
+    })
+    
+    await updateProgress(contentItemId, "Extracting transcript text...", 70)
     
     // Try to get transcription from the correct fields
     let transcriptText = ''
@@ -940,31 +948,44 @@ async function processYouTubeVideoWithApify(
     // Priority 1: target_transcript.text (translated transcript)
     if (firstItem?.target_transcript?.text) {
       transcriptText = String(firstItem.target_transcript.text).trim()
-      console.log(`[${contentItemId}] Using target_transcript.text (${firstItem.target_transcript.language})`)
+      console.log(`[${contentItemId}] ✅ Using target_transcript.text (${firstItem.target_transcript.language || 'unknown'})`)
     }
     // Priority 2: source_transcript.text (original transcript)
     else if (firstItem?.source_transcript?.text) {
       transcriptText = String(firstItem.source_transcript.text).trim()
-      console.log(`[${contentItemId}] Using source_transcript.text (${firstItem.source_transcript.language})`)
+      console.log(`[${contentItemId}] ✅ Using source_transcript.text (${firstItem.source_transcript.language || 'unknown'})`)
     }
-    // Priority 3: Fallback to old field names (for compatibility)
+    // Priority 3: Check if source_transcript is an object with nested text
+    else if (firstItem?.source_transcript && typeof firstItem.source_transcript === 'object') {
+      // Try to find text in nested structure
+      const sourceText = (firstItem.source_transcript as any).text || 
+                        (firstItem.source_transcript as any).transcript ||
+                        (firstItem.source_transcript as any).content
+      if (sourceText) {
+        transcriptText = String(sourceText).trim()
+        console.log(`[${contentItemId}] ✅ Using source_transcript nested text`)
+      }
+    }
+    // Priority 4: Fallback to old field names (for compatibility)
     else if (firstItem?.transcription) {
       transcriptText = String(firstItem.transcription).trim()
-      console.log(`[${contentItemId}] Using transcription field`)
+      console.log(`[${contentItemId}] ✅ Using transcription field`)
     }
     else if (firstItem?.text) {
       transcriptText = String(firstItem.text).trim()
-      console.log(`[${contentItemId}] Using text field`)
+      console.log(`[${contentItemId}] ✅ Using text field`)
     }
     else if (firstItem?.transcript) {
       transcriptText = String(firstItem.transcript).trim()
-      console.log(`[${contentItemId}] Using transcript field`)
+      console.log(`[${contentItemId}] ✅ Using transcript field`)
     }
     
     if (!transcriptText || transcriptText.length === 0) {
-      console.error(`[${contentItemId}] Available fields in result:`, JSON.stringify(firstItem, null, 2))
+      console.error(`[${contentItemId}] ❌ No transcript found. Full item structure:`, JSON.stringify(firstItem, null, 2))
       throw new Error("No transcription text found in Apify results. Check the actor output format.")
     }
+    
+    console.log(`[${contentItemId}] ✅ Transcript extracted. Length: ${transcriptText.length} characters`)
     
     if (!transcriptText || transcriptText.length === 0) {
       throw new Error("Empty transcription from Apify")

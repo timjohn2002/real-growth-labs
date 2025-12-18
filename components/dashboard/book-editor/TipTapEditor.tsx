@@ -122,25 +122,43 @@ export function TipTapEditor({
         console.log(`[TipTapEditor] Content changed, updating editor. Content length: ${content?.length || 0}, Current HTML length: ${currentHTML.length}`)
         // Use setContent with emitUpdate set to false to avoid triggering updates
         // TipTap setContent accepts: setContent(content: string | JSONContent, options?: SetContentOptions)
+        const wasEditable = editor.isEditable
         editor.commands.setContent(content || "", { emitUpdate: false })
-        // Ensure editor is editable after content update
-        editor.setEditable(true)
-        // Scroll to top when content changes (e.g., when switching chapters)
+        // CRITICAL: Ensure editor remains editable after content update
+        if (!wasEditable || !editor.isEditable) {
+          console.log(`[TipTapEditor] Editor was not editable, setting to editable`)
+          editor.setEditable(true)
+        }
+        // Focus the editor after content update to allow typing
         setTimeout(() => {
+          editor.commands.focus()
+          // Scroll to top when content changes (e.g., when switching chapters)
           if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = 0
             // Force scroll update after content change
             forceScrollUpdate()
           }
-        }, 0)
+        }, 50)
       }
     }
   }, [content, editor, forceScrollUpdate])
   
-  // Ensure editor is always editable
+  // Ensure editor is always editable and can receive focus
   useEffect(() => {
     if (editor) {
+      // Force editor to be editable
       editor.setEditable(true)
+      // Ensure the DOM element is also editable
+      const editorElement = editor.view.dom
+      if (editorElement instanceof HTMLElement) {
+        editorElement.setAttribute('contenteditable', 'true')
+        editorElement.removeAttribute('contenteditable')
+        editorElement.setAttribute('contenteditable', 'true')
+      }
+      // Focus editor on mount to allow immediate typing
+      setTimeout(() => {
+        editor.commands.focus()
+      }, 100)
     }
   }, [editor])
 
@@ -555,6 +573,12 @@ export function TipTapEditor({
           WebkitOverflowScrolling: 'touch',
           scrollBehavior: 'auto',
         }}
+        onClick={(e) => {
+          // Ensure editor gets focus when clicking in the scroll container
+          if (editor && e.target === scrollContainerRef.current) {
+            editor.commands.focus()
+          }
+        }}
       >
         <style jsx global>{`
           .ProseMirror {
@@ -563,16 +587,27 @@ export function TipTapEditor({
             outline: none;
             height: auto;
             overflow: visible;
-            pointer-events: auto;
+            pointer-events: auto !important;
             user-select: text;
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
+            cursor: text;
           }
           .ProseMirror[contenteditable="false"] {
             pointer-events: none;
+            cursor: default;
           }
           .ProseMirror[contenteditable="true"] {
+            pointer-events: auto !important;
+            cursor: text;
+          }
+          /* Ensure ProseMirror can receive focus and input */
+          .ProseMirror:focus {
+            outline: none;
+          }
+          /* Prevent any overlay from blocking input */
+          .ProseMirror * {
             pointer-events: auto;
           }
           .ProseMirror img {
@@ -596,7 +631,23 @@ export function TipTapEditor({
             overflow-y: scroll !important;
           }
         `}</style>
-        <EditorContent editor={editor} />
+        <div 
+          onClick={() => {
+            // Ensure editor is editable and focused when clicked
+            if (editor) {
+              editor.setEditable(true)
+              editor.commands.focus()
+            }
+          }}
+          onFocus={() => {
+            // Ensure editor is editable when focused
+            if (editor) {
+              editor.setEditable(true)
+            }
+          }}
+        >
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   )

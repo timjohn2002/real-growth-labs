@@ -52,7 +52,7 @@ export default function BookWizardPage() {
   }
 
   const [bookId, setBookId] = useState<string | null>(null)
-  const userId = "user-1" // TODO: Get from auth context
+  // User ID is handled by API authentication - no need to pass it explicitly
 
   const handleGenerate = async (answers: QuestionAnswers) => {
     setQuestionAnswers(answers)
@@ -66,38 +66,46 @@ export default function BookWizardPage() {
       setBookSubtitle(`The Complete Guide to ${answers.highTicketOffer}`)
     }
     
-    // Generate chapters from Real Growth Book template
-    // TODO: In production, call AI API to generate content based on answers
-    // For now, generate template structure
-    setTimeout(async () => {
-      const generatedChapters = generateAllChapters(answers)
+    // Generate FULLY WRITTEN chapters using AI based on answers
+    // This happens BEFORE showing the outline - user gets a complete book
+    try {
+      console.log("[BookWizard] Starting AI chapter generation...")
       
-      // Log to verify each chapter has unique content
-      console.log("[BookWizard] Generated chapters:", generatedChapters.map(ch => ({
+      // Call AI API to generate full chapter content
+      const response = await fetch("/api/books/generate-chapters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answers,
+          bookTitle,
+          bookSubtitle,
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to generate chapters")
+      }
+      
+      const data = await response.json()
+      const generatedChapters = data.chapters || []
+      
+      console.log("[BookWizard] ✅ Generated chapters:", generatedChapters.map((ch: any) => ({
         id: ch.id,
         title: ch.title,
         contentLength: ch.content.length,
-        contentPreview: ch.content.substring(0, 100)
       })))
       
       // Convert markdown content to HTML for TipTap editor
-      const chaptersWithHTML = generatedChapters.map((ch) => ({
+      const chaptersWithHTML = generatedChapters.map((ch: any) => ({
         ...ch,
         content: markdownToHTML(ch.content),
       }))
       
-      // Verify HTML conversion worked and content is still unique
-      console.log("[BookWizard] Chapters with HTML:", chaptersWithHTML.map(ch => ({
-        id: ch.id,
-        title: ch.title,
-        contentLength: ch.content.length,
-        contentPreview: ch.content.substring(0, 100)
-      })))
-      
       setChapters(chaptersWithHTML)
       
       // Set outline from chapter titles
-      setOutline(generatedChapters.map((ch) => ch.title))
+      setOutline(generatedChapters.map((ch: any) => ch.title))
       
       // Set first chapter as active
       if (chaptersWithHTML.length > 0) {
@@ -106,14 +114,13 @@ export default function BookWizardPage() {
       
       // Create book in database (store markdown version for compatibility)
       try {
-        const response = await fetch("/api/books", {
+        const bookResponse = await fetch("/api/books", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: bookTitle,
             description: bookSubtitle,
-            userId,
-            chapters: generatedChapters.map((ch) => ({
+            chapters: generatedChapters.map((ch: any) => ({
               number: ch.number,
               title: ch.title,
               content: ch.content, // Store markdown in DB
@@ -121,16 +128,32 @@ export default function BookWizardPage() {
           }),
         })
         
-        if (response.ok) {
-          const data = await response.json()
-          setBookId(data.book.id)
+        if (bookResponse.ok) {
+          const bookData = await bookResponse.json()
+          setBookId(bookData.book.id)
+          console.log("[BookWizard] ✅ Book created in database:", bookData.book.id)
         }
       } catch (error) {
-        console.error("Failed to create book:", error)
+        console.error("[BookWizard] Failed to create book:", error)
       }
       
       setCurrentStep("draft")
-    }, 3000) // Reduced from 5000 for better UX
+    } catch (error) {
+      console.error("[BookWizard] ❌ Chapter generation failed:", error)
+      alert(`Failed to generate book: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`)
+      // Fallback to template structure if AI generation fails
+      const fallbackChapters = generateAllChapters(answers)
+      const chaptersWithHTML = fallbackChapters.map((ch: any) => ({
+        ...ch,
+        content: markdownToHTML(ch.content),
+      }))
+      setChapters(chaptersWithHTML)
+      setOutline(fallbackChapters.map((ch: any) => ch.title))
+      if (chaptersWithHTML.length > 0) {
+        setActiveChapterId(chaptersWithHTML[0].id)
+      }
+      setCurrentStep("draft")
+    }
   }
 
   const handleBack = () => {

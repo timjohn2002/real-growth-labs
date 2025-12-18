@@ -7,10 +7,20 @@ import { Loader2 } from "lucide-react"
 const BRAND_COLOR = "#a6261c"
 
 const statusMessages = [
-  "Analyzing your content vault…",
+  "Analyzing your answers…",
   "Designing book structure…",
-  "Drafting chapters…",
-  "Polishing intro and outro…",
+  "Writing Chapter 1…",
+  "Writing Chapter 2…",
+  "Writing Chapter 3…",
+  "Writing Chapter 4…",
+  "Writing Chapter 5…",
+  "Writing Chapter 6…",
+  "Writing Chapter 7…",
+  "Writing Chapter 8…",
+  "Writing Chapter 9…",
+  "Writing Introduction…",
+  "Writing Conclusion…",
+  "Finalizing your book…",
 ]
 
 export function GeneratingState() {

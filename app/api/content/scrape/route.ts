@@ -77,52 +77,8 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Try to use job queue if available, otherwise process directly
-      const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
-      
-      if (isRedisAvailable()) {
-        const youtubeQueue = getYouTubeQueue()
-        if (youtubeQueue) {
-          try {
-            const job = await youtubeQueue.add(
-              `youtube-${contentItem.id}`,
-              {
-                contentItemId: contentItem.id,
-                url,
-              },
-              {
-                jobId: `youtube-${contentItem.id}`,
-                priority: 1,
-              }
-            )
-            
-            // Update content item with job ID
-            await prisma.contentItem.update({
-              where: { id: contentItem.id },
-              data: {
-                metadata: JSON.stringify({
-                  jobId: job.id,
-                  processingStage: "Queued",
-                  processingProgress: 5,
-                }),
-              },
-            })
-            
-            return NextResponse.json({
-              id: contentItem.id,
-              status: "processing",
-              message: "YouTube video processing queued",
-              jobId: job.id,
-            })
-          } catch (queueError) {
-            console.error("Failed to queue YouTube job, falling back to direct execution:", queueError)
-            // Fall through to direct execution
-          }
-        }
-      }
-      
-      // Fallback: Start processing in background (may timeout in serverless)
-      // This will work in environments with longer timeouts or dedicated workers
+      // Process directly with Apify (no queueing needed in serverless)
+      // Apify handles everything and works in serverless environments
       processYouTubeVideo(contentItem.id, url).catch((error) => {
         console.error("YouTube processing error:", error)
         // Update status to error

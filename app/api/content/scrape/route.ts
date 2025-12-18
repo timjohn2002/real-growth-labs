@@ -894,14 +894,24 @@ async function processYouTubeVideoWithApify(
     // Initialize Apify client
     const client = new ApifyClient({ token: apifyToken })
     
+    // Convert short YouTube URL to full format (Apify actor requires full format)
+    // Convert youtu.be/VIDEO_ID to youtube.com/watch?v=VIDEO_ID
+    let normalizedUrl = url
+    if (url.includes('youtu.be/')) {
+      const videoIdMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
+      if (videoIdMatch && videoIdMatch[1]) {
+        normalizedUrl = `https://www.youtube.com/watch?v=${videoIdMatch[1]}`
+        console.log(`[${contentItemId}] Converted short URL to full format: ${normalizedUrl}`)
+      }
+    }
+    
     // Run the YouTube Video Transcriber Actor
     await updateProgress(contentItemId, "Starting Apify transcription...", 30)
-    console.log(`[${contentItemId}] Calling Apify actor with URL: ${url}`)
+    console.log(`[${contentItemId}] Calling Apify actor with normalized URL: ${normalizedUrl}`)
     
     // The .call() method waits for the run to complete automatically
-    console.log(`[${contentItemId}] Starting Apify actor call with URL: ${url}`)
     const run = await client.actor('agentx/youtube-video-transcriber').call({
-      video_url: url,
+      video_url: normalizedUrl, // Use normalized URL (full format)
       target_lang: 'English', // Must match exact value from allowed list (capitalized)
     })
     

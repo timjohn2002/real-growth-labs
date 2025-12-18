@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -20,8 +21,10 @@ interface BookOverviewProps {
   title: string
   subtitle: string
   outline: string[]
+  activeChapter?: { id: string; number: number; title: string; content: string } | null
   onTitleChange: (title: string) => void
   onSubtitleChange: (subtitle: string) => void
+  onOutlineChange?: (outline: string) => void
   onRegenerateOutline: () => void
 }
 
@@ -29,8 +32,10 @@ export function BookOverview({
   title,
   subtitle,
   outline,
+  activeChapter,
   onTitleChange,
   onSubtitleChange,
+  onOutlineChange,
   onRegenerateOutline,
 }: BookOverviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
@@ -46,6 +51,44 @@ export function BookOverview({
   ])
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0)
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(0)
+  
+  // Get chapter-specific outline (sections) from the chapter content
+  const [chapterOutline, setChapterOutline] = useState("")
+  
+  useEffect(() => {
+    if (activeChapter) {
+      // Extract headings from chapter content to show as outline
+      // The chapter content is HTML, so we need to extract headings
+      if (typeof window !== 'undefined') {
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = activeChapter.content || ''
+        const headings = Array.from(tempDiv.querySelectorAll('h1, h2, h3'))
+        let outlineText = ''
+        
+        if (headings.length > 0) {
+          // Extract headings and create numbered outline
+          outlineText = headings
+            .map((h, index) => {
+              const level = h.tagName.toLowerCase()
+              const indent = level === 'h1' ? '' : level === 'h2' ? '  ' : '    '
+              return `${indent}${index + 1}. ${h.textContent || ''}`
+            })
+            .join('\n')
+        }
+        
+        // If no headings found or outline is empty, create a default structure
+        if (!outlineText.trim()) {
+          // Try to extract from markdown-style content or create default
+          outlineText = `1. ${activeChapter.title}\n2. [Add your first section here]\n3. [Add your second section here]`
+        }
+        
+        setChapterOutline(outlineText)
+      }
+    } else {
+      // Show full book outline if no chapter is selected
+      setChapterOutline(outline.map((ch, index) => `${index + 1}. ${ch}`).join('\n'))
+    }
+  }, [activeChapter, outline])
 
   return (
     <Card className="border-border shadow-sm mb-6">
@@ -130,16 +173,23 @@ export function BookOverview({
                   </div>
                 </div>
 
-                {/* Outline */}
+                {/* Outline - Editable and chapter-specific */}
                 <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Outline</label>
-                  <ol className="space-y-2 mb-4">
-                    {outline.map((chapter, index) => (
-                      <li key={index} className="text-sm text-foreground">
-                        {index + 1}. {chapter}
-                      </li>
-                    ))}
-                  </ol>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    {activeChapter ? `${activeChapter.title} - Outline` : "Book Outline"}
+                  </label>
+                  <Textarea
+                    value={chapterOutline}
+                    onChange={(e) => {
+                      setChapterOutline(e.target.value)
+                      onOutlineChange?.(e.target.value)
+                    }}
+                    placeholder={activeChapter 
+                      ? "Edit the outline for this chapter. Each line represents a section or heading."
+                      : "Edit the book outline. Each line represents a chapter."
+                    }
+                    className="min-h-[200px] font-mono text-sm mb-4"
+                  />
                   <Button
                     variant="outline"
                     size="sm"

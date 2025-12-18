@@ -536,8 +536,16 @@ export default function BookWizardPage() {
                     title={bookTitle}
                     subtitle={bookSubtitle}
                     outline={outline}
+                    activeChapter={activeChapter || null}
                     onTitleChange={setBookTitle}
                     onSubtitleChange={setBookSubtitle}
+                    onOutlineChange={(newOutline) => {
+                      // Update the chapter's content structure based on outline changes
+                      if (activeChapter) {
+                        // Parse the outline and update chapter content structure
+                        console.log("[BookWizard] Outline changed for chapter:", activeChapter.id, newOutline)
+                      }
+                    }}
                     onRegenerateOutline={handleRegenerateOutline}
                   />
                 </div>

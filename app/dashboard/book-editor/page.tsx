@@ -453,16 +453,18 @@ export default function FullBookEditorPage() {
           isOpen={isContentVaultOpen}
           onClose={() => setIsContentVaultOpen(false)}
           onSelect={(contentItem, contentType) => {
-            // Handle images differently - insert image markdown
+            // Handle images differently - insert as HTML img tag (TipTap doesn't parse markdown)
             if (contentItem.type === "image") {
               const imageUrl = contentItem.fileUrl || contentItem.thumbnail || (contentItem as any).source
               if (!imageUrl) {
                 alert("This image has no URL available.")
                 return
               }
-              // Insert image markdown: ![alt text](image-url)
-              const imageMarkdown = `![${contentItem.title || "Image"}](${imageUrl})`
-              setContentToInsert(imageMarkdown)
+              // Insert as HTML img tag that TipTap can parse directly
+              const altText = (contentItem.title || "Image").replace(/"/g, '&quot;')
+              const safeUrl = imageUrl.replace(/"/g, '&quot;')
+              const imageHtml = `<img src="${safeUrl}" alt="${altText}" class="max-w-full h-auto" />`
+              setContentToInsert(imageHtml)
             } else {
               // Use the specified content type, or fall back to auto-detection
               let contentToInsert = ""

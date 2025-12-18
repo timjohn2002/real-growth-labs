@@ -115,10 +115,40 @@ export function BookEditor({
       const end = textarea.selectionEnd
       const currentContent = content
       
+      // Check if inserting an image markdown - convert to HTML img tag for display
+      let contentToInsert = insertContent
+      const trimmedContent = insertContent.trim()
+      
+      // Check if content is an image markdown: ![alt](url)
+      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([\s\S]+?)\)$/
+      const imageMatch = trimmedContent.match(imageMarkdownRegex)
+      
+      if (imageMatch) {
+        // It's an image - extract alt text and URL
+        const altText = imageMatch[1] || "Image"
+        let imageUrl = imageMatch[2].trim()
+        
+        // Clean up base64 data URIs
+        if (imageUrl.startsWith("data:")) {
+          const dataUriMatch = imageUrl.match(/^(data:[^;]+;base64,)([\s\S]+)$/)
+          if (dataUriMatch) {
+            const prefix = dataUriMatch[1]
+            const base64Data = dataUriMatch[2].replace(/\s+/g, "")
+            imageUrl = prefix + base64Data
+          } else {
+            imageUrl = imageUrl.replace(/\s+/g, "")
+          }
+        }
+        
+        // Convert markdown image to HTML img tag for display in textarea
+        // Note: Textarea can't render images, but we'll store it as HTML so it can be converted later
+        contentToInsert = `<img src="${imageUrl}" alt="${altText}" />`
+      }
+      
       // Insert content at cursor position or append
       const newContent = 
         currentContent.substring(0, start) + 
-        insertContent + 
+        contentToInsert + 
         currentContent.substring(end)
       
       handleContentChange(newContent)
@@ -126,7 +156,7 @@ export function BookEditor({
       // Set cursor position after inserted content
       setTimeout(() => {
         if (textareaRef.current) {
-          const newPosition = start + insertContent.length
+          const newPosition = start + contentToInsert.length
           textareaRef.current.setSelectionRange(newPosition, newPosition)
           textareaRef.current.focus()
         }

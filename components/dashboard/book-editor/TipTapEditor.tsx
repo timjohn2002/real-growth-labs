@@ -42,8 +42,11 @@ export function TipTapEditor({
       }),
       CharacterCount,
       Image.configure({
-        inline: true,
+        inline: false, // Set to false so images are block-level elements
         allowBase64: true,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto',
+        },
       }),
     ],
     content,
@@ -86,37 +89,102 @@ export function TipTapEditor({
   // Handle content insertion
   useEffect(() => {
     if (editor && insertContent) {
-      // Check if content is an image markdown: ![alt](url)
-      // Handle both single-line and multi-line base64 URLs
       const trimmedContent = insertContent.trim()
       
-      // More flexible regex that handles long base64 URLs (including newlines)
-      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([\s\S]+)\)$/
+      // Check if content is an image markdown: ![alt](url)
+      // Handle both single-line and multi-line base64 URLs
+      // More flexible regex that handles whitespace and very long base64 strings
+      // Pattern: ![alt text](url) - with optional whitespace
+      const imageMarkdownRegex = /^!\s*\[\s*([^\]]*?)\s*\]\s*\(\s*([\s\S]+?)\s*\)\s*$/m
       const imageMatch = trimmedContent.match(imageMarkdownRegex)
       
       if (imageMatch) {
         // It's an image - extract alt text and URL
-        const altText = imageMatch[1] || "Image"
-        // Clean up the URL (remove any whitespace/newlines from base64)
-        const imageUrl = imageMatch[2].trim().replace(/\s+/g, "")
+        const altText = (imageMatch[1] || "Image").trim()
+        // Clean up the URL (remove any whitespace/newlines from base64, but preserve the data URI)
+        let imageUrl = imageMatch[2].trim()
+        
+        // If it's a base64 data URI, ensure it's properly formatted
+        if (imageUrl.startsWith("data:")) {
+          // Remove any whitespace/newlines from the base64 data portion
+          // Keep the data:image/...;base64, prefix intact
+          const dataUriMatch = imageUrl.match(/^(data:[^;]+;base64,)([\s\S]+)$/)
+          if (dataUriMatch) {
+            const prefix = dataUriMatch[1]
+            const base64Data = dataUriMatch[2].replace(/\s+/g, "")
+            imageUrl = prefix + base64Data
+          } else {
+            // Fallback: just remove all whitespace
+            imageUrl = imageUrl.replace(/\s+/g, "")
+          }
+        }
         
         console.log("Inserting image:", { 
           altText, 
           urlLength: imageUrl.length, 
-          urlPreview: imageUrl.substring(0, 50) + "...",
-          isBase64: imageUrl.startsWith("data:")
+          urlPreview: imageUrl.substring(0, 100) + "...",
+          isBase64: imageUrl.startsWith("data:"),
+          originalContent: trimmedContent.substring(0, 200) + "..."
         })
         
-        // Insert as image node using TipTap's image extension
-        // Use chain().focus() to ensure editor is focused, then setImage
-        editor.chain().focus().setImage({ 
-          src: imageUrl, 
-          alt: altText 
-        }).run()
+        // Ensure editor is focused and ready
+        editor.chain().focus()
+        
+        try {
+          // Insert as image node using TipTap's image extension
+          const success = editor.chain().focus().setImage({ 
+            src: imageUrl, 
+            alt: altText 
+          }).run()
+          
+          if (success) {
+            console.log("Image inserted successfully via setImage")
+          } else {
+            console.warn("setImage returned false, trying HTML fallback")
+            // Fallback: try inserting as HTML img tag
+            editor.commands.insertContent(`<img src="${imageUrl.replace(/"/g, '&quot;')}" alt="${altText.replace(/"/g, '&quot;')}" class="max-w-full h-auto" />`)
+          }
+        } catch (error) {
+          console.error("Error inserting image:", error)
+          // Fallback: try inserting as HTML img tag
+          try {
+            editor.commands.insertContent(`<img src="${imageUrl.replace(/"/g, '&quot;')}" alt="${altText.replace(/"/g, '&quot;')}" class="max-w-full h-auto" />`)
+            console.log("Image inserted via HTML fallback")
+          } catch (htmlError) {
+            console.error("HTML fallback also failed:", htmlError)
+            // Last resort: insert as plain text (shouldn't happen)
+            editor.commands.insertContent(`<p>Image: ${altText}</p>`)
+          }
+        }
       } else {
-        // Regular text content - insert as HTML
-        const text = insertContent.replace(/\n/g, "<br>")
-        editor.commands.insertContent(`<p>${text}</p>`)
+        // Check if it's already an HTML img tag
+        const imgTagMatch = trimmedContent.match(/^<img[^>]+src=["']([^"']+)["'][^>]*>/i)
+        if (imgTagMatch) {
+          const imageUrl = imgTagMatch[1]
+          const altMatch = trimmedContent.match(/alt=["']([^"']*)["']/i)
+          const altText = altMatch ? altMatch[1] : "Image"
+          
+          try {
+            editor.chain().focus().setImage({ 
+              src: imageUrl, 
+              alt: altText 
+            }).run()
+            console.log("Image inserted from HTML tag")
+          } catch (error) {
+            console.error("Error inserting image from HTML:", error)
+            // Fallback: insert as HTML
+            editor.commands.insertContent(trimmedContent)
+          }
+        } else {
+          // Check if content starts with markdown image but regex didn't match (debug)
+          if (trimmedContent.startsWith("![")) {
+            console.warn("Content looks like image markdown but regex didn't match:", trimmedContent.substring(0, 200))
+          }
+          
+          // Regular text content - insert as HTML
+          const text = insertContent.replace(/\n/g, "<br>")
+          editor.commands.insertContent(`<p>${text}</p>`)
+        }
       }
       
       onInsertComplete?.()
@@ -238,6 +306,15 @@ export function TipTapEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto bg-background">
+        <style jsx global>{`
+          .ProseMirror img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 1rem 0;
+            border-radius: 0.5rem;
+          }
+        `}</style>
         <EditorContent editor={editor} />
       </div>
     </div>

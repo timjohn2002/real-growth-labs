@@ -1,10 +1,16 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { History } from "lucide-react"
-import { TipTapEditor } from "@/components/dashboard/book-editor/TipTapEditor"
+import dynamic from "next/dynamic"
+
+// Use dynamic import with SSR disabled to match Full Book Editor implementation exactly
+const TipTapEditor = dynamic(() => import("@/components/dashboard/book-editor/TipTapEditor").then((mod) => ({ default: mod.TipTapEditor })), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center"><p className="text-muted-foreground">Loading editor...</p></div>,
+})
 
 const BRAND_COLOR = "#a6261c"
 
@@ -38,105 +44,66 @@ export function BookEditor({
   insertContent,
   onInsertComplete,
 }: BookEditorProps) {
-  const [content, setContent] = useState(chapter?.content || "")
-  const editorContentRef = useRef<HTMLDivElement>(null)
-  const [currentInsertContent, setCurrentInsertContent] = useState<string | null>(null)
-
-  // Track previous chapter ID to detect chapter changes
-  const prevChapterIdRef = useRef<string | null>(null)
+  // Match ChapterEditor: directly use chapter.content, no local state
+  // The TipTapEditor will handle its own internal state
   
-  // Initialize content when chapter changes (only when chapter ID actually changes)
-  useEffect(() => {
-    if (chapter) {
-      // Always update content when chapter ID changes (user switched chapters)
-      if (chapter.id !== prevChapterIdRef.current) {
-        prevChapterIdRef.current = chapter.id
-        const initialContent = chapter.content || ""
-        console.log(`[BookEditor] Chapter changed to ${chapter.id} (${chapter.title}), content length: ${initialContent.length}`)
-        setContent(initialContent)
-      }
-      // If same chapter ID, don't update content (allows user to edit without reset)
-    } else {
-      prevChapterIdRef.current = null
-      setContent("")
-    }
-  }, [chapter?.id]) // Only watch chapter ID to prevent edit loops
-
-  const handleContentChange = (value: string) => {
-    setContent(value)
-    onContentChange(value)
-  }
-
-  // Handle content insertion - pass to TipTapEditor
-  useEffect(() => {
-    if (insertContent) {
-      setCurrentInsertContent(insertContent)
-    }
-  }, [insertContent])
-
-  const handleInsertComplete = () => {
-    setCurrentInsertContent(null)
-    onInsertComplete?.()
+  if (!chapter) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Select a chapter to start editing</p>
+      </div>
+    )
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">
-          {chapter ? chapter.title : "Book Editor"}
+    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      {/* Header - Match ChapterEditor structure */}
+      <div className="border-b border-border px-8 py-4 flex-shrink-0">
+        <h2 className="text-2xl font-bold text-foreground">
+          {chapter.title}
         </h2>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" title="Version history (coming soon)">
-            <History className="h-4 w-4 mr-2" />
-            Version
-          </Button>
+      </div>
+
+      {/* Info Bar (first time) */}
+      <div className="px-8 pt-6 pb-4 flex-shrink-0">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            Draft generated from your template + content vault. Edit freely — you won&apos;t break
+            the structure.
+          </p>
         </div>
       </div>
 
-      {/* Editor Content - Remove nested scroll, let TipTapEditor handle it */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Info Bar (first time) */}
-        <div className="px-8 pt-6 pb-4 flex-shrink-0">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              Draft generated from your template + content vault. Edit freely — you won&apos;t break
-              the structure.
-            </p>
+      {/* Book Title & Subtitle (if first chapter) */}
+      {chapter?.number === 1 && (
+        <div className="px-8 pb-4 flex-shrink-0 space-y-4">
+          <div>
+            <Input
+              value={bookTitle}
+              onChange={(e) => onTitleChange(e.target.value)}
+              className="text-3xl font-bold border-none shadow-none p-0 mb-2 focus-visible:ring-0"
+              placeholder="Book Title"
+            />
+            <Input
+              value={bookSubtitle}
+              onChange={(e) => onSubtitleChange(e.target.value)}
+              className="text-xl text-muted-foreground border-none shadow-none p-0 focus-visible:ring-0"
+              placeholder="Book Subtitle"
+            />
           </div>
         </div>
+      )}
 
-        {/* Book Title & Subtitle (if first chapter) */}
-        {chapter?.number === 1 && (
-          <div className="px-8 pb-4 flex-shrink-0 space-y-4">
-            <div>
-              <Input
-                value={bookTitle}
-                onChange={(e) => onTitleChange(e.target.value)}
-                className="text-3xl font-bold border-none shadow-none p-0 mb-2 focus-visible:ring-0"
-                placeholder="Book Title"
-              />
-              <Input
-                value={bookSubtitle}
-                onChange={(e) => onSubtitleChange(e.target.value)}
-                className="text-xl text-muted-foreground border-none shadow-none p-0 focus-visible:ring-0"
-                placeholder="Book Subtitle"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Chapter Content Editor - Use TipTapEditor to support images */}
-        <div className="flex-1 min-h-0">
-          <TipTapEditor
-            content={content}
-            placeholder="Start writing your chapter content..."
-            onUpdate={handleContentChange}
-            onSelectionChange={onSelectionChange}
-            insertContent={currentInsertContent}
-            onInsertComplete={handleInsertComplete}
-          />
-        </div>
+      {/* Editor - Match ChapterEditor structure exactly */}
+      <div className="flex-1 overflow-hidden">
+        <TipTapEditor
+          content={chapter.content}
+          placeholder="Start writing your chapter..."
+          onUpdate={onContentChange}
+          onSelectionChange={onSelectionChange}
+          insertContent={insertContent}
+          onInsertComplete={onInsertComplete}
+        />
       </div>
     </div>
   )

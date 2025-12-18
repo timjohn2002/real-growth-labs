@@ -655,6 +655,18 @@ export function TipTapEditor({
           .ProseMirror * {
             pointer-events: auto;
           }
+          /* Ensure editor container doesn't block input */
+          .flex-1.overflow-y-auto > div {
+            pointer-events: auto !important;
+            position: relative;
+            z-index: 1;
+          }
+          /* Ensure no overlays are blocking */
+          .flex-1.overflow-y-auto::before,
+          .flex-1.overflow-y-auto::after {
+            display: none !important;
+            pointer-events: none !important;
+          }
           .ProseMirror img {
             max-width: 100%;
             height: auto;

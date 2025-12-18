@@ -507,7 +507,7 @@ export default function BookWizardPage() {
                 onAddChapter={handleAddChapter}
               />
               <div className="flex-1 flex flex-col overflow-hidden bg-background">
-                <div className="p-6 overflow-y-auto">
+                <div className="p-6 overflow-y-auto flex-shrink-0">
                   <BookOverview
                     title={bookTitle}
                     subtitle={bookSubtitle}
@@ -517,18 +517,19 @@ export default function BookWizardPage() {
                     onRegenerateOutline={handleRegenerateOutline}
                   />
                 </div>
+                {/* Editor container - match Full Book Editor structure */}
                 <div ref={editorRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <BookEditor
-                  chapter={activeChapter || null}
-                  bookTitle={bookTitle}
-                  bookSubtitle={bookSubtitle}
-                  onTitleChange={setBookTitle}
-                  onSubtitleChange={setBookSubtitle}
-                  onContentChange={handleContentChange}
-                  onSelectionChange={setSelectedText}
-                  insertContent={contentToInsert}
-                  onInsertComplete={() => setContentToInsert(null)}
-                />
+                  <BookEditor
+                    chapter={activeChapter || null}
+                    bookTitle={bookTitle}
+                    bookSubtitle={bookSubtitle}
+                    onTitleChange={setBookTitle}
+                    onSubtitleChange={setBookSubtitle}
+                    onContentChange={handleContentChange}
+                    onSelectionChange={setSelectedText}
+                    insertContent={contentToInsert}
+                    onInsertComplete={() => setContentToInsert(null)}
+                  />
                 </div>
                 {/* Bottom Actions */}
                 <div className="border-t border-border p-6 bg-background">

@@ -34,37 +34,36 @@ export function TipTapEditor({
 
   // Helper function to force scroll container to recalculate
   const forceScrollUpdate = useCallback((container?: Element) => {
-    const targetContainer = container || scrollContainerRef.current
-    if (!targetContainer) return
-    if (!(container instanceof HTMLElement)) return
+    const targetContainer = (container || scrollContainerRef.current) as HTMLElement
+    if (!targetContainer || !(targetContainer instanceof HTMLElement)) return
     
     // Force a layout recalculation by reading layout properties
-    void container.clientHeight
-    void container.scrollHeight
-    void container.offsetHeight
+    void targetContainer.clientHeight
+    void targetContainer.scrollHeight
+    void targetContainer.offsetHeight
     
     // Trigger a resize event to force browser to recalculate
     if (typeof ResizeObserver !== 'undefined') {
       // Use ResizeObserver if available
       const resizeObserver = new ResizeObserver(() => {
         // Force scroll height recalculation
-        void container.scrollHeight
+        void targetContainer.scrollHeight
       })
-      resizeObserver.observe(container)
+      resizeObserver.observe(targetContainer)
       setTimeout(() => resizeObserver.disconnect(), 100)
     }
     
     // Also trigger scroll event
-    container.dispatchEvent(new Event('scroll', { bubbles: true }))
+    targetContainer.dispatchEvent(new Event('scroll', { bubbles: true }))
     
     // Force a reflow by toggling display (more aggressive)
-    const originalDisplay = container.style.display
-    container.style.display = 'none'
-    void container.offsetHeight // Force reflow
-    container.style.display = originalDisplay || ''
+    const originalDisplay = targetContainer.style.display
+    targetContainer.style.display = 'none'
+    void targetContainer.offsetHeight // Force reflow
+    targetContainer.style.display = originalDisplay || ''
     
     // One more read to ensure browser has recalculated
-    void container.scrollHeight
+    void targetContainer.scrollHeight
   }, [])
 
   const editor = useEditor({
@@ -114,20 +113,22 @@ export function TipTapEditor({
   useEffect(() => {
     if (editor) {
       const currentHTML = editor.getHTML()
-      // Only update if content actually changed (avoid unnecessary updates)
+      // Only update if content actually changed (avoid unnecessary updates and editing conflicts)
       if (content !== currentHTML) {
         // Use setContent with emitUpdate set to false to avoid triggering updates
         // TipTap setContent accepts: setContent(content: string | JSONContent, options?: SetContentOptions)
-        editor.commands.setContent(content, { emitUpdate: false })
+        editor.commands.setContent(content || "", { emitUpdate: false })
         // Scroll to top when content changes (e.g., when switching chapters)
         setTimeout(() => {
           if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = 0
+            // Force scroll update after content change
+            forceScrollUpdate()
           }
         }, 0)
       }
     }
-  }, [content, editor])
+  }, [content, editor, forceScrollUpdate])
 
   // Handle content insertion
   useEffect(() => {

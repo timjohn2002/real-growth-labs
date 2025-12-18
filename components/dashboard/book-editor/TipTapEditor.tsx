@@ -209,6 +209,7 @@ export function TipTapEditor({
 
   // Handle content insertion
   useEffect(() => {
+    console.log("[TipTapEditor] insertContent changed:", insertContent ? insertContent.substring(0, 50) : null)
     if (editor && insertContent) {
       const trimmedContent = insertContent.trim()
       

@@ -598,12 +598,10 @@ export default function BookWizardPage() {
                       }
                     }}
                     onRegenerateOutline={handleRegenerateOutline}
-                    insertContent={contentToInsert && insertTarget === "outline" ? contentToInsert : null}
+                    insertContent={contentToInsert}
                     onInsertComplete={() => {
-                      if (insertTarget === "outline") {
-                        setContentToInsert(null)
-                        setInsertTarget("editor")
-                      }
+                      setContentToInsert(null)
+                      setInsertTarget("editor")
                     }}
                   />
                 </div>
@@ -617,12 +615,10 @@ export default function BookWizardPage() {
                     onSubtitleChange={setBookSubtitle}
                     onContentChange={handleContentChange}
                     onSelectionChange={setSelectedText}
-                    insertContent={contentToInsert && insertTarget === "editor" ? contentToInsert : null}
+                    insertContent={contentToInsert}
                     onInsertComplete={() => {
-                      if (insertTarget === "editor") {
-                        setContentToInsert(null)
-                        setInsertTarget("editor")
-                      }
+                      setContentToInsert(null)
+                      setInsertTarget("editor")
                     }}
                   />
                 </div>

@@ -110,8 +110,15 @@ export function BookOverview({
   }, [activeChapter, outline])
   
   // Handle content insertion into outline at cursor position
+  // Only insert if this is text content (not HTML images which go to editor)
   useEffect(() => {
     console.log("[BookOverview] insertContent changed:", insertContent, "Textarea ref:", !!outlineTextareaRef.current)
+    // Skip if content is HTML image tag (those go to editor)
+    if (insertContent && insertContent.includes('<img')) {
+      console.log("[BookOverview] Skipping image HTML, should go to editor")
+      return
+    }
+    
     if (insertContent && outlineTextareaRef.current) {
       const textarea = outlineTextareaRef.current
       // Ensure textarea is focused to get correct selection

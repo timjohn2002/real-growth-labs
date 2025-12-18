@@ -39,12 +39,82 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For YouTube videos, try to re-queue
+    // For YouTube videos, try direct processing first (bypass worker)
     if (item.type === "video" && item.source) {
       const sourceUrl = item.source
       const isYouTube = isYouTubeUrl(sourceUrl)
       
       if (isYouTube) {
+        // Check if this was a queued job that's stuck - try direct processing instead
+        let metadata: any = {}
+        try {
+          if (item.metadata) {
+            metadata = JSON.parse(item.metadata)
+          }
+        } catch (e) {
+          // Invalid metadata, continue
+        }
+        
+        // If it was queued and stuck, or user wants direct processing, try direct methods
+        const shouldTryDirect = metadata?.canRetryDirect || 
+                                (item.status === "processing" && metadata?.processingProgress === 5)
+        
+        if (shouldTryDirect) {
+          // Import the processing function and try direct processing
+          const { processYouTubeVideo } = await import("@/app/api/content/scrape/route")
+          
+          // Update status to show we're retrying
+          await prisma.contentItem.update({
+            where: { id: contentItemId },
+            data: {
+              status: "processing",
+              error: null,
+              metadata: JSON.stringify({
+                processingStage: "Retrying with direct methods...",
+                processingProgress: 10,
+                retriedAt: new Date().toISOString(),
+                retryMethod: "direct",
+              }),
+            },
+          })
+          
+          // Try direct processing (this will use caption extractors, not worker)
+          try {
+            // Process directly (bypasses queue) - function signature is (contentItemId, url)
+            await processYouTubeVideo(contentItemId, sourceUrl)
+            
+            return NextResponse.json({
+              success: true,
+              message: "Video processing retried successfully with direct methods",
+            })
+          } catch (directError) {
+            const errorMessage = directError instanceof Error ? directError.message : String(directError)
+            
+            // Update with error
+            await prisma.contentItem.update({
+              where: { id: contentItemId },
+              data: {
+                status: "error",
+                error: `Direct processing failed: ${errorMessage}`,
+                metadata: JSON.stringify({
+                  processingStage: "Failed",
+                  processingProgress: 0,
+                  failedAt: new Date().toISOString(),
+                  retryError: errorMessage,
+                }),
+              },
+            })
+            
+            return NextResponse.json(
+              {
+                error: `Direct processing failed: ${errorMessage}`,
+              },
+              { status: 500 }
+            )
+          }
+        }
+        
+        // Otherwise, try to re-queue (if worker is available)
         const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
         
         if (isRedisAvailable()) {

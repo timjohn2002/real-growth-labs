@@ -474,6 +474,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
         console.warn(`[${contentItemId}] ⚠️ Web-based caption extraction failed: ${webErrorMessage}`)
         
         // Try queueing for worker if Redis is available
+        // NOTE: Worker must be running separately (Railway/Render) for this to work
         const { getYouTubeQueue, isRedisAvailable } = await import("@/lib/queue")
         
         if (isRedisAvailable()) {
@@ -481,6 +482,11 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
           if (youtubeQueue) {
             console.log(`[${contentItemId}] Queueing YouTube video for dedicated worker processing...`)
             try {
+              // Check if a worker is actually running by checking queue health
+              // If no worker is running, don't queue - just show error
+              const queueHealth = await youtubeQueue.getWaitingCount()
+              console.log(`[${contentItemId}] Queue status - waiting jobs: ${queueHealth}`)
+              
               await youtubeQueue.add(
                 `youtube-${contentItemId}`,
                 {
@@ -490,7 +496,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
                 },
                 {
                   jobId: `youtube-${contentItemId}`,
-                  attempts: 3,
+                  attempts: 2,
                   backoff: {
                     type: "exponential",
                     delay: 5000,
@@ -499,6 +505,7 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
               )
               
               // Update status to processing (will be handled by worker)
+              // NOTE: If this stays at 5% for more than 2 minutes, the worker is likely not running
               await prisma.contentItem.update({
                 where: { id: contentItemId },
                 data: {
@@ -507,12 +514,15 @@ export async function processYouTubeVideo(contentItemId: string, url: string) {
                     processingStage: "Queued for worker",
                     processingProgress: 5,
                     queuedAt: new Date().toISOString(),
-                    message: "Video queued for processing by dedicated worker",
+                    message: "Video queued for processing by dedicated worker. If this stays at 5%, the worker may not be running. Use the retry button to try direct processing instead.",
+                    requiresWorker: true,
+                    canRetryDirect: true, // Flag to allow direct retry
                   }),
                 },
               })
               
               console.log(`[${contentItemId}] ✅ YouTube video queued for worker processing`)
+              console.log(`[${contentItemId}] ⚠️ NOTE: Worker must be running separately (Railway/Render) for this to process`)
               clearTimeout(overallTimeout)
               return // Job is queued, worker will handle it
             } catch (queueError) {

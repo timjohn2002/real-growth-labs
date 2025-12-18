@@ -347,9 +347,9 @@ export function TipTapEditor({
     }
   }, [insertContent, editor, onInsertComplete])
 
-  // Handle image load events to update scroll height
+  // Handle image load events and content size changes to update scroll height
   useEffect(() => {
-    if (!editor) return
+    if (!editor || !scrollContainerRef.current) return
 
     const handleImageLoad = () => {
       // Force update scroll container
@@ -372,8 +372,17 @@ export function TipTapEditor({
       }
     })
 
+    // Use ResizeObserver to watch for content size changes
+    const resizeObserver = new ResizeObserver(() => {
+      // Content size changed, update scroll
+      forceScrollUpdate()
+      setTimeout(() => forceScrollUpdate(), 50)
+    })
+
+    resizeObserver.observe(editorElement)
+
     // Also listen for new images added dynamically
-    const observer = new MutationObserver((mutations) => {
+    const mutationObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 1) { // Element node
@@ -391,19 +400,23 @@ export function TipTapEditor({
           }
         })
       })
+      // Also trigger scroll update on any DOM change
+      forceScrollUpdate()
+      setTimeout(() => forceScrollUpdate(), 50)
     })
 
-    observer.observe(editorElement, { childList: true, subtree: true })
+    mutationObserver.observe(editorElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
 
     return () => {
-      observer.disconnect()
+      resizeObserver.disconnect()
+      mutationObserver.disconnect()
       images.forEach((img) => {
         const imageEl = img as HTMLImageElement
         imageEl.removeEventListener('load', handleImageLoad)
         imageEl.removeEventListener('error', handleImageLoad)
       })
     }
-  }, [editor])
+  }, [editor, forceScrollUpdate])
 
   if (!editor) {
     return null

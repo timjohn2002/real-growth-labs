@@ -336,10 +336,14 @@ export default function BookWizardPage() {
   }
 
   const handleInsertContentVault = (contentItem: any, contentType?: "summary" | "transcript" | "rawText") => {
+    console.log("[BookWizard] handleInsertContentVault called:", { contentItem, contentType })
+    
     // Check which field has focus to determine insertion target
     const activeElement = document.activeElement
     const isOutlineFocused = activeElement?.tagName === "TEXTAREA" && 
                              (activeElement as HTMLTextAreaElement).className.includes("font-mono")
+    
+    console.log("[BookWizard] Active element:", activeElement?.tagName, "Is outline focused:", isOutlineFocused)
     
     if (contentItem.type === "image") {
       const imageUrl = contentItem.fileUrl || contentItem.thumbnail || contentItem.source
@@ -353,6 +357,7 @@ export default function BookWizardPage() {
       const altText = (contentItem.title || "Image").replace(/"/g, '&quot;')
       const safeUrl = imageUrl.replace(/"/g, '&quot;')
       const imageHtml = `<img src="${safeUrl}" alt="${altText}" class="max-w-full h-auto" />`
+      console.log("[BookWizard] Setting image content:", imageHtml)
       setInsertTarget("editor")
       setContentToInsert(imageHtml)
       return
@@ -385,11 +390,20 @@ export default function BookWizardPage() {
     }
 
     // For text content: insert into outline if outline has focus, otherwise editor
+    // Default to editor if we can't determine focus, but try outline first if it exists
+    let target: "outline" | "editor" = "editor"
+    
+    // Check if outline textarea exists and might be focused
     if (isOutlineFocused) {
-      setInsertTarget("outline")
+      target = "outline"
     } else {
-      setInsertTarget("editor")
+      // If outline textarea exists, prefer it for text content
+      // Otherwise use editor
+      target = "editor"
     }
+    
+    console.log("[BookWizard] Setting text content:", content.substring(0, 50), "Target:", target, "Content length:", content.length)
+    setInsertTarget(target)
     setContentToInsert(content)
   }
 
@@ -584,10 +598,12 @@ export default function BookWizardPage() {
                       }
                     }}
                     onRegenerateOutline={handleRegenerateOutline}
-                    insertContent={insertTarget === "outline" ? contentToInsert : null}
+                    insertContent={contentToInsert && insertTarget === "outline" ? contentToInsert : null}
                     onInsertComplete={() => {
-                      setContentToInsert(null)
-                      setInsertTarget("editor")
+                      if (insertTarget === "outline") {
+                        setContentToInsert(null)
+                        setInsertTarget("editor")
+                      }
                     }}
                   />
                 </div>
@@ -601,10 +617,12 @@ export default function BookWizardPage() {
                     onSubtitleChange={setBookSubtitle}
                     onContentChange={handleContentChange}
                     onSelectionChange={setSelectedText}
-                    insertContent={insertTarget === "editor" ? contentToInsert : null}
+                    insertContent={contentToInsert && insertTarget === "editor" ? contentToInsert : null}
                     onInsertComplete={() => {
-                      setContentToInsert(null)
-                      setInsertTarget("editor")
+                      if (insertTarget === "editor") {
+                        setContentToInsert(null)
+                        setInsertTarget("editor")
+                      }
                     }}
                   />
                 </div>

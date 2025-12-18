@@ -111,11 +111,20 @@ export function BookOverview({
   
   // Handle content insertion into outline at cursor position
   useEffect(() => {
+    console.log("[BookOverview] insertContent changed:", insertContent, "Textarea ref:", !!outlineTextareaRef.current)
     if (insertContent && outlineTextareaRef.current) {
       const textarea = outlineTextareaRef.current
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const currentValue = chapterOutline
+      // Ensure textarea is focused to get correct selection
+      if (document.activeElement !== textarea) {
+        textarea.focus()
+      }
+      
+      // Get selection after focus
+      const start = textarea.selectionStart || textarea.value.length
+      const end = textarea.selectionEnd || textarea.value.length
+      const currentValue = chapterOutline || textarea.value
+      
+      console.log("[BookOverview] Inserting at position:", start, "to", end, "Current value length:", currentValue.length)
       
       // Insert content at cursor position
       // For images, insert as markdown reference
@@ -133,6 +142,7 @@ export function BookOverview({
       }
       
       const newValue = currentValue.slice(0, start) + contentToInsert + currentValue.slice(end)
+      console.log("[BookOverview] New value length:", newValue.length, "Inserted:", contentToInsert.substring(0, 50))
       setChapterOutline(newValue)
       onOutlineChange?.(newValue)
       
@@ -141,12 +151,16 @@ export function BookOverview({
         textarea.focus()
         const newCursorPos = start + contentToInsert.length
         textarea.setSelectionRange(newCursorPos, newCursorPos)
-      }, 0)
+      }, 10)
       
       // Notify parent that insertion is complete
-      onInsertComplete?.()
+      setTimeout(() => {
+        onInsertComplete?.()
+      }, 50)
+    } else if (insertContent && !outlineTextareaRef.current) {
+      console.log("[BookOverview] insertContent provided but textarea ref not available")
     }
-  }, [insertContent, chapterOutline, onOutlineChange, onInsertComplete])
+  }, [insertContent])
 
   return (
     <Card className="border-border shadow-sm mb-6 overflow-visible" style={{ margin: '2px' }}>

@@ -13,6 +13,7 @@ import { AIToolsPanel } from "@/components/dashboard/book-wizard/AIToolsPanel"
 import { BookOverview } from "@/components/dashboard/book-wizard/BookOverview"
 import { ContentVaultModal } from "@/components/dashboard/book-editor/ContentVaultModal"
 import { generateAllChapters, REAL_GROWTH_BOOK_TEMPLATE } from "@/lib/book-templates"
+import { markdownToHTML } from "@/lib/markdown-to-html"
 import Link from "next/link"
 
 const BRAND_COLOR = "#a6261c"
@@ -69,17 +70,40 @@ export default function BookWizardPage() {
     // For now, generate template structure
     setTimeout(async () => {
       const generatedChapters = generateAllChapters(answers)
-      setChapters(generatedChapters)
+      
+      // Log to verify each chapter has unique content
+      console.log("[BookWizard] Generated chapters:", generatedChapters.map(ch => ({
+        id: ch.id,
+        title: ch.title,
+        contentLength: ch.content.length,
+        contentPreview: ch.content.substring(0, 100)
+      })))
+      
+      // Convert markdown content to HTML for TipTap editor
+      const chaptersWithHTML = generatedChapters.map((ch) => ({
+        ...ch,
+        content: markdownToHTML(ch.content),
+      }))
+      
+      // Verify HTML conversion worked and content is still unique
+      console.log("[BookWizard] Chapters with HTML:", chaptersWithHTML.map(ch => ({
+        id: ch.id,
+        title: ch.title,
+        contentLength: ch.content.length,
+        contentPreview: ch.content.substring(0, 100)
+      })))
+      
+      setChapters(chaptersWithHTML)
       
       // Set outline from chapter titles
       setOutline(generatedChapters.map((ch) => ch.title))
       
       // Set first chapter as active
-      if (generatedChapters.length > 0) {
-        setActiveChapterId(generatedChapters[0].id)
+      if (chaptersWithHTML.length > 0) {
+        setActiveChapterId(chaptersWithHTML[0].id)
       }
       
-      // Create book in database
+      // Create book in database (store markdown version for compatibility)
       try {
         const response = await fetch("/api/books", {
           method: "POST",
@@ -91,7 +115,7 @@ export default function BookWizardPage() {
             chapters: generatedChapters.map((ch) => ({
               number: ch.number,
               title: ch.title,
-              content: ch.content,
+              content: ch.content, // Store markdown in DB
             })),
           }),
         })

@@ -365,11 +365,37 @@ export function generateChapterContent(
   answers: any,
   contentVaultItems?: any[]
 ): string {
+  // Each chapter gets unique content based on its template sections
+  // This ensures each chapter has different content, not the same placeholder
   let content = `# ${chapterTemplate.title}\n\n`
   
+  // Add chapter description if available
+  if (chapterTemplate.description) {
+    content += `*${chapterTemplate.description}*\n\n`
+  }
+  
+  // Generate unique content for each section based on the chapter and section
   chapterTemplate.sections.forEach((section, index) => {
     content += `## ${section.title}\n\n`
-    content += `${section.placeholder}\n\n`
+    
+    // Use the section's unique placeholder - each section has a different placeholder
+    // This ensures each chapter section is different from other chapters
+    const sectionContent = section.placeholder || ""
+    
+    // If answers are provided, we could personalize the placeholder
+    // For now, use the unique placeholder for each section
+    let personalizedContent = sectionContent
+    
+    // Personalize based on answers if available
+    if (answers) {
+      // Replace placeholders with actual values from answers
+      personalizedContent = personalizedContent
+        .replace(/\{highTicketOffer\}/g, answers.highTicketOffer || "your offer")
+        .replace(/\{targetAudience\}/g, answers.targetAudience || "your audience")
+        .replace(/\{framework\}/g, answers.framework || "your framework")
+    }
+    
+    content += `${personalizedContent}\n\n`
     
     // Add spacing between sections
     if (index < chapterTemplate.sections.length - 1) {

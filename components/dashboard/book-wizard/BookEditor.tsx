@@ -44,8 +44,8 @@ export function BookEditor({
   insertContent,
   onInsertComplete,
 }: BookEditorProps) {
-  // Match ChapterEditor: directly use chapter.content, no local state
-  // The TipTapEditor will handle its own internal state
+  // Use a key based on chapter.id to force TipTapEditor to remount when chapter changes
+  // This ensures each chapter gets its own editor instance with the correct content
   
   if (!chapter) {
     return (
@@ -95,7 +95,8 @@ export function BookEditor({
       )}
 
       {/* Editor - Match ChapterEditor structure exactly */}
-      <div className="flex-1 overflow-hidden">
+      {/* Use key prop to force remount when chapter changes, ensuring unique content per chapter */}
+      <div className="flex-1 overflow-hidden" key={chapter.id}>
         <TipTapEditor
           content={chapter.content}
           placeholder="Start writing your chapter..."

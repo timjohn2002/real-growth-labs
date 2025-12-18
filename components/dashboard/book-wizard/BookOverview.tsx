@@ -91,8 +91,8 @@ export function BookOverview({
   }, [activeChapter, outline])
 
   return (
-    <Card className="border-border shadow-sm mb-6 overflow-visible">
-      <CardContent className="p-6 overflow-visible">
+    <Card className="border-border shadow-sm mb-6 overflow-visible" style={{ margin: '2px' }}>
+      <CardContent className="p-6 overflow-visible" style={{ padding: '24px', margin: '2px' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Book Overview</h3>
           <button
@@ -145,13 +145,14 @@ export function BookOverview({
                 </div>
 
                 {/* Subtitle */}
-                <div>
+                <div className="overflow-visible" style={{ padding: '2px' }}>
                   <label className="text-sm font-medium text-foreground mb-2 block">Subtitle</label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 overflow-visible" style={{ padding: '2px' }}>
                     <Input
                       value={subtitleOptions[selectedSubtitleIndex]}
                       onChange={(e) => onSubtitleChange(e.target.value)}
                       className="flex-1"
+                      style={{ boxShadow: 'none' }}
                     />
                     <Select
                       value={selectedSubtitleIndex.toString()}

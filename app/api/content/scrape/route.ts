@@ -79,25 +79,34 @@ export async function POST(request: NextRequest) {
 
       // Process directly with Apify (no queueing needed in serverless)
       // Apify handles everything and works in serverless environments
+      // IMPORTANT: Don't await - let it run in background and return immediately
+      // The processYouTubeVideo function will update the database status itself
       processYouTubeVideo(contentItem.id, url).catch((error) => {
-        console.error("YouTube processing error:", error)
+        console.error(`[${contentItem.id}] YouTube processing error:`, error)
+        const errorMessage = error instanceof Error ? error.message : "Processing failed"
         // Update status to error
         prisma.contentItem.update({
           where: { id: contentItem.id },
           data: {
             status: "error",
-            error: error instanceof Error ? error.message : "Processing failed",
+            error: errorMessage,
+            metadata: JSON.stringify({
+              processingStage: "Error",
+              processingProgress: 0,
+              errorDetails: errorMessage,
+              failedAt: new Date().toISOString(),
+            }),
           },
         }).catch((dbError) => {
-          console.error("Failed to update error status:", dbError)
+          console.error(`[${contentItem.id}] Failed to update error status:`, dbError)
         })
       })
 
       return NextResponse.json({
         id: contentItem.id,
         status: "processing",
-        message: "YouTube video processing started",
-        warning: "Processing may take several minutes. If it fails, check the error status.",
+        message: "YouTube video processing started with Apify",
+        warning: "Processing may take several minutes depending on video length.",
       })
     }
 

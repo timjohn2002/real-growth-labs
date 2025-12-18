@@ -866,6 +866,7 @@ async function processYouTubeVideoWithApify(
     console.log(`[${contentItemId}] Calling Apify actor with normalized URL: ${normalizedUrl}`)
     
     // The .call() method waits for the run to complete automatically
+    await updateProgress(contentItemId, "Waiting for Apify to process video...", 40)
     const run = await client.actor('agentx/youtube-video-transcriber').call({
       video_url: normalizedUrl, // Use normalized URL (full format)
       target_lang: 'English', // Must match exact value from allowed list (capitalized)
@@ -899,6 +900,8 @@ async function processYouTubeVideoWithApify(
     }
     
     console.log(`[${contentItemId}] Fetching results from dataset: ${datasetId}`)
+    await updateProgress(contentItemId, "Downloading transcript data...", 60)
+    
     const dataset = client.dataset(datasetId)
     const { items } = await dataset.listItems()
     

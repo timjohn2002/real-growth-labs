@@ -517,7 +517,7 @@ export default function BookWizardPage() {
                     onRegenerateOutline={handleRegenerateOutline}
                   />
                 </div>
-                <div ref={editorRef}>
+                <div ref={editorRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <BookEditor
                   chapter={activeChapter || null}
                   bookTitle={bookTitle}

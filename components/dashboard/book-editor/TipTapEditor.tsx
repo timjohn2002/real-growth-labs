@@ -7,7 +7,7 @@ import CharacterCount from "@tiptap/extension-character-count"
 import Image from "@tiptap/extension-image"
 import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Sparkles, Undo2, Redo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -30,8 +30,12 @@ export function TipTapEditor({
   insertContent,
   onInsertComplete,
 }: TipTapEditorProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
   // Helper function to force scroll container to recalculate
-  const forceScrollUpdate = useCallback((container: Element) => {
+  const forceScrollUpdate = useCallback((container?: Element) => {
+    const targetContainer = container || scrollContainerRef.current
+    if (!targetContainer) return
     if (!(container instanceof HTMLElement)) return
     
     // Force a layout recalculation by reading layout properties
@@ -117,9 +121,8 @@ export function TipTapEditor({
         editor.commands.setContent(content, { emitUpdate: false })
         // Scroll to top when content changes (e.g., when switching chapters)
         setTimeout(() => {
-          const editorElement = editor.view.dom.closest('.flex-1.overflow-y-auto')
-          if (editorElement) {
-            editorElement.scrollTop = 0
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = 0
           }
         }, 0)
       }
@@ -181,33 +184,38 @@ export function TipTapEditor({
             console.log("Image inserted successfully via setImage")
             // Wait for image to load, then ensure scroll container updates
             setTimeout(() => {
-              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                           editor.view.dom.closest('[class*="overflow"]')
-              if (editorScrollContainer) {
+              if (scrollContainerRef.current) {
                 // Find the inserted image
-                const images = editorScrollContainer.querySelectorAll('img')
+                const images = scrollContainerRef.current.querySelectorAll('img')
                 if (images.length > 0) {
                   const lastImage = images[images.length - 1] as HTMLImageElement
                   
                   // Wait for image to load before scrolling
                   if (lastImage.complete) {
                     // Image already loaded - force multiple updates
-                    forceScrollUpdate(editorScrollContainer)
-                    setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
-                    setTimeout(() => forceScrollUpdate(editorScrollContainer), 300)
+                    forceScrollUpdate()
+                    setTimeout(() => forceScrollUpdate(), 100)
+                    setTimeout(() => forceScrollUpdate(), 300)
+                    setTimeout(() => forceScrollUpdate(), 500)
                   } else {
                     // Wait for image to load
                     lastImage.onload = () => {
-                      forceScrollUpdate(editorScrollContainer)
-                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
-                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 300)
+                      forceScrollUpdate()
+                      setTimeout(() => forceScrollUpdate(), 100)
+                      setTimeout(() => forceScrollUpdate(), 300)
+                      setTimeout(() => forceScrollUpdate(), 500)
                     }
                     lastImage.onerror = () => {
                       // Even if image fails to load, update scroll
-                      forceScrollUpdate(editorScrollContainer)
-                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
+                      forceScrollUpdate()
+                      setTimeout(() => forceScrollUpdate(), 100)
                     }
                   }
+                } else {
+                  // No images found yet, but still update scroll
+                  forceScrollUpdate()
+                  setTimeout(() => forceScrollUpdate(), 100)
+                  setTimeout(() => forceScrollUpdate(), 300)
                 }
               }
             }, 50)
@@ -217,18 +225,25 @@ export function TipTapEditor({
             editor.commands.insertContent(`<img src="${imageUrl.replace(/"/g, '&quot;')}" alt="${altText.replace(/"/g, '&quot;')}" class="max-w-full h-auto" />`)
             // Wait for image to load and update scroll
             setTimeout(() => {
-              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                           editor.view.dom.closest('[class*="overflow"]')
-              if (editorScrollContainer) {
-                const images = editorScrollContainer.querySelectorAll('img')
+              if (scrollContainerRef.current) {
+                const images = scrollContainerRef.current.querySelectorAll('img')
                 if (images.length > 0) {
                   const lastImage = images[images.length - 1] as HTMLImageElement
                   if (lastImage.complete) {
-                    forceScrollUpdate(editorScrollContainer)
+                    forceScrollUpdate()
+                    setTimeout(() => forceScrollUpdate(), 100)
+                    setTimeout(() => forceScrollUpdate(), 300)
                   } else {
-                    lastImage.onload = () => forceScrollUpdate(editorScrollContainer)
-                    lastImage.onerror = () => forceScrollUpdate(editorScrollContainer)
+                    lastImage.onload = () => {
+                      forceScrollUpdate()
+                      setTimeout(() => forceScrollUpdate(), 100)
+                      setTimeout(() => forceScrollUpdate(), 300)
+                    }
+                    lastImage.onerror = () => forceScrollUpdate()
                   }
+                } else {
+                  forceScrollUpdate()
+                  setTimeout(() => forceScrollUpdate(), 100)
                 }
               }
             }, 50)
@@ -241,18 +256,25 @@ export function TipTapEditor({
             console.log("Image inserted via HTML fallback")
             // Wait for image to load and update scroll
             setTimeout(() => {
-              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                           editor.view.dom.closest('[class*="overflow"]')
-              if (editorScrollContainer) {
-                const images = editorScrollContainer.querySelectorAll('img')
+              if (scrollContainerRef.current) {
+                const images = scrollContainerRef.current.querySelectorAll('img')
                 if (images.length > 0) {
                   const lastImage = images[images.length - 1] as HTMLImageElement
                   if (lastImage.complete) {
-                    forceScrollUpdate(editorScrollContainer)
+                    forceScrollUpdate()
+                    setTimeout(() => forceScrollUpdate(), 100)
+                    setTimeout(() => forceScrollUpdate(), 300)
                   } else {
-                    lastImage.onload = () => forceScrollUpdate(editorScrollContainer)
-                    lastImage.onerror = () => forceScrollUpdate(editorScrollContainer)
+                    lastImage.onload = () => {
+                      forceScrollUpdate()
+                      setTimeout(() => forceScrollUpdate(), 100)
+                      setTimeout(() => forceScrollUpdate(), 300)
+                    }
+                    lastImage.onerror = () => forceScrollUpdate()
                   }
+                } else {
+                  forceScrollUpdate()
+                  setTimeout(() => forceScrollUpdate(), 100)
                 }
               }
             }, 50)
@@ -278,18 +300,25 @@ export function TipTapEditor({
             console.log("Image inserted from HTML tag")
             // Wait for image to load and update scroll
             setTimeout(() => {
-              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                           editor.view.dom.closest('[class*="overflow"]')
-              if (editorScrollContainer) {
-                const images = editorScrollContainer.querySelectorAll('img')
+              if (scrollContainerRef.current) {
+                const images = scrollContainerRef.current.querySelectorAll('img')
                 if (images.length > 0) {
                   const lastImage = images[images.length - 1] as HTMLImageElement
                   if (lastImage.complete) {
-                    forceScrollUpdate(editorScrollContainer)
+                    forceScrollUpdate()
+                    setTimeout(() => forceScrollUpdate(), 100)
+                    setTimeout(() => forceScrollUpdate(), 300)
                   } else {
-                    lastImage.onload = () => forceScrollUpdate(editorScrollContainer)
-                    lastImage.onerror = () => forceScrollUpdate(editorScrollContainer)
+                    lastImage.onload = () => {
+                      forceScrollUpdate()
+                      setTimeout(() => forceScrollUpdate(), 100)
+                      setTimeout(() => forceScrollUpdate(), 300)
+                    }
+                    lastImage.onerror = () => forceScrollUpdate()
                   }
+                } else {
+                  forceScrollUpdate()
+                  setTimeout(() => forceScrollUpdate(), 100)
                 }
               }
             }, 50)
@@ -298,11 +327,8 @@ export function TipTapEditor({
             // Fallback: insert as HTML
             editor.commands.insertContent(trimmedContent)
             setTimeout(() => {
-              const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                           editor.view.dom.closest('[class*="overflow"]')
-              if (editorScrollContainer) {
-                forceScrollUpdate(editorScrollContainer)
-              }
+              forceScrollUpdate()
+              setTimeout(() => forceScrollUpdate(), 100)
             }, 50)
           }
         } else {
@@ -326,15 +352,12 @@ export function TipTapEditor({
     if (!editor) return
 
     const handleImageLoad = () => {
-      // Find scroll container and force update
-      const editorScrollContainer = editor.view.dom.closest('.flex-1.overflow-y-auto') || 
-                                   editor.view.dom.closest('[class*="overflow"]')
-      if (editorScrollContainer) {
-        forceScrollUpdate(editorScrollContainer)
-        // Also update after a delay to ensure browser has recalculated
-        setTimeout(() => forceScrollUpdate(editorScrollContainer), 50)
-        setTimeout(() => forceScrollUpdate(editorScrollContainer), 200)
-      }
+      // Force update scroll container
+      forceScrollUpdate()
+      // Also update after delays to ensure browser has recalculated
+      setTimeout(() => forceScrollUpdate(), 50)
+      setTimeout(() => forceScrollUpdate(), 200)
+      setTimeout(() => forceScrollUpdate(), 500)
     }
 
     // Listen for image load events in the editor
@@ -497,10 +520,12 @@ export function TipTapEditor({
 
       {/* Editor Content */}
       <div 
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto bg-background min-h-0" 
         style={{ 
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'auto',
         }}
       >
         <style jsx global>{`
@@ -509,6 +534,7 @@ export function TipTapEditor({
             padding: 1.5rem 2rem;
             outline: none;
             height: auto;
+            overflow: visible;
           }
           .ProseMirror img {
             max-width: 100%;
@@ -517,6 +543,7 @@ export function TipTapEditor({
             margin: 1rem 0;
             border-radius: 0.5rem;
             pointer-events: auto;
+            vertical-align: bottom;
           }
           .ProseMirror:focus {
             outline: none;
@@ -524,6 +551,10 @@ export function TipTapEditor({
           /* Ensure the editor content container expands with content */
           .ProseMirror > * {
             min-height: auto;
+          }
+          /* Ensure scrollbar is always visible when content overflows */
+          .flex-1.overflow-y-auto {
+            overflow-y: scroll !important;
           }
         `}</style>
         <EditorContent editor={editor} />

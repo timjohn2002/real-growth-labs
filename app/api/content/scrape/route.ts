@@ -940,17 +940,21 @@ async function processYouTubeVideoWithApify(
     
     if (!items || !items.length) {
       // Try to get more info about why the dataset is empty
-      const runDetails = await client.run(run.id).get()
-      console.error(`[${contentItemId}] Apify returned empty dataset. Run details:`, {
-        runId: run.id,
-        status: runDetails.status,
-        stats: runDetails.stats,
-        options: runDetails.options,
-      })
-      
-      // Check if there's an error in the run
-      if (runDetails.status === 'FAILED' && runDetails.stats?.failedRequestCount) {
-        throw new Error(`Apify actor failed. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for error details.`)
+      try {
+        const runDetails = await client.run(run.id).get()
+        console.error(`[${contentItemId}] Apify returned empty dataset. Run details:`, {
+          runId: run.id,
+          status: runDetails?.status,
+          stats: runDetails?.stats,
+          options: runDetails?.options,
+        })
+        
+        // Check if there's an error in the run
+        if (runDetails?.status === 'FAILED') {
+          throw new Error(`Apify actor failed. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for error details.`)
+        }
+      } catch (detailsError) {
+        console.error(`[${contentItemId}] Could not fetch run details:`, detailsError)
       }
       
       throw new Error(`No results returned from Apify. The dataset is empty. This could mean: 1) The video is unavailable or private, 2) The actor encountered an error, or 3) The video has no audio. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for details.`)

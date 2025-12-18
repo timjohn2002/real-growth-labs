@@ -899,16 +899,27 @@ async function processYouTubeVideoWithApify(
     console.log(`[${contentItemId}] Calling Apify actor with URL: ${url}`)
     
     // The .call() method waits for the run to complete automatically
+    console.log(`[${contentItemId}] Starting Apify actor call with URL: ${url}`)
     const run = await client.actor('agentx/youtube-video-transcriber').call({
       video_url: url,
       target_lang: 'English', // Must match exact value from allowed list (capitalized)
     })
     
     console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${run.status}`)
+    console.log(`[${contentItemId}] Run details:`, {
+      id: run.id,
+      status: run.status,
+      defaultDatasetId: run.defaultDatasetId,
+      finishedAt: run.finishedAt,
+      startedAt: run.startedAt,
+    })
     
     // Check if run was successful
     if (run.status !== 'SUCCEEDED') {
-      throw new Error(`Apify run failed with status: ${run.status}. Check your Apify account for details.`)
+      const errorMessage = run.status === 'FAILED' 
+        ? `Apify run failed. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for details.`
+        : `Apify run ended with status: ${run.status}. Check your Apify account for details.`
+      throw new Error(errorMessage)
     }
     
     // Wait for the run to complete and get results
@@ -917,15 +928,32 @@ async function processYouTubeVideoWithApify(
     // Get the dataset items from the completed run
     const datasetId = run.defaultDatasetId
     if (!datasetId) {
-      throw new Error("No dataset ID returned from Apify run")
+      console.error(`[${contentItemId}] No dataset ID in run:`, run)
+      throw new Error("No dataset ID returned from Apify run. The actor may not have produced any output.")
     }
     
     console.log(`[${contentItemId}] Fetching results from dataset: ${datasetId}`)
-    const { items } = await client.dataset(datasetId).listItems()
+    const dataset = client.dataset(datasetId)
+    const { items } = await dataset.listItems()
+    
+    console.log(`[${contentItemId}] Dataset contains ${items?.length || 0} items`)
     
     if (!items || !items.length) {
-      console.error(`[${contentItemId}] Apify returned empty dataset. Run ID: ${run.id}, Status: ${run.status}`)
-      throw new Error("No results returned from Apify. The actor may have failed or the video may be unavailable.")
+      // Try to get more info about why the dataset is empty
+      const runDetails = await client.run(run.id).get()
+      console.error(`[${contentItemId}] Apify returned empty dataset. Run details:`, {
+        runId: run.id,
+        status: runDetails.status,
+        stats: runDetails.stats,
+        options: runDetails.options,
+      })
+      
+      // Check if there's an error in the run
+      if (runDetails.status === 'FAILED' && runDetails.stats?.failedRequestCount) {
+        throw new Error(`Apify actor failed. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for error details.`)
+      }
+      
+      throw new Error(`No results returned from Apify. The dataset is empty. This could mean: 1) The video is unavailable or private, 2) The actor encountered an error, or 3) The video has no audio. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for details.`)
     }
 
     // Apify returns data in this format:

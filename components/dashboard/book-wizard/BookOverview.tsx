@@ -91,8 +91,8 @@ export function BookOverview({
   }, [activeChapter, outline])
 
   return (
-    <Card className="border-border shadow-sm mb-6">
-      <CardContent className="p-6">
+    <Card className="border-border shadow-sm mb-6 overflow-visible">
+      <CardContent className="p-6 overflow-visible">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Book Overview</h3>
           <button
@@ -110,17 +110,18 @@ export function BookOverview({
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="overflow-hidden"
+              className="overflow-visible"
             >
-              <div className="space-y-6">
+              <div className="space-y-6" style={{ padding: '2px' }}>
                 {/* Title */}
-                <div>
+                <div className="overflow-visible" style={{ padding: '2px' }}>
                   <label className="text-sm font-medium text-foreground mb-2 block">Title</label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 overflow-visible" style={{ padding: '2px' }}>
                     <Input
                       value={titleOptions[selectedTitleIndex]}
                       onChange={(e) => onTitleChange(e.target.value)}
                       className="flex-1"
+                      style={{ boxShadow: 'none' }}
                     />
                     <Select
                       value={selectedTitleIndex.toString()}
@@ -174,7 +175,7 @@ export function BookOverview({
                 </div>
 
                 {/* Outline - Editable and chapter-specific */}
-                <div>
+                <div className="overflow-visible" style={{ padding: '2px' }}>
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     {activeChapter ? `${activeChapter.title} - Outline` : "Book Outline"}
                   </label>
@@ -189,6 +190,7 @@ export function BookOverview({
                       : "Edit the book outline. Each line represents a chapter."
                     }
                     className="min-h-[200px] font-mono text-sm mb-4"
+                    style={{ boxShadow: 'none' }}
                   />
                   <Button
                     variant="outline"

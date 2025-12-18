@@ -531,7 +531,7 @@ export default function BookWizardPage() {
                 onAddChapter={handleAddChapter}
               />
               <div className="flex-1 flex flex-col overflow-hidden bg-background">
-                <div className="p-6 overflow-y-auto flex-shrink-0">
+                <div className="p-6 overflow-y-auto flex-shrink-0 overflow-x-visible">
                   <BookOverview
                     title={bookTitle}
                     subtitle={bookSubtitle}

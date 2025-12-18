@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { WizardStepper } from "@/components/dashboard/book-wizard/WizardStepper"
@@ -165,12 +165,10 @@ export default function BookWizardPage() {
     }
   }
 
-  const handleSave = async () => {
-    if (!bookId) {
-      alert("Book not yet created. Please wait for generation to complete.")
-      return
-    }
-
+  // Auto-save function
+  const autoSave = useCallback(async () => {
+    if (!bookId) return // Don't save if no book ID
+    
     try {
       const response = await fetch(`/api/books/${bookId}`, {
         method: "PUT",
@@ -188,10 +186,35 @@ export default function BookWizardPage() {
       })
 
       if (response.ok) {
-        alert("Book saved successfully!")
+        console.log("[BookWizard] Auto-saved successfully")
       } else {
-        throw new Error("Save failed")
+        console.error("[BookWizard] Auto-save failed:", response.status)
       }
+    } catch (error) {
+      console.error("[BookWizard] Auto-save error:", error)
+    }
+  }, [bookId, bookTitle, bookSubtitle, chapters])
+
+  // Auto-save on content change (debounced)
+  useEffect(() => {
+    if (!bookId) return
+    
+    const timer = setTimeout(() => {
+      autoSave()
+    }, 2000) // Save 2 seconds after last change
+
+    return () => clearTimeout(timer)
+  }, [bookTitle, bookSubtitle, chapters, autoSave, bookId])
+
+  const handleSave = async () => {
+    if (!bookId) {
+      alert("Book not yet created. Please wait for generation to complete.")
+      return
+    }
+
+    try {
+      await autoSave()
+      alert("Book saved successfully!")
     } catch (error) {
       console.error("Save error:", error)
       alert("Failed to save book. Please try again.")

@@ -39,16 +39,30 @@ export function BookOverview({
   onRegenerateOutline,
 }: BookOverviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
-  const [titleOptions] = useState([
-    title,
-    `${title}: The Complete Guide`,
-    `Master ${title}`,
-  ])
-  const [subtitleOptions] = useState([
-    subtitle,
-    `Transform Your Business with ${title}`,
-    `The Ultimate Guide to ${title}`,
-  ])
+  // Use local state for editable values
+  const [localTitle, setLocalTitle] = useState(title)
+  const [localSubtitle, setLocalSubtitle] = useState(subtitle)
+  
+  // Update local state when props change
+  useEffect(() => {
+    setLocalTitle(title)
+  }, [title])
+  
+  useEffect(() => {
+    setLocalSubtitle(subtitle)
+  }, [subtitle])
+  
+  // Generate options based on current title/subtitle
+  const titleOptions = [
+    localTitle,
+    `${localTitle}: The Complete Guide`,
+    `Master ${localTitle}`,
+  ]
+  const subtitleOptions = [
+    localSubtitle,
+    `Transform Your Business with ${localTitle}`,
+    `The Ultimate Guide to ${localTitle}`,
+  ]
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0)
   const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(0)
   
@@ -118,16 +132,24 @@ export function BookOverview({
                   <label className="text-sm font-medium text-foreground mb-2 block">Title</label>
                   <div className="flex gap-2 overflow-visible" style={{ padding: '2px' }}>
                     <Input
-                      value={titleOptions[selectedTitleIndex]}
-                      onChange={(e) => onTitleChange(e.target.value)}
+                      value={localTitle}
+                      onChange={(e) => {
+                        const newValue = e.target.value
+                        setLocalTitle(newValue)
+                        onTitleChange(newValue)
+                      }}
                       className="flex-1"
                       style={{ boxShadow: 'none' }}
+                      placeholder="Enter your book title"
                     />
                     <Select
                       value={selectedTitleIndex.toString()}
                       onValueChange={(value) => {
-                        setSelectedTitleIndex(parseInt(value))
-                        onTitleChange(titleOptions[parseInt(value)])
+                        const index = parseInt(value)
+                        setSelectedTitleIndex(index)
+                        const selectedValue = titleOptions[index]
+                        setLocalTitle(selectedValue)
+                        onTitleChange(selectedValue)
                       }}
                     >
                       <SelectTrigger className="w-40">
@@ -149,16 +171,24 @@ export function BookOverview({
                   <label className="text-sm font-medium text-foreground mb-2 block">Subtitle</label>
                   <div className="flex gap-2 overflow-visible" style={{ padding: '2px' }}>
                     <Input
-                      value={subtitleOptions[selectedSubtitleIndex]}
-                      onChange={(e) => onSubtitleChange(e.target.value)}
+                      value={localSubtitle}
+                      onChange={(e) => {
+                        const newValue = e.target.value
+                        setLocalSubtitle(newValue)
+                        onSubtitleChange(newValue)
+                      }}
                       className="flex-1"
                       style={{ boxShadow: 'none' }}
+                      placeholder="Enter your book subtitle"
                     />
                     <Select
                       value={selectedSubtitleIndex.toString()}
                       onValueChange={(value) => {
-                        setSelectedSubtitleIndex(parseInt(value))
-                        onSubtitleChange(subtitleOptions[parseInt(value)])
+                        const index = parseInt(value)
+                        setSelectedSubtitleIndex(index)
+                        const selectedValue = subtitleOptions[index]
+                        setLocalSubtitle(selectedValue)
+                        onSubtitleChange(selectedValue)
                       }}
                     >
                       <SelectTrigger className="w-40">

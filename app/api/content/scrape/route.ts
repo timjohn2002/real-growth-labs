@@ -874,27 +874,82 @@ async function processYouTubeVideoWithApify(
     await updateProgress(contentItemId, "Starting Apify transcription...", 30)
     console.log(`[${contentItemId}] Calling Apify actor with normalized URL: ${normalizedUrl}`)
     
-    // The .call() method waits for the run to complete automatically
-    await updateProgress(contentItemId, "Waiting for Apify to process video...", 40)
-    const run = await client.actor('agentx/youtube-video-transcriber').call({
+    // Start the actor run (don't wait - we'll poll for progress)
+    const run = await client.actor('agentx/youtube-video-transcriber').start({
       video_url: normalizedUrl, // Use normalized URL (full format)
       target_lang: 'English', // Must match exact value from allowed list (capitalized)
     })
     
-    console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${run.status}`)
-    console.log(`[${contentItemId}] Run details:`, {
-      id: run.id,
-      status: run.status,
-      defaultDatasetId: run.defaultDatasetId,
-      finishedAt: run.finishedAt,
-      startedAt: run.startedAt,
+    console.log(`[${contentItemId}] Apify actor run started. Run ID: ${run.id}`)
+    
+    // Store run ID in metadata for progress tracking
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: {
+        metadata: JSON.stringify({
+          apifyRunId: run.id,
+          processingStage: "Apify processing video...",
+          processingProgress: 35,
+        }),
+      },
     })
     
+    // Poll for run completion with progress updates
+    await updateProgress(contentItemId, "Processing video with Apify...", 40)
+    let runStatus = run.status
+    let pollCount = 0
+    const maxPolls = 600 // 20 minutes max (2 second intervals)
+    const startTime = Date.now()
+    
+    while (runStatus === 'RUNNING' || runStatus === 'READY') {
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Poll every 2 seconds
+      pollCount++
+      
+      if (pollCount > maxPolls) {
+        throw new Error("Apify processing timeout after 20 minutes")
+      }
+      
+      // Get updated run status
+      const runDetails = await client.run(run.id).get()
+      if (runDetails) {
+        runStatus = runDetails.status
+      } else {
+        console.warn(`[${contentItemId}] Could not get run details for ${run.id}`)
+        break // Exit loop if we can't get status
+      }
+      
+      // Calculate progress based on elapsed time
+      // Apify typically takes 1-5 minutes for most videos
+      const elapsedSeconds = (Date.now() - startTime) / 1000
+      const estimatedMinutes = elapsedSeconds / 60
+      
+      // Progress estimation: 40% start, up to 85% during processing
+      // Most videos complete in 2-5 minutes
+      let estimatedProgress = 40
+      if (estimatedMinutes < 1) {
+        estimatedProgress = 40 + (estimatedMinutes * 20) // 40-60% in first minute
+      } else if (estimatedMinutes < 3) {
+        estimatedProgress = 60 + ((estimatedMinutes - 1) / 2 * 20) // 60-80% in next 2 minutes
+      } else {
+        estimatedProgress = 80 + Math.min(5, (estimatedMinutes - 3) * 2.5) // 80-85% after 3 minutes
+      }
+      
+      await updateProgress(
+        contentItemId, 
+        `Processing with Apify... (${Math.round(estimatedProgress)}%)`, 
+        Math.round(estimatedProgress)
+      )
+      
+      console.log(`[${contentItemId}] Apify run status: ${runStatus} (${Math.round(estimatedProgress)}% - ${Math.round(estimatedMinutes)}m elapsed)`)
+    }
+    
+    console.log(`[${contentItemId}] Apify actor run completed. Run ID: ${run.id}, Status: ${runStatus}`)
+    
     // Check if run was successful
-    if (run.status !== 'SUCCEEDED') {
-      const errorMessage = run.status === 'FAILED' 
+    if (runStatus !== 'SUCCEEDED') {
+      const errorMessage = runStatus === 'FAILED' 
         ? `Apify run failed. Check run ${run.id} at https://console.apify.com/actors/runs/${run.id} for details.`
-        : `Apify run ended with status: ${run.status}. Check your Apify account for details.`
+        : `Apify run ended with status: ${runStatus}. Check your Apify account for details.`
       throw new Error(errorMessage)
     }
     
@@ -955,24 +1010,36 @@ async function processYouTubeVideoWithApify(
     let transcriptText = ''
     
     // Priority 1: target_transcript.text (translated transcript)
-    if (firstItem?.target_transcript?.text) {
-      transcriptText = String(firstItem.target_transcript.text).trim()
-      console.log(`[${contentItemId}] ✅ Using target_transcript.text (${firstItem.target_transcript.language || 'unknown'})`)
+    if (firstItem?.target_transcript) {
+      const targetTranscript = firstItem.target_transcript
+      if (targetTranscript.text) {
+        transcriptText = String(targetTranscript.text).trim()
+        console.log(`[${contentItemId}] ✅ Using target_transcript.text (${targetTranscript.language || 'unknown'})`)
+      } else if (typeof targetTranscript === 'string') {
+        transcriptText = String(targetTranscript).trim()
+        console.log(`[${contentItemId}] ✅ Using target_transcript as string`)
+      }
     }
-    // Priority 2: source_transcript.text (original transcript)
-    else if (firstItem?.source_transcript?.text) {
-      transcriptText = String(firstItem.source_transcript.text).trim()
-      console.log(`[${contentItemId}] ✅ Using source_transcript.text (${firstItem.source_transcript.language || 'unknown'})`)
-    }
-    // Priority 3: Check if source_transcript is an object with nested text
-    else if (firstItem?.source_transcript && typeof firstItem.source_transcript === 'object') {
-      // Try to find text in nested structure
-      const sourceText = (firstItem.source_transcript as any).text || 
-                        (firstItem.source_transcript as any).transcript ||
-                        (firstItem.source_transcript as any).content
-      if (sourceText) {
-        transcriptText = String(sourceText).trim()
-        console.log(`[${contentItemId}] ✅ Using source_transcript nested text`)
+    
+    // Priority 2: source_transcript.text (original transcript) - only if target wasn't found
+    if (!transcriptText && firstItem?.source_transcript) {
+      const sourceTranscript = firstItem.source_transcript
+      if (sourceTranscript.text) {
+        transcriptText = String(sourceTranscript.text).trim()
+        console.log(`[${contentItemId}] ✅ Using source_transcript.text (${sourceTranscript.language || 'unknown'})`)
+      } else if (typeof sourceTranscript === 'string') {
+        transcriptText = String(sourceTranscript).trim()
+        console.log(`[${contentItemId}] ✅ Using source_transcript as string`)
+      } else if (typeof sourceTranscript === 'object') {
+        // Try to find text in nested structure
+        const sourceText = (sourceTranscript as any).text || 
+                          (sourceTranscript as any).transcript ||
+                          (sourceTranscript as any).content ||
+                          (sourceTranscript as any).fullText
+        if (sourceText) {
+          transcriptText = String(sourceText).trim()
+          console.log(`[${contentItemId}] ✅ Using source_transcript nested text`)
+        }
       }
     }
     // Priority 4: Fallback to old field names (for compatibility)
@@ -995,10 +1062,6 @@ async function processYouTubeVideoWithApify(
     }
     
     console.log(`[${contentItemId}] ✅ Transcript extracted. Length: ${transcriptText.length} characters`)
-    
-    if (!transcriptText || transcriptText.length === 0) {
-      throw new Error("Empty transcription from Apify")
-    }
 
     const wordCount = transcriptText.split(/\s+/).filter(Boolean).length
     console.log(`[${contentItemId}] ✅ Apify transcription complete. Word count: ${wordCount} words`)
@@ -1030,12 +1093,16 @@ async function processYouTubeVideoWithApify(
           processingProgress: 100,
           transcriptionMethod: "apify_youtube_transcriber",
           source: "apify_api",
+          completedAt: new Date().toISOString(),
+          apifyRunId: run.id,
         }),
       },
     })
 
     clearTimeout(overallTimeout)
     console.log(`✅ YouTube video transcribed successfully using Apify: ${contentItemId}`)
+    console.log(`   - Word count: ${wordCount}`)
+    console.log(`   - Transcript length: ${transcriptText.length} characters`)
   } catch (error) {
     clearTimeout(overallTimeout)
     const errorMessage = error instanceof Error ? error.message : String(error)

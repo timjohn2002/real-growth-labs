@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 import { AddContentModal } from "@/components/dashboard/content-vault/AddContentModal"
 import { ContentCard } from "@/components/dashboard/content-vault/ContentCard"
 import { ContentDrawer } from "@/components/dashboard/content-vault/ContentDrawer"
 import { ContentFilters } from "@/components/dashboard/content-vault/ContentFilters"
 import { EmptyState } from "@/components/dashboard/content-vault/EmptyState"
 import { UploadForm } from "@/components/dashboard/content-vault/UploadForm"
+import { Toaster } from "sonner"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -26,6 +28,7 @@ interface ContentItem {
   duration?: string
   tags?: string[]
   uploadedAt: string
+  error?: string
   metadata?: {
     processingStage?: string
     processingProgress?: number
@@ -42,6 +45,7 @@ export default function ContentVaultPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [uploadType, setUploadType] = useState<"video" | "url" | "text" | "image" | null>(null)
   const [improvingSummaryId, setImprovingSummaryId] = useState<string | null>(null)
+  const previousStatuses = useRef<Map<string, string>>(new Map())
   
   // TODO: Get userId from auth context/session
   const userId = "user-1" // Placeholder - replace with actual auth
@@ -55,7 +59,32 @@ export default function ContentVaultPage() {
       })
       if (response.ok) {
         const data = await response.json()
-        setContentItems(data.items || [])
+        const newItems = data.items || []
+        
+        // Check for status changes and show notifications
+        newItems.forEach((item: ContentItem) => {
+          const previousStatus = previousStatuses.current.get(item.id)
+          if (previousStatus && previousStatus !== item.status) {
+            // Status changed
+            if (item.status === "ready" && previousStatus === "processing") {
+              // Show success notification
+              toast.success("Transcription Complete!", {
+                description: `${item.title} has been successfully transcribed.`,
+                duration: 5000,
+              })
+            } else if (item.status === "error" && previousStatus === "processing") {
+              // Show error notification
+              toast.error("Transcription Failed", {
+                description: item.error || "An error occurred during transcription.",
+                duration: 5000,
+              })
+            }
+          }
+          // Update previous status
+          previousStatuses.current.set(item.id, item.status)
+        })
+        
+        setContentItems(newItems)
         
         // Check for stuck processing items (processing for more than 10 minutes at 5% or 25 minutes total)
         const stuckItems = data.items?.filter((item: ContentItem) => {
@@ -415,6 +444,9 @@ export default function ContentVaultPage() {
         onDelete={handleDelete}
         isImprovingSummary={improvingSummaryId === selectedItem?.id}
       />
+      
+      {/* Toast Notifications */}
+      <Toaster position="top-right" richColors />
     </div>
   )
 }

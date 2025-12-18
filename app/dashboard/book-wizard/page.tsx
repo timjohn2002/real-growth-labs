@@ -39,6 +39,7 @@ export default function BookWizardPage() {
   const [selectedText, setSelectedText] = useState("")
   const [isContentVaultOpen, setIsContentVaultOpen] = useState(false)
   const [contentToInsert, setContentToInsert] = useState<string | null>(null)
+  const [insertTarget, setInsertTarget] = useState<"outline" | "editor">("editor")
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -335,17 +336,24 @@ export default function BookWizardPage() {
   }
 
   const handleInsertContentVault = (contentItem: any, contentType?: "summary" | "transcript" | "rawText") => {
-    // Handle images specially - insert as HTML img tag (TipTap doesn't parse markdown)
+    // Check which field has focus to determine insertion target
+    const activeElement = document.activeElement
+    const isOutlineFocused = activeElement?.tagName === "TEXTAREA" && 
+                             (activeElement as HTMLTextAreaElement).className.includes("font-mono")
+    
     if (contentItem.type === "image") {
       const imageUrl = contentItem.fileUrl || contentItem.thumbnail || contentItem.source
       if (!imageUrl) {
         alert("This image has no URL available.")
         return
       }
+      
+      // Images should always go to editor so they display fully
       // Insert as HTML img tag that TipTap can parse directly
       const altText = (contentItem.title || "Image").replace(/"/g, '&quot;')
       const safeUrl = imageUrl.replace(/"/g, '&quot;')
       const imageHtml = `<img src="${safeUrl}" alt="${altText}" class="max-w-full h-auto" />`
+      setInsertTarget("editor")
       setContentToInsert(imageHtml)
       return
     }
@@ -376,6 +384,12 @@ export default function BookWizardPage() {
       return
     }
 
+    // For text content: insert into outline if outline has focus, otherwise editor
+    if (isOutlineFocused) {
+      setInsertTarget("outline")
+    } else {
+      setInsertTarget("editor")
+    }
     setContentToInsert(content)
   }
 
@@ -570,6 +584,11 @@ export default function BookWizardPage() {
                       }
                     }}
                     onRegenerateOutline={handleRegenerateOutline}
+                    insertContent={insertTarget === "outline" ? contentToInsert : null}
+                    onInsertComplete={() => {
+                      setContentToInsert(null)
+                      setInsertTarget("editor")
+                    }}
                   />
                 </div>
                 {/* Editor container - match Full Book Editor structure */}
@@ -582,8 +601,11 @@ export default function BookWizardPage() {
                     onSubtitleChange={setBookSubtitle}
                     onContentChange={handleContentChange}
                     onSelectionChange={setSelectedText}
-                    insertContent={contentToInsert}
-                    onInsertComplete={() => setContentToInsert(null)}
+                    insertContent={insertTarget === "editor" ? contentToInsert : null}
+                    onInsertComplete={() => {
+                      setContentToInsert(null)
+                      setInsertTarget("editor")
+                    }}
                   />
                 </div>
                 {/* Bottom Actions */}

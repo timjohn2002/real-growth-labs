@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,6 +26,8 @@ interface BookOverviewProps {
   onSubtitleChange: (subtitle: string) => void
   onOutlineChange?: (outline: string) => void
   onRegenerateOutline: () => void
+  insertContent?: string | null
+  onInsertComplete?: () => void
 }
 
 export function BookOverview({
@@ -37,6 +39,8 @@ export function BookOverview({
   onSubtitleChange,
   onOutlineChange,
   onRegenerateOutline,
+  insertContent,
+  onInsertComplete,
 }: BookOverviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   // Use local state for editable values
@@ -68,6 +72,7 @@ export function BookOverview({
   
   // Get chapter-specific outline (sections) from the chapter content
   const [chapterOutline, setChapterOutline] = useState("")
+  const outlineTextareaRef = useRef<HTMLTextAreaElement>(null)
   
   useEffect(() => {
     if (activeChapter) {
@@ -103,6 +108,45 @@ export function BookOverview({
       setChapterOutline(outline.map((ch, index) => `${index + 1}. ${ch}`).join('\n'))
     }
   }, [activeChapter, outline])
+  
+  // Handle content insertion into outline at cursor position
+  useEffect(() => {
+    if (insertContent && outlineTextareaRef.current) {
+      const textarea = outlineTextareaRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const currentValue = chapterOutline
+      
+      // Insert content at cursor position
+      // For images, insert as markdown reference
+      let contentToInsert = insertContent
+      if (insertContent.includes('<img')) {
+        // Extract image URL and alt text from HTML img tag
+        const imgMatch = insertContent.match(/<img[^>]+src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/i)
+        if (imgMatch) {
+          const [, imageUrl, altText] = imgMatch
+          contentToInsert = `\n![${altText || 'Image'}](${imageUrl})\n`
+        } else {
+          // Fallback: just insert the HTML as text
+          contentToInsert = insertContent
+        }
+      }
+      
+      const newValue = currentValue.slice(0, start) + contentToInsert + currentValue.slice(end)
+      setChapterOutline(newValue)
+      onOutlineChange?.(newValue)
+      
+      // Set cursor position after inserted content
+      setTimeout(() => {
+        textarea.focus()
+        const newCursorPos = start + contentToInsert.length
+        textarea.setSelectionRange(newCursorPos, newCursorPos)
+      }, 0)
+      
+      // Notify parent that insertion is complete
+      onInsertComplete?.()
+    }
+  }, [insertContent, chapterOutline, onOutlineChange, onInsertComplete])
 
   return (
     <Card className="border-border shadow-sm mb-6 overflow-visible" style={{ margin: '2px' }}>
@@ -211,6 +255,7 @@ export function BookOverview({
                     {activeChapter ? `${activeChapter.title} - Outline` : "Book Outline"}
                   </label>
                   <Textarea
+                    ref={outlineTextareaRef}
                     value={chapterOutline}
                     onChange={(e) => {
                       setChapterOutline(e.target.value)

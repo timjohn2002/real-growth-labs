@@ -86,6 +86,7 @@ export function TipTapEditor({
       }),
     ],
     content,
+    editable: true, // Explicitly enable editing
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
@@ -106,8 +107,11 @@ export function TipTapEditor({
     editorProps: {
       attributes: {
         class: "focus:outline-none px-8 py-6",
+        contenteditable: "true",
       },
     },
+    enableInputRules: true,
+    enablePasteRules: true,
   })
 
   useEffect(() => {
@@ -115,9 +119,12 @@ export function TipTapEditor({
       const currentHTML = editor.getHTML()
       // Only update if content actually changed (avoid unnecessary updates and editing conflicts)
       if (content !== currentHTML) {
+        console.log(`[TipTapEditor] Content changed, updating editor. Content length: ${content?.length || 0}, Current HTML length: ${currentHTML.length}`)
         // Use setContent with emitUpdate set to false to avoid triggering updates
         // TipTap setContent accepts: setContent(content: string | JSONContent, options?: SetContentOptions)
         editor.commands.setContent(content || "", { emitUpdate: false })
+        // Ensure editor is editable after content update
+        editor.setEditable(true)
         // Scroll to top when content changes (e.g., when switching chapters)
         setTimeout(() => {
           if (scrollContainerRef.current) {
@@ -129,6 +136,13 @@ export function TipTapEditor({
       }
     }
   }, [content, editor, forceScrollUpdate])
+  
+  // Ensure editor is always editable
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(true)
+    }
+  }, [editor])
 
   // Handle content insertion
   useEffect(() => {

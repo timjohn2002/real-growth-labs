@@ -48,18 +48,19 @@ export function BookEditor({
   // Initialize content when chapter changes (only when chapter ID actually changes)
   useEffect(() => {
     if (chapter) {
-      // Only update content if chapter ID changed (user switched chapters)
+      // Always update content when chapter ID changes (user switched chapters)
       if (chapter.id !== prevChapterIdRef.current) {
         prevChapterIdRef.current = chapter.id
         const initialContent = chapter.content || ""
+        console.log(`[BookEditor] Chapter changed to ${chapter.id} (${chapter.title}), content length: ${initialContent.length}`)
         setContent(initialContent)
       }
-      // If same chapter, don't update content (allows user to edit without reset)
+      // If same chapter ID, don't update content (allows user to edit without reset)
     } else {
       prevChapterIdRef.current = null
       setContent("")
     }
-  }, [chapter?.id]) // Only watch chapter ID, not content (prevents edit loops)
+  }, [chapter?.id]) // Only watch chapter ID to prevent edit loops
 
   const handleContentChange = (value: string) => {
     setContent(value)

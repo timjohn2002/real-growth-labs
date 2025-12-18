@@ -454,9 +454,14 @@ export default function FullBookEditorPage() {
           onClose={() => setIsContentVaultOpen(false)}
           onSelect={(contentItem, contentType) => {
             // Handle images differently - insert image markdown
-            if (contentItem.type === "image" && contentItem.fileUrl) {
+            if (contentItem.type === "image") {
+              const imageUrl = contentItem.fileUrl || contentItem.thumbnail || (contentItem as any).source
+              if (!imageUrl) {
+                alert("This image has no URL available.")
+                return
+              }
               // Insert image markdown: ![alt text](image-url)
-              const imageMarkdown = `![${contentItem.title}](${contentItem.fileUrl})`
+              const imageMarkdown = `![${contentItem.title || "Image"}](${imageUrl})`
               setContentToInsert(imageMarkdown)
             } else {
               // Use the specified content type, or fall back to auto-detection

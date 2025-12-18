@@ -288,6 +288,19 @@ export default function BookWizardPage() {
   }
 
   const handleInsertContentVault = (contentItem: any, contentType?: "summary" | "transcript" | "rawText") => {
+    // Handle images specially - insert as image markdown
+    if (contentItem.type === "image") {
+      const imageUrl = contentItem.fileUrl || contentItem.thumbnail || contentItem.source
+      if (!imageUrl) {
+        alert("This image has no URL available.")
+        return
+      }
+      // Insert as markdown image format that TipTap can parse: ![alt](url)
+      const imageMarkdown = `![${contentItem.title || "Image"}](${imageUrl})`
+      setContentToInsert(imageMarkdown)
+      return
+    }
+    
     // Use the specified content type, or fall back to auto-detection
     let content = ""
     if (contentType === "summary") {

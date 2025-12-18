@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Undo2, Redo2, History } from "lucide-react"
+import { History } from "lucide-react"
+import { TipTapEditor } from "@/components/dashboard/book-editor/TipTapEditor"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -42,7 +42,7 @@ export function BookEditor({
   const editorContentRef = useRef<HTMLDivElement>(null)
   const historyRef = useRef<string[]>([])
   const historyIndexRef = useRef<number>(-1)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [currentInsertContent, setCurrentInsertContent] = useState<string | null>(null)
 
   // Initialize history when chapter changes
   useEffect(() => {
@@ -61,110 +61,19 @@ export function BookEditor({
   const handleContentChange = (value: string) => {
     setContent(value)
     onContentChange(value)
-    
-    // Add to history (only if different from last entry)
-    const history = historyRef.current
-    const index = historyIndexRef.current
-    
-    if (value !== history[index]) {
-      // Remove any future history if we're not at the end
-      history.splice(index + 1)
-      history.push(value)
-      historyIndexRef.current = history.length - 1
-      
-      // Limit history to 50 entries
-      if (history.length > 50) {
-        history.shift()
-        historyIndexRef.current = history.length - 1
-      }
-    }
   }
 
-  const handleUndo = () => {
-    const history = historyRef.current
-    const index = historyIndexRef.current
-    
-    if (index > 0) {
-      historyIndexRef.current = index - 1
-      const previousContent = history[index - 1]
-      setContent(previousContent)
-      onContentChange(previousContent)
-    }
-  }
-
-  const handleRedo = () => {
-    const history = historyRef.current
-    const index = historyIndexRef.current
-    
-    if (index < history.length - 1) {
-      historyIndexRef.current = index + 1
-      const nextContent = history[index + 1]
-      setContent(nextContent)
-      onContentChange(nextContent)
-    }
-  }
-
-  const canUndo = historyIndexRef.current > 0
-  const canRedo = historyIndexRef.current < historyRef.current.length - 1
-
-  // Handle content insertion
+  // Handle content insertion - pass to TipTapEditor
   useEffect(() => {
-    if (insertContent && textareaRef.current) {
-      const textarea = textareaRef.current
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const currentContent = content
-      
-      // Check if inserting an image markdown - convert to HTML img tag for display
-      let contentToInsert = insertContent
-      const trimmedContent = insertContent.trim()
-      
-      // Check if content is an image markdown: ![alt](url)
-      const imageMarkdownRegex = /^!\[([^\]]*)\]\(([\s\S]+?)\)$/
-      const imageMatch = trimmedContent.match(imageMarkdownRegex)
-      
-      if (imageMatch) {
-        // It's an image - extract alt text and URL
-        const altText = imageMatch[1] || "Image"
-        let imageUrl = imageMatch[2].trim()
-        
-        // Clean up base64 data URIs
-        if (imageUrl.startsWith("data:")) {
-          const dataUriMatch = imageUrl.match(/^(data:[^;]+;base64,)([\s\S]+)$/)
-          if (dataUriMatch) {
-            const prefix = dataUriMatch[1]
-            const base64Data = dataUriMatch[2].replace(/\s+/g, "")
-            imageUrl = prefix + base64Data
-          } else {
-            imageUrl = imageUrl.replace(/\s+/g, "")
-          }
-        }
-        
-        // Convert markdown image to HTML img tag for display in textarea
-        // Note: Textarea can't render images, but we'll store it as HTML so it can be converted later
-        contentToInsert = `<img src="${imageUrl}" alt="${altText}" />`
-      }
-      
-      // Insert content at cursor position or append
-      const newContent = 
-        currentContent.substring(0, start) + 
-        contentToInsert + 
-        currentContent.substring(end)
-      
-      handleContentChange(newContent)
-      
-      // Set cursor position after inserted content
-      setTimeout(() => {
-        if (textareaRef.current) {
-          const newPosition = start + contentToInsert.length
-          textareaRef.current.setSelectionRange(newPosition, newPosition)
-          textareaRef.current.focus()
-        }
-      }, 0)
-      
-      onInsertComplete?.()
+    if (insertContent) {
+      setCurrentInsertContent(insertContent)
     }
-  }, [insertContent, onInsertComplete])
+  }, [insertContent])
+
+  const handleInsertComplete = () => {
+    setCurrentInsertContent(null)
+    onInsertComplete?.()
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -174,24 +83,6 @@ export function BookEditor({
           {chapter ? chapter.title : "Book Editor"}
         </h2>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={handleUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className={`h-4 w-4 ${canUndo ? "" : "opacity-50"}`} />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={handleRedo}
-            disabled={!canRedo}
-            title="Redo (Ctrl+Y)"
-          >
-            <Redo2 className={`h-4 w-4 ${canRedo ? "" : "opacity-50"}`} />
-          </Button>
           <Button variant="ghost" size="sm" title="Version history (coming soon)">
             <History className="h-4 w-4 mr-2" />
             Version
@@ -229,33 +120,14 @@ export function BookEditor({
           </div>
         )}
 
-        {/* Chapter Content Editor */}
-        <Textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => handleContentChange(e.target.value)}
-          onSelect={(e) => {
-            const textarea = e.target as HTMLTextAreaElement
-            const selected = textarea.value.substring(
-              textarea.selectionStart,
-              textarea.selectionEnd
-            )
-            onSelectionChange?.(selected)
-          }}
-          onKeyDown={(e) => {
-            // Handle Ctrl+Z (undo) and Ctrl+Y (redo)
-            if (e.ctrlKey || e.metaKey) {
-              if (e.key === "z" && !e.shiftKey) {
-                e.preventDefault()
-                handleUndo()
-              } else if ((e.key === "y") || (e.key === "z" && e.shiftKey)) {
-                e.preventDefault()
-                handleRedo()
-              }
-            }
-          }}
-          className="min-h-[500px] border-none shadow-none resize-none text-base leading-relaxed focus-visible:ring-0 p-0"
+        {/* Chapter Content Editor - Use TipTapEditor to support images */}
+        <TipTapEditor
+          content={content}
           placeholder="Start writing your chapter content..."
+          onUpdate={handleContentChange}
+          onSelectionChange={onSelectionChange}
+          insertContent={currentInsertContent}
+          onInsertComplete={handleInsertComplete}
         />
       </div>
     </div>

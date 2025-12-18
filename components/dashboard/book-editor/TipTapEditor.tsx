@@ -563,6 +563,17 @@ export function TipTapEditor({
             outline: none;
             height: auto;
             overflow: visible;
+            pointer-events: auto;
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+          }
+          .ProseMirror[contenteditable="false"] {
+            pointer-events: none;
+          }
+          .ProseMirror[contenteditable="true"] {
+            pointer-events: auto;
           }
           .ProseMirror img {
             max-width: 100%;

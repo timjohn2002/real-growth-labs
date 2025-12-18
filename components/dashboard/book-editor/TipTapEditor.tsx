@@ -32,16 +32,35 @@ export function TipTapEditor({
 }: TipTapEditorProps) {
   // Helper function to force scroll container to recalculate
   const forceScrollUpdate = useCallback((container: Element) => {
-    // Force a layout recalculation
+    if (!(container instanceof HTMLElement)) return
+    
+    // Force a layout recalculation by reading layout properties
     void container.clientHeight
-    // Trigger a scroll event to ensure browser recalculates scrollHeight
-    container.dispatchEvent(new Event('scroll', { bubbles: true }))
-    // Also try to force a reflow
-    if (container instanceof HTMLElement) {
-      container.style.display = 'none'
-      void container.offsetHeight // Force reflow
-      container.style.display = ''
+    void container.scrollHeight
+    void container.offsetHeight
+    
+    // Trigger a resize event to force browser to recalculate
+    if (typeof ResizeObserver !== 'undefined') {
+      // Use ResizeObserver if available
+      const resizeObserver = new ResizeObserver(() => {
+        // Force scroll height recalculation
+        void container.scrollHeight
+      })
+      resizeObserver.observe(container)
+      setTimeout(() => resizeObserver.disconnect(), 100)
     }
+    
+    // Also trigger scroll event
+    container.dispatchEvent(new Event('scroll', { bubbles: true }))
+    
+    // Force a reflow by toggling display (more aggressive)
+    const originalDisplay = container.style.display
+    container.style.display = 'none'
+    void container.offsetHeight // Force reflow
+    container.style.display = originalDisplay || ''
+    
+    // One more read to ensure browser has recalculated
+    void container.scrollHeight
   }, [])
 
   const editor = useEditor({
@@ -83,7 +102,7 @@ export function TipTapEditor({
     },
     editorProps: {
       attributes: {
-        class: "focus:outline-none min-h-[500px] px-8 py-6",
+        class: "focus:outline-none px-8 py-6",
       },
     },
   })
@@ -172,16 +191,21 @@ export function TipTapEditor({
                   
                   // Wait for image to load before scrolling
                   if (lastImage.complete) {
-                    // Image already loaded
+                    // Image already loaded - force multiple updates
                     forceScrollUpdate(editorScrollContainer)
+                    setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
+                    setTimeout(() => forceScrollUpdate(editorScrollContainer), 300)
                   } else {
                     // Wait for image to load
                     lastImage.onload = () => {
                       forceScrollUpdate(editorScrollContainer)
+                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
+                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 300)
                     }
                     lastImage.onerror = () => {
                       // Even if image fails to load, update scroll
                       forceScrollUpdate(editorScrollContainer)
+                      setTimeout(() => forceScrollUpdate(editorScrollContainer), 100)
                     }
                   }
                 }
@@ -307,6 +331,9 @@ export function TipTapEditor({
                                    editor.view.dom.closest('[class*="overflow"]')
       if (editorScrollContainer) {
         forceScrollUpdate(editorScrollContainer)
+        // Also update after a delay to ensure browser has recalculated
+        setTimeout(() => forceScrollUpdate(editorScrollContainer), 50)
+        setTimeout(() => forceScrollUpdate(editorScrollContainer), 200)
       }
     }
 
@@ -469,12 +496,19 @@ export function TipTapEditor({
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-y-auto bg-background min-h-0" style={{ overscrollBehavior: 'contain' }}>
+      <div 
+        className="flex-1 overflow-y-auto bg-background min-h-0" 
+        style={{ 
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         <style jsx global>{`
           .ProseMirror {
             min-height: 100%;
             padding: 1.5rem 2rem;
             outline: none;
+            height: auto;
           }
           .ProseMirror img {
             max-width: 100%;
@@ -486,6 +520,10 @@ export function TipTapEditor({
           }
           .ProseMirror:focus {
             outline: none;
+          }
+          /* Ensure the editor content container expands with content */
+          .ProseMirror > * {
+            min-height: auto;
           }
         `}</style>
         <EditorContent editor={editor} />

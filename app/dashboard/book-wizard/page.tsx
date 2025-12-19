@@ -92,11 +92,37 @@ export default function BookWizardPage() {
       const data = await response.json()
       const generatedChapters = data.chapters || []
       
-      console.log("[BookWizard] ✅ Generated chapters:", generatedChapters.map((ch: any) => ({
-        id: ch.id,
-        title: ch.title,
-        contentLength: ch.content.length,
-      })))
+      console.log("[BookWizard] ✅ Generated chapters:", generatedChapters.map((ch: any) => {
+        const wordCount = ch.content.split(/\s+/).filter(Boolean).length
+        return {
+          id: ch.id,
+          title: ch.title,
+          contentLength: ch.content.length,
+          wordCount,
+        }
+      }))
+      
+      if (data.stats) {
+        console.log("[BookWizard] 📊 Generation stats:", data.stats)
+      }
+      
+      // Validate we got actual content
+      if (generatedChapters.length === 0) {
+        throw new Error("No chapters were generated. Please try again.")
+      }
+      
+      // Check if chapters have substantial content
+      const chaptersWithLowContent = generatedChapters.filter((ch: any) => {
+        const wordCount = ch.content.split(/\s+/).filter(Boolean).length
+        return wordCount < 300
+      })
+      
+      if (chaptersWithLowContent.length > 0) {
+        console.warn("[BookWizard] ⚠️ Some chapters have low word count:", chaptersWithLowContent.map((ch: any) => ({
+          title: ch.title,
+          words: ch.content.split(/\s+/).filter(Boolean).length
+        })))
+      }
       
       // Convert markdown content to HTML for TipTap editor
       const chaptersWithHTML = generatedChapters.map((ch: any) => ({

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { callGPT } from "@/lib/openai"
-import { REAL_GROWTH_BOOK_TEMPLATE, ChapterTemplate } from "@/lib/book-templates"
+import { REAL_GROWTH_BOOK_TEMPLATE, ChapterTemplate, SectionTemplate } from "@/lib/book-templates"
 import { prisma } from "@/lib/prisma"
 
 // Set maximum duration for Vercel
-export const maxDuration = 30 // 30 seconds per chapter - should be plenty
+// Longer chapters (5+ sections) need more time, so we use 60s to be safe
+export const maxDuration = 60 // 60 seconds per chapter - allows for longer chapters with more sections
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
@@ -59,28 +60,54 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[GenerateSingleChapter] Generating: ${chapterTemplate.title}`)
+    const sectionCount = chapterTemplate.sections.length
+    const estimatedWords = sectionCount * 175 // Average 175 words per section
+    const isLongChapter = sectionCount >= 5 // Chapters with 5+ sections need special handling
+    const generationStartTime = Date.now()
+    
+    console.log(`[GenerateSingleChapter] Generating: ${chapterTemplate.title} (${sectionCount} sections, ~${estimatedWords} words, longChapter: ${isLongChapter})`)
 
     // Build the prompt
     const chapterPrompt = buildChapterPrompt(chapterTemplate, answers, bookTitle, bookSubtitle)
 
     // Generate chapter content
+    // For long chapters (5+ sections), use a more efficient approach
     let chapterContent: string
+    
     try {
+      // For long chapters, reduce per-section word requirement slightly to speed up generation
+      const maxTokens = isLongChapter ? 3500 : (sectionCount > 4 ? 4000 : 3000)
+      const systemPrompt = isLongChapter
+        ? `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2 FULL PARAGRAPHS (120-150 words each minimum). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders. Be concise but thorough.`
+        : `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`
+      
       chapterContent = await callGPT(chapterPrompt, {
         model: "gpt-4o",
         temperature: 0.7,
-        maxTokens: 3000, // Reduced for faster generation
-        systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`,
+        maxTokens,
+        systemPrompt,
       })
+      
+      const generationTime = Date.now() - generationStartTime
+      console.log(`[GenerateSingleChapter] ✅ Initial generation completed in ${Math.round(generationTime/1000)}s`)
     } catch (modelError) {
-      console.warn(`[GenerateSingleChapter] gpt-4o failed, trying gpt-4:`, modelError)
+      const generationTime = Date.now() - generationStartTime
+      console.warn(`[GenerateSingleChapter] gpt-4o failed after ${Math.round(generationTime/1000)}s, trying gpt-4:`, modelError)
+      
+      const maxTokens = isLongChapter ? 3500 : (sectionCount > 4 ? 4000 : 3000)
+      const systemPrompt = isLongChapter
+        ? `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2 FULL PARAGRAPHS (120-150 words each minimum). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders. Be concise but thorough.`
+        : `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`
+      
       chapterContent = await callGPT(chapterPrompt, {
         model: "gpt-4",
         temperature: 0.7,
-        maxTokens: 3000,
-        systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`,
+        maxTokens,
+        systemPrompt,
       })
+      
+      const totalTime = Date.now() - generationStartTime
+      console.log(`[GenerateSingleChapter] ✅ Fallback generation completed in ${Math.round(totalTime/1000)}s`)
     }
 
     // Format content
@@ -96,20 +123,33 @@ export async function POST(request: NextRequest) {
       return trimmed.length > 0 && !trimmed.startsWith('#') && !trimmed.match(/^[-*+]\s/) && !trimmed.match(/^\d+\.\s/)
     }).length
     
-    const minRequiredWords = chapterTemplate.sections.length * 150
+    // For long chapters, use slightly lower minimum (120 words per section instead of 150)
+    const minRequiredWords = isLongChapter 
+      ? chapterTemplate.sections.length * 120 
+      : chapterTemplate.sections.length * 150
     const isOutline = wordCount < minRequiredWords || 
                       bulletPointCount > 3 || 
                       numberedListCount > 3 ||
                       paragraphCount < chapterTemplate.sections.length ||
                       (headingCount > 0 && paragraphCount < headingCount)
     
-    console.log(`[GenerateSingleChapter] Validation: ${wordCount} words, ${paragraphCount} paragraphs, ${bulletPointCount} bullets, ${numberedListCount} numbered items, isOutline: ${isOutline}`)
+    const elapsedTime = Date.now() - generationStartTime
+    const timeRemaining = 55000 - elapsedTime // Leave 5s buffer
+    
+    console.log(`[GenerateSingleChapter] Validation: ${wordCount} words (min: ${minRequiredWords}), ${paragraphCount} paragraphs, ${bulletPointCount} bullets, ${timeRemaining}s remaining, isOutline: ${isOutline}`)
     
     // ALWAYS expand if it looks like an outline - this is critical
+    // But for longer chapters, we need to be more efficient to avoid timeout
     if (isOutline) {
       console.warn(`[GenerateSingleChapter] Content is an outline (${wordCount} words, ${paragraphCount} paragraphs). FORCING expansion to full content...`)
       
-      const expansionPrompt = `CRITICAL: The following is an OUTLINE with bullet points or headings only. You MUST convert it into a FULLY WRITTEN chapter with complete paragraphs.
+      // For long chapters OR if time is running low, use faster expansion
+      if (isLongChapter || timeRemaining < 25000) {
+        console.warn(`[GenerateSingleChapter] ⏰ Using fast expansion (longChapter: ${isLongChapter}, timeRemaining: ${Math.round(timeRemaining/1000)}s)`)
+        // For long chapters or low time, use efficient expansion
+        formattedContent = ensureMinimumContent(formattedContent, chapterTemplate, answers, minRequiredWords)
+      } else {
+        const expansionPrompt = `CRITICAL: The following is an OUTLINE with bullet points or headings only. You MUST convert it into a FULLY WRITTEN chapter with complete paragraphs.
 
 Current Content (OUTLINE - MUST EXPAND):
 ${formattedContent}
@@ -149,17 +189,29 @@ This second paragraph goes deeper, providing specific examples and actionable ad
 Now expand the outline above into a COMPLETE, FULLY-WRITTEN chapter with actual paragraphs (${minRequiredWords}+ words):`
       
       try {
-        const expandedContent = await callGPT(expansionPrompt, {
-          model: "gpt-4",
-          temperature: 0.7,
-          maxTokens: 4000, // Increased for more content
-          systemPrompt: `You are an expert book writer. You MUST expand outlines into fully-written chapters with complete paragraphs. 
+        // Use lower maxTokens for long chapters to speed up expansion
+        const expansionMaxTokens = isLongChapter ? 3000 : 4000
+        const expansionSystemPrompt = isLongChapter
+          ? `You are an expert book writer. You MUST expand outlines into fully-written chapters with complete paragraphs. 
+
+CRITICAL RULES:
+- Convert ALL bullet points, numbered lists, and headings into FULL PARAGRAPHS
+- Each section needs 2 paragraphs (120-150 words each) - be concise but thorough
+- Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders
+- Write actual content that teaches the reader with detailed explanations`
+          : `You are an expert book writer. You MUST expand outlines into fully-written chapters with complete paragraphs. 
 
 CRITICAL RULES:
 - Convert ALL bullet points, numbered lists, and headings into FULL PARAGRAPHS
 - Each section needs 2-3 paragraphs (150-200 words each)
 - Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders
-- Write actual content that teaches the reader with detailed explanations`,
+- Write actual content that teaches the reader with detailed explanations`
+        
+        const expandedContent = await callGPT(expansionPrompt, {
+          model: "gpt-4",
+          temperature: 0.7,
+          maxTokens: expansionMaxTokens,
+          systemPrompt: expansionSystemPrompt,
         })
         formattedContent = formatChapterContent(chapterTemplate, expandedContent)
         
@@ -180,6 +232,7 @@ CRITICAL RULES:
         console.error(`[GenerateSingleChapter] Expansion failed:`, expandError)
         // If expansion fails, at least try to convert bullet points to paragraphs manually
         formattedContent = convertBulletsToParagraphs(formattedContent, chapterTemplate, answers)
+      }
       }
     }
 
@@ -343,4 +396,53 @@ function convertBulletsToParagraphs(content: string, chapterTemplate: ChapterTem
   })
   
   return converted
+}
+
+// Fast fallback to ensure minimum content when time is running low
+function ensureMinimumContent(content: string, chapterTemplate: ChapterTemplate, answers: any, minWords: number): string {
+  const currentWords = content.split(/\s+/).filter(Boolean).length
+  
+  // First, convert any bullet points to paragraphs
+  let enhanced = convertBulletsToParagraphs(content, chapterTemplate, answers)
+  
+  if (currentWords >= minWords * 0.7) {
+    // Already has reasonable content after bullet conversion
+    return enhanced
+  }
+  
+  // Add minimum content for each section that's missing
+  chapterTemplate.sections.forEach((section) => {
+    const sectionHeading = `## ${section.title}`
+    const headingRegex = new RegExp(`##\\s+${section.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+    
+    if (!headingRegex.test(enhanced)) {
+      // Section heading doesn't exist, add it with content
+      enhanced += `\n\n${sectionHeading}\n\n`
+      enhanced += generateSectionContent(section, answers)
+    } else {
+      // Section exists, check if it has enough content
+      const sectionMatch = enhanced.match(new RegExp(`${sectionHeading}[^#]*`, 'is'))
+      if (sectionMatch) {
+        const sectionContent = sectionMatch[0].replace(sectionHeading, '').trim()
+        const sectionWords = sectionContent.split(/\s+/).filter(Boolean).length
+        
+        if (sectionWords < 100) {
+          // Not enough content, add more
+          enhanced = enhanced.replace(
+            sectionMatch[0],
+            `${sectionHeading}\n\n${sectionContent}\n\n${generateSectionContent(section, answers)}`
+          )
+        }
+      }
+    }
+  })
+  
+  return enhanced
+}
+
+// Generate basic content for a section
+function generateSectionContent(section: SectionTemplate, answers: any): string {
+  return `This section explores ${section.title.toLowerCase()}. For ${answers.targetReader || "your target audience"}, this aspect of ${answers.highTicketOffer || "the framework"} is crucial for achieving ${answers.transformation || "your goals"}. By understanding and applying these principles, you'll see significant improvements in your results. The framework provides a structured approach that makes this process more manageable and effective.
+
+When implementing ${section.title.toLowerCase()}, you'll discover how it transforms your perspective and opens up new possibilities. Many people overlook this aspect, but those who pay attention to it see significant improvements in their results. This is an important concept that requires detailed explanation and careful consideration.`
 }

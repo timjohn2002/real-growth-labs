@@ -66,11 +66,14 @@ Additional Content: ${answers.additionalContent || ""}
         console.log(`[GenerateChapters] Generating chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title}`)
         
         // Generate full chapter content using GPT
-        const chapterContent = await callGPT(chapterPrompt, {
-          model: "gpt-4",
-          temperature: 0.7,
-          maxTokens: 6000, // Increased tokens for full chapter content with multiple sections
-          systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
+        // Use gpt-4o for better quality and cost efficiency, fallback to gpt-4
+        let chapterContent: string
+        try {
+          chapterContent = await callGPT(chapterPrompt, {
+            model: "gpt-4o",
+            temperature: 0.7,
+            maxTokens: 6000, // Increased tokens for full chapter content with multiple sections
+            systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
 
 CRITICAL INSTRUCTIONS:
 - Write COMPLETE, FULLY-DEVELOPED paragraphs - NOT outlines, bullet points, or placeholders
@@ -79,7 +82,25 @@ CRITICAL INSTRUCTIONS:
 - Include examples, stories, and actionable advice in paragraph form
 - Do NOT write lists or bullet points as the main content - use paragraphs
 - The user wants a FULLY WRITTEN BOOK, not an outline`,
-        })
+          })
+        } catch (modelError) {
+          // Fallback to gpt-4 if gpt-4o is not available
+          console.warn(`[GenerateChapters] gpt-4o failed, trying gpt-4:`, modelError)
+          chapterContent = await callGPT(chapterPrompt, {
+            model: "gpt-4",
+            temperature: 0.7,
+            maxTokens: 6000,
+            systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
+
+CRITICAL INSTRUCTIONS:
+- Write COMPLETE, FULLY-DEVELOPED paragraphs - NOT outlines, bullet points, or placeholders
+- Each section must have 300-500+ words of actual written content
+- Write full sentences, complete thoughts, and detailed explanations
+- Include examples, stories, and actionable advice in paragraph form
+- Do NOT write lists or bullet points as the main content - use paragraphs
+- The user wants a FULLY WRITTEN BOOK, not an outline`,
+          })
+        }
 
         // Format the content with proper headings
         let formattedContent = formatChapterContent(chapterTemplate, chapterContent)

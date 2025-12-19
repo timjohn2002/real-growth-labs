@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { callGPT } from "@/lib/openai"
 import { REAL_GROWTH_BOOK_TEMPLATE, ChapterTemplate } from "@/lib/book-templates"
 
+// Set maximum duration for Vercel (Pro plan: 300s, Fluid Compute: 800s)
+export const maxDuration = 300 // 5 minutes for Pro plan
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     // Check if OpenAI API key is configured
@@ -41,12 +45,22 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate full content for each chapter using AI
-    const generatedChapters = []
+    // Generate in parallel batches to avoid timeout (3 chapters at a time)
+    const generatedChapters: Array<{ id: string; number: number; title: string; content: string }> = []
     const totalChapters = REAL_GROWTH_BOOK_TEMPLATE.length
+    const batchSize = 3 // Generate 3 chapters in parallel to speed up and avoid timeout
 
-    for (let i = 0; i < REAL_GROWTH_BOOK_TEMPLATE.length; i++) {
-      const chapterTemplate = REAL_GROWTH_BOOK_TEMPLATE[i]
-      try {
+    // Process chapters in batches
+    for (let batchStart = 0; batchStart < REAL_GROWTH_BOOK_TEMPLATE.length; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, REAL_GROWTH_BOOK_TEMPLATE.length)
+      const batch = REAL_GROWTH_BOOK_TEMPLATE.slice(batchStart, batchEnd)
+      
+      console.log(`[GenerateChapters] Processing batch ${Math.floor(batchStart / batchSize) + 1}: chapters ${batchStart + 1}-${batchEnd}`)
+      
+      // Generate chapters in this batch in parallel
+      const batchPromises = batch.map(async (chapterTemplate, batchIndex) => {
+        const i = batchStart + batchIndex
+        try {
         // Build context for this chapter (used in both initial generation and expansion)
         const context = `
 Book Title: ${bookTitle || "Your Book"}
@@ -148,38 +162,50 @@ Write the complete expanded chapter now:`
           }
         }
         
-        generatedChapters.push({
-          id: chapterTemplate.id,
-          number: chapterTemplate.number,
-          title: chapterTemplate.title,
-          content: formattedContent,
-        })
-
-        const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
-        console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${formattedContent.length} chars, ${finalWordCount} words)`)
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, errorMsg)
-        
-        // If it's an API key error, throw it up so user knows
-        if (errorMsg.includes("OPENAI_API_KEY") || errorMsg.includes("not configured")) {
-          throw new Error(`OpenAI API key not configured: ${errorMsg}`)
+          return {
+            id: chapterTemplate.id,
+            number: chapterTemplate.number,
+            title: chapterTemplate.title,
+            content: formattedContent,
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : "Unknown error"
+          console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, errorMsg)
+          
+          // If it's an API key error, throw it up so user knows
+          if (errorMsg.includes("OPENAI_API_KEY") || errorMsg.includes("not configured")) {
+            throw new Error(`OpenAI API key not configured: ${errorMsg}`)
+          }
+          
+          // Fallback to template structure if AI generation fails for this specific chapter
+          return {
+            id: chapterTemplate.id,
+            number: chapterTemplate.number,
+            title: chapterTemplate.title,
+            content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed: ${errorMsg}. Please edit manually.]`,
+          }
         }
-        
-        // Fallback to template structure if AI generation fails for this specific chapter
-        generatedChapters.push({
-          id: chapterTemplate.id,
-          number: chapterTemplate.number,
-          title: chapterTemplate.title,
-          content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed: ${errorMsg}. Please edit manually.]`,
-        })
-      }
+      })
+      
+      // Wait for all chapters in this batch to complete
+      const batchResults = await Promise.all(batchPromises)
+      
+      // Sort results by chapter number to maintain order
+      batchResults.sort((a, b) => a.number - b.number)
+      generatedChapters.push(...batchResults)
+      
+      console.log(`[GenerateChapters] ✅ Completed batch ${Math.floor(batchStart / batchSize) + 1}: ${batchResults.length} chapters generated`)
     }
+
+    // Sort all chapters by number to ensure correct order
+    generatedChapters.sort((a, b) => a.number - b.number)
 
     // Validate we got at least some chapters
     if (generatedChapters.length === 0) {
       throw new Error("No chapters were generated. Please check your OpenAI API key and try again.")
     }
+    
+    console.log(`[GenerateChapters] ✅ Successfully generated ${generatedChapters.length} chapters`)
 
     return NextResponse.json({
       chapters: generatedChapters,

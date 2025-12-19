@@ -4,6 +4,15 @@ import { REAL_GROWTH_BOOK_TEMPLATE, ChapterTemplate } from "@/lib/book-templates
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("[GenerateChapters] OPENAI_API_KEY not configured")
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY is not configured. Please set it in your environment variables." },
+        { status: 500 }
+      )
+    }
+
     const { getUserIdFromRequest } = await import("@/lib/auth")
     const userId = await getUserIdFromRequest(request)
 
@@ -23,6 +32,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    console.log("[GenerateChapters] Starting generation with:", {
+      bookTitle,
+      bookSubtitle,
+      hasAnswers: !!answers,
+      chapterCount: REAL_GROWTH_BOOK_TEMPLATE.length,
+    })
 
     // Generate full content for each chapter using AI
     const generatedChapters = []
@@ -121,15 +137,27 @@ Write the complete expanded chapter now:`
         const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
         console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${formattedContent.length} chars, ${finalWordCount} words)`)
       } catch (error) {
-        console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, error)
-        // Fallback to template structure if AI generation fails
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+        console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, errorMsg)
+        
+        // If it's an API key error, throw it up so user knows
+        if (errorMsg.includes("OPENAI_API_KEY") || errorMsg.includes("not configured")) {
+          throw new Error(`OpenAI API key not configured: ${errorMsg}`)
+        }
+        
+        // Fallback to template structure if AI generation fails for this specific chapter
         generatedChapters.push({
           id: chapterTemplate.id,
           number: chapterTemplate.number,
           title: chapterTemplate.title,
-          content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed. Please edit manually.]`,
+          content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed: ${errorMsg}. Please edit manually.]`,
         })
       }
+    }
+
+    // Validate we got at least some chapters
+    if (generatedChapters.length === 0) {
+      throw new Error("No chapters were generated. Please check your OpenAI API key and try again.")
     }
 
     return NextResponse.json({
@@ -138,8 +166,20 @@ Write the complete expanded chapter now:`
     })
   } catch (error) {
     console.error("Generate chapters error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate chapters"
+    
+    // Provide more specific error messages
+    let userFriendlyError = errorMessage
+    if (errorMessage.includes("OPENAI_API_KEY")) {
+      userFriendlyError = "OpenAI API key is not configured. Please add OPENAI_API_KEY to your Vercel environment variables."
+    } else if (errorMessage.includes("Unauthorized") || errorMessage.includes("401")) {
+      userFriendlyError = "Authentication failed. Please log in and try again."
+    } else if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
+      userFriendlyError = "OpenAI API rate limit exceeded. Please wait a moment and try again."
+    }
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate chapters" },
+      { error: userFriendlyError },
       { status: 500 }
     )
   }

@@ -84,7 +84,9 @@ export default function BookWizardPage() {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to generate chapters")
+        const errorMessage = errorData.error || `Failed to generate chapters (${response.status})`
+        console.error("[BookWizard] API error:", errorMessage, "Status:", response.status)
+        throw new Error(errorMessage)
       }
       
       const data = await response.json()
@@ -140,8 +142,17 @@ export default function BookWizardPage() {
       setCurrentStep("draft")
     } catch (error) {
       console.error("[BookWizard] ❌ Chapter generation failed:", error)
-      alert(`Failed to generate book: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      
+      // Check if it's an API key issue
+      if (errorMessage.includes("OPENAI_API_KEY") || errorMessage.includes("not configured")) {
+        alert(`AI generation requires OpenAI API key to be configured. Please configure OPENAI_API_KEY in your environment variables. For now, showing template structure.`)
+      } else {
+        alert(`Failed to generate book: ${errorMessage}. Please check your OpenAI API key is configured and try again.`)
+      }
+      
       // Fallback to template structure if AI generation fails
+      console.log("[BookWizard] Falling back to template structure")
       const fallbackChapters = generateAllChapters(answers)
       const chaptersWithHTML = fallbackChapters.map((ch: any) => ({
         ...ch,

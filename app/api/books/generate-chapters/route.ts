@@ -47,22 +47,26 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate full content for each chapter using AI
-    // Generate in parallel batches to avoid timeout (3 chapters at a time)
+    // Generate sequentially to avoid timeout - return partial results if needed
     const generatedChapters: Array<{ id: string; number: number; title: string; content: string }> = []
     const totalChapters = REAL_GROWTH_BOOK_TEMPLATE.length
-    const batchSize = 2 // Generate 2 chapters in parallel to ensure we complete within 60s timeout
-
-    // Process chapters in batches
-    for (let batchStart = 0; batchStart < REAL_GROWTH_BOOK_TEMPLATE.length; batchStart += batchSize) {
-      const batchEnd = Math.min(batchStart + batchSize, REAL_GROWTH_BOOK_TEMPLATE.length)
-      const batch = REAL_GROWTH_BOOK_TEMPLATE.slice(batchStart, batchEnd)
+    const startTime = Date.now()
+    const maxTime = 50000 // 50 seconds - leave 10s buffer for response
+    
+    // Generate chapters one at a time (sequential) to maximize how many we can complete
+    for (let i = 0; i < REAL_GROWTH_BOOK_TEMPLATE.length; i++) {
+      const chapterTemplate = REAL_GROWTH_BOOK_TEMPLATE[i]
       
-      console.log(`[GenerateChapters] Processing batch ${Math.floor(batchStart / batchSize) + 1}: chapters ${batchStart + 1}-${batchEnd}`)
+      // Check if we're running out of time
+      const elapsed = Date.now() - startTime
+      if (elapsed > maxTime) {
+        console.warn(`[GenerateChapters] ⏰ Time limit approaching (${elapsed}ms). Generated ${generatedChapters.length}/${totalChapters} chapters. Returning partial results.`)
+        break
+      }
       
-      // Generate chapters in this batch in parallel
-      const batchPromises = batch.map(async (chapterTemplate, batchIndex) => {
-        const i = batchStart + batchIndex
-        try {
+      console.log(`[GenerateChapters] Generating chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${Math.round(elapsed/1000)}s elapsed)`)
+      
+      try {
         // Build context for this chapter (used in both initial generation and expansion)
         const context = `
 Book Title: ${bookTitle || "Your Book"}
@@ -83,21 +87,14 @@ Additional Content: ${answers.additionalContent || ""}
         
         // Generate full chapter content using GPT
         // Use gpt-4o for better quality and cost efficiency, fallback to gpt-4
+        // Reduced maxTokens to 4000 to speed up generation while still getting full content
         let chapterContent: string
         try {
           chapterContent = await callGPT(chapterPrompt, {
             model: "gpt-4o",
             temperature: 0.7,
-            maxTokens: 6000, // Increased tokens for full chapter content with multiple sections
-            systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
-
-CRITICAL INSTRUCTIONS:
-- Write COMPLETE, FULLY-DEVELOPED paragraphs - NOT outlines, bullet points, or placeholders
-- Each section must have 300-500+ words of actual written content
-- Write full sentences, complete thoughts, and detailed explanations
-- Include examples, stories, and actionable advice in paragraph form
-- Do NOT write lists or bullet points as the main content - use paragraphs
-- The user wants a FULLY WRITTEN BOOK, not an outline`,
+            maxTokens: 4000, // Reduced from 6000 to speed up generation
+            systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 300-500+ words of actual written content with full sentences, examples, and actionable advice. Write a FULLY WRITTEN BOOK CHAPTER, not an outline.`,
           })
         } catch (modelError) {
           // Fallback to gpt-4 if gpt-4o is not available
@@ -105,16 +102,8 @@ CRITICAL INSTRUCTIONS:
           chapterContent = await callGPT(chapterPrompt, {
             model: "gpt-4",
             temperature: 0.7,
-            maxTokens: 6000,
-            systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
-
-CRITICAL INSTRUCTIONS:
-- Write COMPLETE, FULLY-DEVELOPED paragraphs - NOT outlines, bullet points, or placeholders
-- Each section must have 300-500+ words of actual written content
-- Write full sentences, complete thoughts, and detailed explanations
-- Include examples, stories, and actionable advice in paragraph form
-- Do NOT write lists or bullet points as the main content - use paragraphs
-- The user wants a FULLY WRITTEN BOOK, not an outline`,
+            maxTokens: 4000,
+            systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 300-500+ words of actual written content with full sentences, examples, and actionable advice. Write a FULLY WRITTEN BOOK CHAPTER, not an outline.`,
           })
         }
 
@@ -123,114 +112,71 @@ CRITICAL INSTRUCTIONS:
         
         // Validate that we got actual content, not just an outline
         const wordCount = formattedContent.split(/\s+/).filter(Boolean).length
-        const hasOnlyHeadings = (formattedContent.match(/^#+\s/gm) || []).length > formattedContent.split(/\n\n/).length * 0.5
+        const headingCount = (formattedContent.match(/^#+\s/gm) || []).length
+        const paragraphCount = formattedContent.split(/\n\n/).filter(p => p.trim().length > 0 && !p.trim().startsWith('#')).length
+        const hasOnlyHeadings = headingCount > paragraphCount * 0.3
+        const hasBulletPoints = (formattedContent.match(/^[-*+]\s/gm) || []).length > 5
         
-        // If content looks like an outline (too short or mostly headings), expand it
-        if (wordCount < 500 || hasOnlyHeadings) {
-          console.warn(`[GenerateChapters] ⚠️ Chapter ${chapterTemplate.title} looks like an outline (${wordCount} words). Expanding to full content...`)
+        console.log(`[GenerateChapters] Chapter ${chapterTemplate.title}: ${wordCount} words, ${paragraphCount} paragraphs`)
+        
+        // Only expand if content is clearly an outline AND we have time
+        const timeRemaining = maxTime - (Date.now() - startTime)
+        if ((wordCount < 600 || hasOnlyHeadings || hasBulletPoints) && timeRemaining > 20000) {
+          console.warn(`[GenerateChapters] ⚠️ Chapter looks like outline. Expanding... (${Math.round(timeRemaining/1000)}s remaining)`)
           
-          const expansionPrompt = `CRITICAL: The following content is an OUTLINE or DRAFT. You MUST expand it into a FULLY WRITTEN chapter with complete paragraphs. DO NOT return an outline - write actual content.
+          const expansionPrompt = `Expand this outline into a FULLY WRITTEN chapter with complete paragraphs (1000+ words). Convert all bullet points to full paragraphs with examples and explanations.
 
-Current Content (OUTLINE - needs expansion):
+Outline:
 ${formattedContent}
 
-Context:
-${context}
+Context: ${context}
 
-MANDATORY EXPANSION REQUIREMENTS:
-1. Convert ALL bullet points, numbered lists, and short phrases into FULL PARAGRAPHS
-2. Each section heading (##) must have 3-5 complete paragraphs underneath (300-500 words per section)
-3. Write detailed explanations, not summaries
-4. Include specific examples, stories, case studies in paragraph form
-5. Add transitional sentences between sections
-6. Minimum 1200+ words total for the entire chapter
-7. Write as if teaching a reader - use complete sentences and full thoughts
-8. Personalize using: Target Reader: ${answers.targetReader || "general audience"}, Offer: ${answers.highTicketOffer || ""}, Transformation: ${answers.transformation || ""}
-
-FORMAT:
-- Start with: # ${chapterTemplate.title}
-- Use ## for section headings
-- Write FULL PARAGRAPHS (not lists) under each heading
-- Use markdown: **bold** for emphasis, but write in paragraphs
-
-EXAMPLE - What you should write:
-✅ CORRECT:
-## Section Title
-This is a complete paragraph with full sentences explaining the concept in detail. It provides context and background information that helps the reader understand the framework. For example, when working with ${answers.targetReader || "your target audience"}, you'll discover that this approach transforms how they think about their goals.
-
-This second paragraph goes deeper, providing specific examples and actionable advice. Consider someone who implemented this framework and experienced ${answers.transformation || "significant transformation"}. They started by understanding their core values and then systematically applied the principles outlined in this chapter.
-
-✅ WRONG (DO NOT DO THIS):
-## Section Title
-- Point 1
-- Point 2
-- Point 3
-
-Now expand the outline above into a COMPLETE, FULLY-WRITTEN chapter with actual paragraphs (1200+ words):`
+Write the complete expanded chapter now:`
           
           try {
             const expandedContent = await callGPT(expansionPrompt, {
               model: "gpt-4",
               temperature: 0.7,
-              maxTokens: 6000,
-              systemPrompt: `You are an expert book writer. Expand outlines into fully-written chapters with complete paragraphs, examples, and detailed explanations. Write actual content, not bullet points or lists.`,
+              maxTokens: 4000,
+              systemPrompt: `You are an expert book writer. Expand outlines into fully-written chapters with complete paragraphs. Write actual content, not bullet points.`,
             })
             
             formattedContent = formatChapterContent(chapterTemplate, expandedContent)
             const expandedWordCount = formattedContent.split(/\s+/).filter(Boolean).length
-            const expandedParagraphCount = formattedContent.split(/\n\n/).filter(p => p.trim().length > 0 && !p.trim().startsWith('#')).length
-            console.log(`[GenerateChapters] ✅ Expanded chapter to ${expandedWordCount} words, ${expandedParagraphCount} paragraphs`)
-            
-            // If still too short after expansion, log warning but proceed
-            if (expandedWordCount < 800) {
-              console.warn(`[GenerateChapters] ⚠️ Chapter still short after expansion (${expandedWordCount} words). Content may need manual editing.`)
-            }
+            console.log(`[GenerateChapters] ✅ Expanded to ${expandedWordCount} words`)
           } catch (expandError) {
-            console.error(`[GenerateChapters] Failed to expand chapter:`, expandError)
-            // Use original content even if expansion fails, but log the issue
-            console.warn(`[GenerateChapters] Using original content (may be outline format)`)
+            console.error(`[GenerateChapters] Expansion failed, using original content:`, expandError)
           }
         }
         
-        // Final validation - log if content is still suspiciously short
-        const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
-        if (finalWordCount < 500) {
-          console.warn(`[GenerateChapters] ⚠️ WARNING: Chapter ${chapterTemplate.title} is very short (${finalWordCount} words). May be an outline.`)
+        // Add chapter to results
+        generatedChapters.push({
+          id: chapterTemplate.id,
+          number: chapterTemplate.number,
+          title: chapterTemplate.title,
+          content: formattedContent,
+        })
+        
+        const chapterElapsed = Date.now() - startTime
+        console.log(`[GenerateChapters] ✅ Completed chapter ${i + 1}/${totalChapters} (total elapsed: ${Math.round(chapterElapsed/1000)}s)`)
+        
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+        console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, errorMsg)
+        
+        // If it's an API key error, throw it up so user knows
+        if (errorMsg.includes("OPENAI_API_KEY") || errorMsg.includes("not configured")) {
+          throw new Error(`OpenAI API key not configured: ${errorMsg}`)
         }
         
-          return {
-            id: chapterTemplate.id,
-            number: chapterTemplate.number,
-            title: chapterTemplate.title,
-            content: formattedContent,
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : "Unknown error"
-          console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, errorMsg)
-          
-          // If it's an API key error, throw it up so user knows
-          if (errorMsg.includes("OPENAI_API_KEY") || errorMsg.includes("not configured")) {
-            throw new Error(`OpenAI API key not configured: ${errorMsg}`)
-          }
-          
-          // Fallback to template structure if AI generation fails for this specific chapter
-          return {
-            id: chapterTemplate.id,
-            number: chapterTemplate.number,
-            title: chapterTemplate.title,
-            content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed: ${errorMsg}. Please edit manually.]`,
-          }
-        }
-      })
-      
-      // Wait for all chapters in this batch to complete
-      const batchResults = await Promise.all(batchPromises)
-      
-      // Sort results by chapter number to maintain order
-      batchResults.sort((a, b) => a.number - b.number)
-      generatedChapters.push(...batchResults)
-      
-      console.log(`[GenerateChapters] ✅ Completed batch ${Math.floor(batchStart / batchSize) + 1}: ${batchResults.length} chapters generated`)
+        // Fallback to template structure if AI generation fails for this specific chapter
+        generatedChapters.push({
+          id: chapterTemplate.id,
+          number: chapterTemplate.number,
+          title: chapterTemplate.title,
+          content: `# ${chapterTemplate.title}\n\n${chapterTemplate.description}\n\n[Content generation failed: ${errorMsg}. Please edit manually.]`,
+        })
+      }
     }
 
     // Sort all chapters by number to ensure correct order
@@ -239,6 +185,24 @@ Now expand the outline above into a COMPLETE, FULLY-WRITTEN chapter with actual 
     // Validate we got at least some chapters
     if (generatedChapters.length === 0) {
       throw new Error("No chapters were generated. Please check your OpenAI API key and try again.")
+    }
+    
+    // If we didn't generate all chapters, create placeholders for the rest
+    if (generatedChapters.length < totalChapters) {
+      console.warn(`[GenerateChapters] ⚠️ Only generated ${generatedChapters.length}/${totalChapters} chapters due to time limit. Creating placeholders for remaining chapters.`)
+      
+      const generatedNumbers = new Set(generatedChapters.map(ch => ch.number))
+      for (const template of REAL_GROWTH_BOOK_TEMPLATE) {
+        if (!generatedNumbers.has(template.number)) {
+          generatedChapters.push({
+            id: template.id,
+            number: template.number,
+            title: template.title,
+            content: `# ${template.title}\n\n${template.description}\n\n[This chapter will be generated in a follow-up request. You can edit it manually or regenerate it.]`,
+          })
+        }
+      }
+      generatedChapters.sort((a, b) => a.number - b.number)
     }
     
     // Log summary of generated content

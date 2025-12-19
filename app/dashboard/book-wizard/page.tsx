@@ -54,131 +54,155 @@ export default function BookWizardPage() {
   const [bookId, setBookId] = useState<string | null>(null)
   // User ID is handled by API authentication - no need to pass it explicitly
 
+  const [generationProgress, setGenerationProgress] = useState<{
+    current: number
+    total: number
+    currentChapter: string
+  } | null>(null)
+
   const handleGenerate = async (answers: QuestionAnswers) => {
     setQuestionAnswers(answers)
     setCurrentStep("generating")
     
     // Generate book title and subtitle from answers
-    if (answers.transformation) {
-      setBookTitle(answers.transformation.split(".")[0] || "Your Book Title")
-    }
-    if (answers.highTicketOffer) {
-      setBookSubtitle(`The Complete Guide to ${answers.highTicketOffer}`)
-    }
+    const finalTitle = answers.transformation 
+      ? answers.transformation.split(".")[0] || "Your Book Title"
+      : bookTitle
+    const finalSubtitle = answers.highTicketOffer
+      ? `The Complete Guide to ${answers.highTicketOffer}`
+      : bookSubtitle
     
-    // Generate FULLY WRITTEN chapters using AI based on answers
-    // This happens BEFORE showing the outline - user gets a complete book
+    setBookTitle(finalTitle)
+    setBookSubtitle(finalSubtitle)
+    
     try {
-      console.log("[BookWizard] Starting AI chapter generation...")
+      console.log("[BookWizard] Starting incremental chapter generation...")
       
-      // Call AI API to generate full chapter content
-      const response = await fetch("/api/books/generate-chapters", {
+      // Step 1: Create book with empty chapters first
+      const bookResponse = await fetch("/api/books", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          answers,
-          bookTitle,
-          bookSubtitle,
+          title: finalTitle,
+          description: finalSubtitle,
+          chapters: REAL_GROWTH_BOOK_TEMPLATE.map((template) => ({
+            number: template.number,
+            title: template.title,
+            content: `# ${template.title}\n\n${template.description}\n\n[Generating content...]`,
+          })),
         }),
       })
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage = errorData.error || `Failed to generate chapters (${response.status})`
-        console.error("[BookWizard] API error:", errorMessage, "Status:", response.status)
-        throw new Error(errorMessage)
+      if (!bookResponse.ok) {
+        throw new Error("Failed to create book structure")
       }
       
-      const data = await response.json()
-      const generatedChapters = data.chapters || []
+      const bookData = await bookResponse.json()
+      const createdBookId = bookData.book.id
+      setBookId(createdBookId)
+      console.log("[BookWizard] ✅ Book created:", createdBookId)
       
-      console.log("[BookWizard] ✅ Generated chapters:", generatedChapters.map((ch: any) => {
-        const wordCount = ch.content.split(/\s+/).filter(Boolean).length
-        return {
-          id: ch.id,
-          title: ch.title,
-          contentLength: ch.content.length,
-          wordCount,
-        }
-      }))
+      // Step 2: Generate chapters one at a time
+      const totalChapters = REAL_GROWTH_BOOK_TEMPLATE.length
+      const generatedChapters: Chapter[] = []
       
-      if (data.stats) {
-        console.log("[BookWizard] 📊 Generation stats:", data.stats)
-      }
-      
-      // Validate we got actual content
-      if (generatedChapters.length === 0) {
-        throw new Error("No chapters were generated. Please try again.")
-      }
-      
-      // Check if chapters have substantial content
-      const chaptersWithLowContent = generatedChapters.filter((ch: any) => {
-        const wordCount = ch.content.split(/\s+/).filter(Boolean).length
-        return wordCount < 300
+      setGenerationProgress({
+        current: 0,
+        total: totalChapters,
+        currentChapter: "Starting generation...",
       })
       
-      if (chaptersWithLowContent.length > 0) {
-        console.warn("[BookWizard] ⚠️ Some chapters have low word count:", chaptersWithLowContent.map((ch: any) => ({
-          title: ch.title,
-          words: ch.content.split(/\s+/).filter(Boolean).length
-        })))
-      }
-      
-      // Convert markdown content to HTML for TipTap editor
-      const chaptersWithHTML = generatedChapters.map((ch: any) => ({
-        ...ch,
-        content: markdownToHTML(ch.content),
-      }))
-      
-      setChapters(chaptersWithHTML)
-      
-      // Set outline from chapter titles
-      setOutline(generatedChapters.map((ch: any) => ch.title))
-      
-      // Set first chapter as active
-      if (chaptersWithHTML.length > 0) {
-        setActiveChapterId(chaptersWithHTML[0].id)
-      }
-      
-      // Create book in database (store markdown version for compatibility)
-      try {
-        const bookResponse = await fetch("/api/books", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: bookTitle,
-            description: bookSubtitle,
-            chapters: generatedChapters.map((ch: any) => ({
-              number: ch.number,
-              title: ch.title,
-              content: ch.content, // Store markdown in DB
-            })),
-          }),
+      for (let i = 0; i < REAL_GROWTH_BOOK_TEMPLATE.length; i++) {
+        const template = REAL_GROWTH_BOOK_TEMPLATE[i]
+        
+        setGenerationProgress({
+          current: i + 1,
+          total: totalChapters,
+          currentChapter: template.title,
         })
         
-        if (bookResponse.ok) {
-          const bookData = await bookResponse.json()
-          setBookId(bookData.book.id)
-          console.log("[BookWizard] ✅ Book created in database:", bookData.book.id)
+        try {
+          console.log(`[BookWizard] Generating chapter ${i + 1}/${totalChapters}: ${template.title}`)
+          
+          const chapterResponse = await fetch("/api/books/generate-single-chapter", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bookId: createdBookId,
+              chapterId: template.id,
+              answers,
+              bookTitle: finalTitle,
+              bookSubtitle: finalSubtitle,
+            }),
+          })
+          
+          if (!chapterResponse.ok) {
+            const errorData = await chapterResponse.json().catch(() => ({}))
+            console.error(`[BookWizard] Failed to generate chapter ${template.title}:`, errorData.error)
+            // Continue with placeholder content
+            generatedChapters.push({
+              id: template.id,
+              number: template.number,
+              title: template.title,
+              content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed. Please edit manually.]`),
+            })
+            continue
+          }
+          
+          const chapterData = await chapterResponse.json()
+          const generatedChapter = chapterData.chapter
+          
+          generatedChapters.push({
+            id: generatedChapter.id,
+            number: generatedChapter.number,
+            title: generatedChapter.title,
+            content: markdownToHTML(generatedChapter.content),
+          })
+          
+          // Update chapters state incrementally so user sees progress
+          setChapters([...generatedChapters])
+          
+          console.log(`[BookWizard] ✅ Generated chapter ${i + 1}/${totalChapters}: ${generatedChapter.title} (${generatedChapter.wordCount} words)`)
+          
+          // Small delay to prevent rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (error) {
+          console.error(`[BookWizard] Error generating chapter ${template.title}:`, error)
+          // Add placeholder chapter
+          generatedChapters.push({
+            id: template.id,
+            number: template.number,
+            title: template.title,
+            content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed. Please edit manually.]`),
+          })
         }
-      } catch (error) {
-        console.error("[BookWizard] Failed to create book:", error)
       }
       
+      // Final update
+      setChapters(generatedChapters)
+      setOutline(generatedChapters.map((ch) => ch.title))
+      
+      if (generatedChapters.length > 0) {
+        setActiveChapterId(generatedChapters[0].id)
+      }
+      
+      setGenerationProgress(null)
       setCurrentStep("draft")
+      
+      console.log("[BookWizard] ✅ All chapters generated successfully")
     } catch (error) {
-      console.error("[BookWizard] ❌ Chapter generation failed:", error)
+      console.error("[BookWizard] ❌ Generation failed:", error)
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       
-      // Check if it's an API key issue
+      setGenerationProgress(null)
+      
       if (errorMessage.includes("OPENAI_API_KEY") || errorMessage.includes("not configured")) {
-        alert(`AI generation requires OpenAI API key to be configured. Please configure OPENAI_API_KEY in your environment variables. For now, showing template structure.`)
+        alert(`AI generation requires OpenAI API key to be configured. Please configure OPENAI_API_KEY in your environment variables.`)
       } else {
-        alert(`Failed to generate book: ${errorMessage}. Please check your OpenAI API key is configured and try again.`)
+        alert(`Failed to generate book: ${errorMessage}. Please try again.`)
       }
       
-      // Fallback to template structure if AI generation fails
-      console.log("[BookWizard] Falling back to template structure")
+      // Fallback to template structure
       const fallbackChapters = generateAllChapters(answers)
       const chaptersWithHTML = fallbackChapters.map((ch: any) => ({
         ...ch,
@@ -622,7 +646,7 @@ export default function BookWizardPage() {
               exit={{ opacity: 0 }}
               className="h-full"
             >
-              <GeneratingState />
+              <GeneratingState progress={generationProgress} />
             </motion.div>
           )}
 

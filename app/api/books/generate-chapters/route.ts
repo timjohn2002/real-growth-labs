@@ -40,8 +40,16 @@ export async function POST(request: NextRequest) {
         const chapterContent = await callGPT(chapterPrompt, {
           model: "gpt-4",
           temperature: 0.7,
-          maxTokens: 4000, // More tokens for full chapter content
-          systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. Write in a clear, professional, and engaging tone. Use the Real Growth framework structure provided. Write complete, fully-developed content (minimum 200-300 words per section) - not placeholders or outlines.`,
+          maxTokens: 6000, // Increased tokens for full chapter content with multiple sections
+          systemPrompt: `You are an expert book writer specializing in creating high-value, engaging content that helps readers transform their lives. 
+
+CRITICAL INSTRUCTIONS:
+- Write COMPLETE, FULLY-DEVELOPED paragraphs - NOT outlines, bullet points, or placeholders
+- Each section must have 300-500+ words of actual written content
+- Write full sentences, complete thoughts, and detailed explanations
+- Include examples, stories, and actionable advice in paragraph form
+- Do NOT write lists or bullet points as the main content - use paragraphs
+- The user wants a FULLY WRITTEN BOOK, not an outline`,
         })
 
         // Format the content with proper headings
@@ -100,37 +108,49 @@ Additional Content: ${answers.additionalContent || ""}
 `
 
   // Build section prompts based on chapter template
+  // Make it clear these need FULL written content
   const sectionPrompts = chapterTemplate.sections.map((section, index) => {
-    return `${index + 1}. ${section.title}\n   ${section.placeholder}`
+    return `Section ${index + 1}: ${section.title}
+   Write 300-500 words of FULL CONTENT here. ${section.placeholder}
+   Include: detailed explanations, examples, stories, and actionable advice.
+   Write in complete paragraphs - NOT bullet points or outlines.`
   }).join("\n\n")
 
-  const prompt = `Write a complete, fully-written chapter for a book using the Real Growth framework.
+  const prompt = `You are writing a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - write actual paragraphs, full sentences, and complete thoughts.
 
 ${context}
 
 Chapter: ${chapterTemplate.title}
 Description: ${chapterTemplate.description}
 
-This chapter should include the following sections (write full content for each, not just placeholders):
+CRITICAL: Write FULL CONTENT for each section below. Do NOT write bullet points, outlines, or placeholders. Write complete paragraphs with full explanations, examples, and actionable advice.
+
+This chapter must include the following sections - write FULL CONTENT for each:
 
 ${sectionPrompts}
 
-Requirements:
-- Write complete, engaging content for each section (minimum 200-300 words per section)
-- Use the user's answers to personalize the content
-- Maintain consistency with the book's theme and target audience
-- Include specific examples, stories, or case studies where relevant
-- Write in a ${answers.tone || "professional and engaging"} tone
-- Use proper markdown formatting with headings (## for section titles)
-- Make it valuable and actionable for the reader
-- Connect each section logically to create a cohesive chapter
+MANDATORY REQUIREMENTS:
+1. Write COMPLETE PARAGRAPHS (minimum 300-500 words per section) - NOT outlines or bullet points
+2. Each section must have multiple full paragraphs explaining the concept in detail
+3. Include specific examples, stories, case studies, or scenarios that illustrate your points
+4. Use the user's answers (${answers.targetReader}, ${answers.highTicketOffer}, ${answers.transformation}) to personalize EVERY section
+5. Write in a ${answers.tone || "professional and engaging"} tone throughout
+6. Make content actionable - give readers specific steps, strategies, or frameworks they can use
+7. Connect sections logically with transitional sentences
+8. Write as if you're teaching the reader, not just listing topics
 
-Format the response as markdown with:
-- # ${chapterTemplate.title} as the main heading
-- ## [Section Title] for each section
-- Proper paragraphs, lists, and formatting
+FORMATTING:
+- Start with: # ${chapterTemplate.title}
+- For each section, use: ## ${chapterTemplate.sections.map(s => s.title).join('\n- ## ')}
+- Write full paragraphs under each heading (3-5 paragraphs minimum per section)
+- Use proper markdown: **bold** for emphasis, lists where appropriate, but primarily use paragraphs
 
-Write the complete chapter now:`
+EXAMPLE OF WHAT TO WRITE (not what to avoid):
+✅ GOOD: "When implementing this framework, you'll notice immediate changes in how you approach your daily tasks. The key is to start with small, manageable steps that build momentum. For example, if your goal is to increase revenue by 10x, begin by identifying your highest-value activities..."
+
+❌ BAD: "1. Start with small steps\n2. Build momentum\n3. Identify high-value activities"
+
+Now write the COMPLETE, FULLY-WRITTEN chapter with actual paragraphs and full content:`
 
   return prompt
 }

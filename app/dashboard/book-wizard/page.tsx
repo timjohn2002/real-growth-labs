@@ -595,9 +595,103 @@ export default function BookWizardPage() {
     setActiveChapterId(newChapter.id)
   }
 
-  const handleRegenerateOutline = () => {
-    // TODO: Implement outline regeneration
-    console.log("Regenerating outline...")
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
+  const [isRegeneratingSubtitle, setIsRegeneratingSubtitle] = useState(false)
+  const [isRegeneratingOutline, setIsRegeneratingOutline] = useState(false)
+
+  const handleRegenerateTitle = async (): Promise<string> => {
+    setIsRegeneratingTitle(true)
+    try {
+      // Call API to regenerate title based on book content
+      const response = await fetch("/api/books/regenerate-title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookId,
+          currentTitle: bookTitle,
+          questionAnswers,
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to regenerate title")
+      }
+      
+      const data = await response.json()
+      const newTitle = data.title || bookTitle
+      setBookTitle(newTitle)
+      return newTitle
+    } catch (error) {
+      console.error("Failed to regenerate title:", error)
+      return bookTitle
+    } finally {
+      setIsRegeneratingTitle(false)
+    }
+  }
+
+  const handleRegenerateSubtitle = async (): Promise<string> => {
+    setIsRegeneratingSubtitle(true)
+    try {
+      // Call API to regenerate subtitle based on book content
+      const response = await fetch("/api/books/regenerate-subtitle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookId,
+          currentSubtitle: bookSubtitle,
+          bookTitle,
+          questionAnswers,
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to regenerate subtitle")
+      }
+      
+      const data = await response.json()
+      const newSubtitle = data.subtitle || bookSubtitle
+      setBookSubtitle(newSubtitle)
+      return newSubtitle
+    } catch (error) {
+      console.error("Failed to regenerate subtitle:", error)
+      return bookSubtitle
+    } finally {
+      setIsRegeneratingSubtitle(false)
+    }
+  }
+
+  const handleRegenerateOutline = async () => {
+    setIsRegeneratingOutline(true)
+    try {
+      // Regenerate outline for the active chapter
+      if (activeChapter && bookId) {
+        const response = await fetch("/api/books/regenerate-outline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookId,
+            chapterId: activeChapter.id,
+            currentContent: activeChapter.content,
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          // Update the chapter content
+          setChapters((prev) =>
+            prev.map((ch) =>
+              ch.id === activeChapter.id
+                ? { ...ch, content: markdownToHTML(data.content || ch.content) }
+                : ch
+            )
+          )
+        }
+      }
+    } catch (error) {
+      console.error("Failed to regenerate outline:", error)
+    } finally {
+      setIsRegeneratingOutline(false)
+    }
   }
 
   const getStepNumber = (): number => {
@@ -713,6 +807,11 @@ export default function BookWizardPage() {
                       }
                     }}
                     onRegenerateOutline={handleRegenerateOutline}
+                    onRegenerateTitle={handleRegenerateTitle}
+                    onRegenerateSubtitle={handleRegenerateSubtitle}
+                    isRegeneratingTitle={isRegeneratingTitle}
+                    isRegeneratingSubtitle={isRegeneratingSubtitle}
+                    isRegeneratingOutline={isRegeneratingOutline}
                     insertContent={contentToInsert}
                     onInsertComplete={() => {
                       setContentToInsert(null)

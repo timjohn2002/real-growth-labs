@@ -38,33 +38,6 @@ export function AIToolsPanel({ onAction, onOpenContentVault, onSave, onExport }:
             Quick Actions
           </h4>
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("rewrite")}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Rewrite
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("shorten")}
-            >
-              <Minus className="h-4 w-4 mr-2" />
-              Shorten
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => onAction("expand")}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Expand
-            </Button>
             <div className="pt-2">
               <Select onValueChange={(value) => onAction("changeTone", { tone: value })}>
                 <SelectTrigger className="w-full">
@@ -80,21 +53,6 @@ export function AIToolsPanel({ onAction, onOpenContentVault, onSave, onExport }:
             </div>
           </div>
         </div>
-
-        {/* Content Vault */}
-        {onOpenContentVault && (
-          <div className="mb-6">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start bg-[#a6261c] hover:bg-[#8e1e16] text-white hover:text-white border-[#a6261c]"
-              onClick={onOpenContentVault}
-            >
-              <FolderOpen className="h-4 w-4 mr-2 text-white" />
-              Add From Content Vault
-            </Button>
-          </div>
-        )}
 
         {/* Save and Export Buttons - Fixed at bottom */}
         <div className="mt-auto pt-4 border-t border-border space-y-2">

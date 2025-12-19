@@ -108,7 +108,7 @@ export function DashboardSidebar({ isCollapsed = false, onToggle }: DashboardSid
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 py-3 transition-all relative",
+                    "flex items-center gap-3 py-3 transition-all relative min-h-[48px]",
                     isCollapsed ? "px-2 justify-center" : "px-4",
                     isActive
                       ? "text-white rounded-lg"
@@ -122,7 +122,7 @@ export function DashboardSidebar({ isCollapsed = false, onToggle }: DashboardSid
                   )}
                   <Icon className={cn("h-5 w-5 flex-shrink-0", isActive ? "text-white" : "text-foreground")} />
                   {!isCollapsed && (
-                    <span className="font-medium">{item.name}</span>
+                    <span className="font-medium leading-tight">{item.name}</span>
                   )}
                 </Link>
               )

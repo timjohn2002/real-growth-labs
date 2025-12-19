@@ -5,15 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react"
+import { ChevronDown, ChevronUp, RefreshCw, Loader2 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { htmlToMarkdown } from "@/lib/markdown-to-html"
 
 const BRAND_COLOR = "#a6261c"
@@ -27,6 +20,11 @@ interface BookOverviewProps {
   onSubtitleChange: (subtitle: string) => void
   onOutlineChange?: (outline: string) => void
   onRegenerateOutline: () => void
+  onRegenerateTitle?: () => Promise<string>
+  onRegenerateSubtitle?: () => Promise<string>
+  isRegeneratingTitle?: boolean
+  isRegeneratingSubtitle?: boolean
+  isRegeneratingOutline?: boolean
   insertContent?: string | null
   onInsertComplete?: () => void
 }
@@ -40,6 +38,11 @@ export function BookOverview({
   onSubtitleChange,
   onOutlineChange,
   onRegenerateOutline,
+  onRegenerateTitle,
+  onRegenerateSubtitle,
+  isRegeneratingTitle = false,
+  isRegeneratingSubtitle = false,
+  isRegeneratingOutline = false,
   insertContent,
   onInsertComplete,
 }: BookOverviewProps) {
@@ -57,19 +60,29 @@ export function BookOverview({
     setLocalSubtitle(subtitle)
   }, [subtitle])
   
-  // Generate options based on current title/subtitle
-  const titleOptions = [
-    localTitle,
-    `${localTitle}: The Complete Guide`,
-    `Master ${localTitle}`,
-  ]
-  const subtitleOptions = [
-    localSubtitle,
-    `Transform Your Business with ${localTitle}`,
-    `The Ultimate Guide to ${localTitle}`,
-  ]
-  const [selectedTitleIndex, setSelectedTitleIndex] = useState(0)
-  const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(0)
+  const handleRegenerateTitle = async () => {
+    if (onRegenerateTitle) {
+      try {
+        const newTitle = await onRegenerateTitle()
+        setLocalTitle(newTitle)
+        onTitleChange(newTitle)
+      } catch (error) {
+        console.error("Failed to regenerate title:", error)
+      }
+    }
+  }
+  
+  const handleRegenerateSubtitle = async () => {
+    if (onRegenerateSubtitle) {
+      try {
+        const newSubtitle = await onRegenerateSubtitle()
+        setLocalSubtitle(newSubtitle)
+        onSubtitleChange(newSubtitle)
+      } catch (error) {
+        console.error("Failed to regenerate subtitle:", error)
+      }
+    }
+  }
   
   // Get chapter-specific outline (sections) from the chapter content
   const [chapterOutline, setChapterOutline] = useState("")
@@ -213,27 +226,19 @@ export function BookOverview({
                       style={{ boxShadow: 'none' }}
                       placeholder="Enter your book title"
                     />
-                    <Select
-                      value={selectedTitleIndex.toString()}
-                      onValueChange={(value) => {
-                        const index = parseInt(value)
-                        setSelectedTitleIndex(index)
-                        const selectedValue = titleOptions[index]
-                        setLocalTitle(selectedValue)
-                        onTitleChange(selectedValue)
-                      }}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegenerateTitle}
+                      disabled={isRegeneratingTitle || !onRegenerateTitle}
+                      className="w-auto px-3"
                     >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {titleOptions.map((opt, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            Option {index + 1}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {isRegeneratingTitle ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </div>
 
@@ -252,27 +257,19 @@ export function BookOverview({
                       style={{ boxShadow: 'none' }}
                       placeholder="Enter your book subtitle"
                     />
-                    <Select
-                      value={selectedSubtitleIndex.toString()}
-                      onValueChange={(value) => {
-                        const index = parseInt(value)
-                        setSelectedSubtitleIndex(index)
-                        const selectedValue = subtitleOptions[index]
-                        setLocalSubtitle(selectedValue)
-                        onSubtitleChange(selectedValue)
-                      }}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegenerateSubtitle}
+                      disabled={isRegeneratingSubtitle || !onRegenerateSubtitle}
+                      className="w-auto px-3"
                     >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {subtitleOptions.map((opt, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            Option {index + 1}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {isRegeneratingSubtitle ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </div>
 
@@ -299,8 +296,13 @@ export function BookOverview({
                     variant="outline"
                     size="sm"
                     onClick={onRegenerateOutline}
+                    disabled={isRegeneratingOutline}
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {isRegeneratingOutline ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
                     Regenerate Outline
                   </Button>
                 </div>

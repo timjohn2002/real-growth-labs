@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { htmlToMarkdown } from "@/lib/markdown-to-html"
 
 const BRAND_COLOR = "#a6261c"
 
@@ -76,32 +77,37 @@ export function BookOverview({
   
   useEffect(() => {
     if (activeChapter) {
-      // Extract headings from chapter content to show as outline
-      // The chapter content is HTML, so we need to extract headings
-      if (typeof window !== 'undefined') {
-        const tempDiv = document.createElement('div')
-        tempDiv.innerHTML = activeChapter.content || ''
-        const headings = Array.from(tempDiv.querySelectorAll('h1, h2, h3'))
-        let outlineText = ''
-        
-        if (headings.length > 0) {
-          // Extract headings and create numbered outline
-          outlineText = headings
-            .map((h, index) => {
-              const level = h.tagName.toLowerCase()
-              const indent = level === 'h1' ? '' : level === 'h2' ? '  ' : '    '
-              return `${indent}${index + 1}. ${h.textContent || ''}`
-            })
-            .join('\n')
+      // Convert HTML content to markdown to show in outline
+      // This shows the full generated content, not just headings
+      if (activeChapter.content) {
+        try {
+          // Convert HTML to markdown to show readable content
+          const markdownContent = htmlToMarkdown(activeChapter.content)
+          
+          if (markdownContent.trim()) {
+            setChapterOutline(markdownContent.trim())
+          } else {
+            // Fallback: extract plain text from HTML
+            if (typeof window !== 'undefined') {
+              const tempDiv = document.createElement('div')
+              tempDiv.innerHTML = activeChapter.content
+              const plainText = tempDiv.textContent || tempDiv.innerText || ''
+              
+              if (plainText.trim()) {
+                setChapterOutline(plainText.trim())
+              } else {
+                setChapterOutline(`# ${activeChapter.title}\n\n[Content is being generated or is empty. Please check the chapter editor.]`)
+              }
+            }
+          }
+        } catch (error) {
+          console.error("[BookOverview] Error converting content to markdown:", error)
+          // Fallback to showing chapter title
+          setChapterOutline(`# ${activeChapter.title}\n\n[Content is being generated or is empty. Please check the chapter editor.]`)
         }
-        
-        // If no headings found or outline is empty, create a default structure
-        if (!outlineText.trim()) {
-          // Try to extract from markdown-style content or create default
-          outlineText = `1. ${activeChapter.title}\n2. [Add your first section here]\n3. [Add your second section here]`
-        }
-        
-        setChapterOutline(outlineText)
+      } else {
+        // No content yet
+        setChapterOutline(`# ${activeChapter.title}\n\n[Content is being generated...]`)
       }
     } else {
       // Show full book outline if no chapter is selected

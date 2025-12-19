@@ -31,6 +31,19 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < REAL_GROWTH_BOOK_TEMPLATE.length; i++) {
       const chapterTemplate = REAL_GROWTH_BOOK_TEMPLATE[i]
       try {
+        // Build context for this chapter (used in both initial generation and expansion)
+        const context = `
+Book Title: ${bookTitle || "Your Book"}
+Book Subtitle: ${bookSubtitle || ""}
+
+Target Reader: ${answers.targetReader || "General audience"}
+High-Ticket Offer: ${answers.highTicketOffer || ""}
+Offer Details: ${answers.offerDetails || ""}
+Transformation: ${answers.transformation || ""}
+Tone: ${answers.tone || "Professional and engaging"}
+Additional Content: ${answers.additionalContent || ""}
+`
+        
         // Build the prompt for this chapter based on template and user answers
         const chapterPrompt = buildChapterPrompt(chapterTemplate, answers, bookTitle, bookSubtitle)
         
@@ -53,12 +66,49 @@ CRITICAL INSTRUCTIONS:
         })
 
         // Format the content with proper headings
-        const formattedContent = formatChapterContent(chapterTemplate, chapterContent)
+        let formattedContent = formatChapterContent(chapterTemplate, chapterContent)
         
         // Validate that we got actual content, not just an outline
         const wordCount = formattedContent.split(/\s+/).filter(Boolean).length
-        if (wordCount < 200) {
-          console.warn(`[GenerateChapters] ⚠️ Chapter ${chapterTemplate.title} has only ${wordCount} words - might be an outline`)
+        const hasOnlyHeadings = (formattedContent.match(/^#+\s/gm) || []).length > formattedContent.split(/\n\n/).length * 0.5
+        
+        // If content looks like an outline (too short or mostly headings), expand it
+        if (wordCount < 500 || hasOnlyHeadings) {
+          console.warn(`[GenerateChapters] ⚠️ Chapter ${chapterTemplate.title} looks like an outline (${wordCount} words). Expanding to full content...`)
+          
+          const expansionPrompt = `The following is an outline for a chapter. Expand it into a FULLY WRITTEN chapter with complete paragraphs, detailed explanations, examples, and actionable advice. Write 1000+ words of actual content, not just headings or bullet points.
+
+Chapter Outline:
+${formattedContent}
+
+Context:
+${context}
+
+Expand this into a complete, fully-written chapter with:
+- Full paragraphs (not bullet points) for each section
+- Detailed explanations and examples
+- Stories, case studies, or scenarios
+- Actionable advice and steps
+- Minimum 1000 words total
+- Use markdown with ## for section headings, but write full paragraphs under each
+
+Write the complete expanded chapter now:`
+          
+          try {
+            const expandedContent = await callGPT(expansionPrompt, {
+              model: "gpt-4",
+              temperature: 0.7,
+              maxTokens: 6000,
+              systemPrompt: `You are an expert book writer. Expand outlines into fully-written chapters with complete paragraphs, examples, and detailed explanations. Write actual content, not bullet points or lists.`,
+            })
+            
+            formattedContent = formatChapterContent(chapterTemplate, expandedContent)
+            const expandedWordCount = formattedContent.split(/\s+/).filter(Boolean).length
+            console.log(`[GenerateChapters] ✅ Expanded chapter to ${expandedWordCount} words`)
+          } catch (expandError) {
+            console.error(`[GenerateChapters] Failed to expand chapter:`, expandError)
+            // Use original content even if expansion fails
+          }
         }
         
         generatedChapters.push({
@@ -68,7 +118,8 @@ CRITICAL INSTRUCTIONS:
           content: formattedContent,
         })
 
-        console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${chapterContent.length} chars, ${wordCount} words)`)
+        const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
+        console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${formattedContent.length} chars, ${finalWordCount} words)`)
       } catch (error) {
         console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, error)
         // Fallback to template structure if AI generation fails
@@ -116,47 +167,65 @@ Additional Content: ${answers.additionalContent || ""}
   // Build section prompts based on chapter template
   // Make it clear these need FULL written content
   const sectionPrompts = chapterTemplate.sections.map((section, index) => {
-    return `Section ${index + 1}: ${section.title}
-   Write 300-500 words of FULL CONTENT here. ${section.placeholder}
-   Include: detailed explanations, examples, stories, and actionable advice.
-   Write in complete paragraphs - NOT bullet points or outlines.`
+    return `## ${section.title}
+${section.placeholder}
+
+For this section, write 300-500 words of FULL CONTENT including:
+- Multiple complete paragraphs (not bullet points)
+- Detailed explanations and reasoning
+- Real examples, stories, or case studies
+- Actionable advice and specific steps
+- Personalization based on: ${answers.targetReader || "the target reader"}, ${answers.highTicketOffer || "the offer"}, and ${answers.transformation || "the transformation"}`
   }).join("\n\n")
 
-  const prompt = `You are writing a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - write actual paragraphs, full sentences, and complete thoughts.
+  const prompt = `Write a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - you must write actual paragraphs with full sentences and complete thoughts.
 
 ${context}
 
 Chapter: ${chapterTemplate.title}
 Description: ${chapterTemplate.description}
 
-CRITICAL: Write FULL CONTENT for each section below. Do NOT write bullet points, outlines, or placeholders. Write complete paragraphs with full explanations, examples, and actionable advice.
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+- You are writing a FULLY WRITTEN BOOK CHAPTER, not an outline
+- Write COMPLETE PARAGRAPHS (minimum 300-500 words per section)
+- Do NOT write bullet points, numbered lists, or outlines
+- Do NOT write placeholders like "Describe..." or "Explain..."
+- Write actual content as if you're teaching a reader
 
-This chapter must include the following sections - write FULL CONTENT for each:
+This chapter must include the following sections. Write FULL CONTENT for each:
 
 ${sectionPrompts}
 
 MANDATORY REQUIREMENTS:
-1. Write COMPLETE PARAGRAPHS (minimum 300-500 words per section) - NOT outlines or bullet points
-2. Each section must have multiple full paragraphs explaining the concept in detail
-3. Include specific examples, stories, case studies, or scenarios that illustrate your points
-4. Use the user's answers (${answers.targetReader}, ${answers.highTicketOffer}, ${answers.transformation}) to personalize EVERY section
-5. Write in a ${answers.tone || "professional and engaging"} tone throughout
-6. Make content actionable - give readers specific steps, strategies, or frameworks they can use
-7. Connect sections logically with transitional sentences
-8. Write as if you're teaching the reader, not just listing topics
+1. Each section must have 3-5 FULL PARAGRAPHS (not bullet points)
+2. Write complete sentences and detailed explanations
+3. Include specific examples, stories, or case studies in paragraph form
+4. Personalize content using: Target Reader: ${answers.targetReader}, Offer: ${answers.highTicketOffer}, Transformation: ${answers.transformation}
+5. Write in ${answers.tone || "professional and engaging"} tone
+6. Make it actionable - give readers specific steps they can take
+7. Connect sections with transitional sentences
+8. Minimum 1000+ words total for the entire chapter
 
 FORMATTING:
 - Start with: # ${chapterTemplate.title}
-- For each section, use: ## ${chapterTemplate.sections.map(s => s.title).join('\n- ## ')}
-- Write full paragraphs under each heading (3-5 paragraphs minimum per section)
-- Use proper markdown: **bold** for emphasis, lists where appropriate, but primarily use paragraphs
+- Use ## for each section heading
+- Write FULL PARAGRAPHS under each heading (not lists or bullet points)
+- Use markdown properly: **bold** for emphasis, but write in paragraphs
 
-EXAMPLE OF WHAT TO WRITE (not what to avoid):
-✅ GOOD: "When implementing this framework, you'll notice immediate changes in how you approach your daily tasks. The key is to start with small, manageable steps that build momentum. For example, if your goal is to increase revenue by 10x, begin by identifying your highest-value activities..."
+EXAMPLE - This is what you should write:
+✅ CORRECT FORMAT:
+## Section Title
+This is a complete paragraph explaining the concept in detail. It provides context and sets up the reader's understanding. For example, when working with ${answers.targetReader || "your target audience"}, you'll find that...
 
-❌ BAD: "1. Start with small steps\n2. Build momentum\n3. Identify high-value activities"
+This second paragraph goes deeper into the concept, providing specific examples and actionable advice. Consider the case of someone who implemented this framework and saw results like ${answers.transformation || "significant transformation"}...
 
-Now write the COMPLETE, FULLY-WRITTEN chapter with actual paragraphs and full content:`
+✅ WRONG FORMAT (DO NOT DO THIS):
+## Section Title
+- Point 1
+- Point 2
+- Point 3
+
+Now write the COMPLETE, FULLY-WRITTEN chapter with actual paragraphs:`
 
   return prompt
 }

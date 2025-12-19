@@ -94,7 +94,15 @@ Additional Content: ${answers.additionalContent || ""}
             model: "gpt-4o",
             temperature: 0.7,
             maxTokens: 4000, // Reduced from 6000 to speed up generation
-            systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 300-500+ words of actual written content with full sentences, examples, and actionable advice. Write a FULLY WRITTEN BOOK CHAPTER, not an outline.`,
+            systemPrompt: `You are an expert book writer. You MUST write FULLY DEVELOPED paragraphs with actual content. 
+
+CRITICAL RULES:
+- Write at least 2-3 FULL PARAGRAPHS per section (minimum 150-200 words per section)
+- Each paragraph must be 3-5 sentences minimum
+- NO bullet points, NO numbered lists, NO placeholders
+- Write complete thoughts with examples and explanations
+- If a chapter has 3 sections, write at least 450-600 words total
+- Write as if teaching a real person - use full sentences and detailed explanations`,
           })
         } catch (modelError) {
           // Fallback to gpt-4 if gpt-4o is not available
@@ -103,7 +111,15 @@ Additional Content: ${answers.additionalContent || ""}
             model: "gpt-4",
             temperature: 0.7,
             maxTokens: 4000,
-            systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 300-500+ words of actual written content with full sentences, examples, and actionable advice. Write a FULLY WRITTEN BOOK CHAPTER, not an outline.`,
+            systemPrompt: `You are an expert book writer. You MUST write FULLY DEVELOPED paragraphs with actual content. 
+
+CRITICAL RULES:
+- Write at least 2-3 FULL PARAGRAPHS per section (minimum 150-200 words per section)
+- Each paragraph must be 3-5 sentences minimum
+- NO bullet points, NO numbered lists, NO placeholders
+- Write complete thoughts with examples and explanations
+- If a chapter has 3 sections, write at least 450-600 words total
+- Write as if teaching a real person - use full sentences and detailed explanations`,
           })
         }
 
@@ -116,29 +132,38 @@ Additional Content: ${answers.additionalContent || ""}
         const paragraphCount = formattedContent.split(/\n\n/).filter(p => p.trim().length > 0 && !p.trim().startsWith('#')).length
         const hasOnlyHeadings = headingCount > paragraphCount * 0.3
         const hasBulletPoints = (formattedContent.match(/^[-*+]\s/gm) || []).length > 5
+        const minRequiredWords = chapterTemplate.sections.length * 150 // At least 150 words per section
         
-        console.log(`[GenerateChapters] Chapter ${chapterTemplate.title}: ${wordCount} words, ${paragraphCount} paragraphs`)
+        console.log(`[GenerateChapters] Chapter ${chapterTemplate.title}: ${wordCount} words (min: ${minRequiredWords}), ${paragraphCount} paragraphs`)
         
-        // Only expand if content is clearly an outline AND we have time
+        // ALWAYS expand if content is too short - this is critical for quality
         const timeRemaining = maxTime - (Date.now() - startTime)
-        if ((wordCount < 600 || hasOnlyHeadings || hasBulletPoints) && timeRemaining > 20000) {
+        if ((wordCount < minRequiredWords || hasOnlyHeadings || hasBulletPoints || paragraphCount < chapterTemplate.sections.length) && timeRemaining > 15000) {
           console.warn(`[GenerateChapters] ⚠️ Chapter looks like outline. Expanding... (${Math.round(timeRemaining/1000)}s remaining)`)
           
-          const expansionPrompt = `Expand this outline into a FULLY WRITTEN chapter with complete paragraphs (1000+ words). Convert all bullet points to full paragraphs with examples and explanations.
+          const expansionPrompt = `CRITICAL: This content is too short or incomplete. You MUST expand it into a FULLY WRITTEN chapter.
 
-Outline:
+Current Content (INCOMPLETE - needs expansion):
 ${formattedContent}
 
 Context: ${context}
 
-Write the complete expanded chapter now:`
+MANDATORY EXPANSION:
+- Write at least ${minRequiredWords}+ words total
+- Each section needs 2-3 FULL PARAGRAPHS (150-200 words each)
+- Convert ALL bullet points, lists, or short phrases into complete paragraphs
+- Add detailed explanations, examples, and actionable advice
+- Write as if teaching a reader - use full sentences and complete thoughts
+- Personalize using: ${answers.targetReader || "target reader"}, ${answers.highTicketOffer || "offer"}, ${answers.transformation || "transformation"}
+
+Write the COMPLETE expanded chapter with actual paragraphs now:`
           
           try {
             const expandedContent = await callGPT(expansionPrompt, {
               model: "gpt-4",
               temperature: 0.7,
               maxTokens: 4000,
-              systemPrompt: `You are an expert book writer. Expand outlines into fully-written chapters with complete paragraphs. Write actual content, not bullet points.`,
+              systemPrompt: `You are an expert book writer. You MUST write FULLY DEVELOPED paragraphs. Each section needs 2-3 paragraphs (150-200 words). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders. Write actual content that teaches the reader.`,
             })
             
             formattedContent = formatChapterContent(chapterTemplate, expandedContent)
@@ -147,6 +172,16 @@ Write the complete expanded chapter now:`
           } catch (expandError) {
             console.error(`[GenerateChapters] Expansion failed, using original content:`, expandError)
           }
+        }
+        
+        // Final validation - ensure we have minimum content
+        const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
+        const finalParagraphCount = formattedContent.split(/\n\n/).filter(p => p.trim().length > 0 && !p.trim().startsWith('#')).length
+        
+        if (finalWordCount < 100) {
+          console.warn(`[GenerateChapters] ⚠️ WARNING: Chapter ${chapterTemplate.title} has very little content (${finalWordCount} words). Adding fallback content.`)
+          // Add a basic paragraph as fallback
+          formattedContent += `\n\n${chapterTemplate.description}\n\nThis chapter explores ${chapterTemplate.title.toLowerCase()}. Through detailed explanations and practical examples, you'll learn how to apply these concepts to achieve your goals. Each section provides actionable insights that you can implement immediately.`
         }
         
         // Add chapter to results
@@ -158,7 +193,8 @@ Write the complete expanded chapter now:`
         })
         
         const chapterElapsed = Date.now() - startTime
-        console.log(`[GenerateChapters] ✅ Completed chapter ${i + 1}/${totalChapters} (total elapsed: ${Math.round(chapterElapsed/1000)}s)`)
+        const finalCheckWordCount = formattedContent.split(/\s+/).filter(Boolean).length
+        console.log(`[GenerateChapters] ✅ Completed chapter ${i + 1}/${totalChapters}: ${finalCheckWordCount} words, ${finalParagraphCount} paragraphs (total elapsed: ${Math.round(chapterElapsed/1000)}s)`)
         
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error"
@@ -276,12 +312,12 @@ Additional Content: ${answers.additionalContent || ""}
     return `## ${section.title}
 ${section.placeholder}
 
-For this section, write 300-500 words of FULL CONTENT including:
-- Multiple complete paragraphs (not bullet points)
-- Detailed explanations and reasoning
-- Real examples, stories, or case studies
-- Actionable advice and specific steps
-- Personalization based on: ${answers.targetReader || "the target reader"}, ${answers.highTicketOffer || "the offer"}, and ${answers.transformation || "the transformation"}`
+MANDATORY: Write at least 2-3 FULL PARAGRAPHS (150-200 words minimum) for this section. Each paragraph must:
+- Be 3-5 complete sentences
+- Explain concepts in detail with examples
+- Include specific advice or actionable steps
+- Reference: ${answers.targetReader || "the target reader"}, ${answers.highTicketOffer || "the offer"}, ${answers.transformation || "the transformation"}
+- Use real scenarios and case studies in paragraph form (not lists)`
   }).join("\n\n")
 
   const prompt = `Write a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - you must write actual paragraphs with full sentences and complete thoughts.
@@ -302,15 +338,17 @@ This chapter must include the following sections. Write FULL CONTENT for each:
 
 ${sectionPrompts}
 
-MANDATORY REQUIREMENTS:
-1. Each section must have 3-5 FULL PARAGRAPHS (not bullet points)
-2. Write complete sentences and detailed explanations
-3. Include specific examples, stories, or case studies in paragraph form
-4. Personalize content using: Target Reader: ${answers.targetReader}, Offer: ${answers.highTicketOffer}, Transformation: ${answers.transformation}
-5. Write in ${answers.tone || "professional and engaging"} tone
-6. Make it actionable - give readers specific steps they can take
-7. Connect sections with transitional sentences
-8. Minimum 1000+ words total for the entire chapter
+MANDATORY REQUIREMENTS (YOU MUST FOLLOW THESE):
+1. Each section MUST have at least 2-3 FULL PARAGRAPHS (minimum 150-200 words per section)
+2. Each paragraph MUST be 3-5 complete sentences (no single-sentence paragraphs)
+3. Write complete thoughts with detailed explanations - don't summarize, explain fully
+4. Include specific examples, stories, or case studies in paragraph form (not lists)
+5. Personalize content using: Target Reader: ${answers.targetReader}, Offer: ${answers.highTicketOffer}, Transformation: ${answers.transformation}
+6. Write in ${answers.tone || "professional and engaging"} tone
+7. Make it actionable - give readers specific steps they can take (in paragraph form)
+8. Connect sections with transitional sentences
+9. MINIMUM WORD COUNT: If chapter has ${chapterTemplate.sections.length} sections, write at least ${chapterTemplate.sections.length * 150} words total (${chapterTemplate.sections.length * 150}+ words minimum)
+10. DO NOT write just headings - you MUST write full paragraphs under each heading
 
 FORMATTING:
 - Start with: # ${chapterTemplate.title}

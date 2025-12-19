@@ -55,6 +55,12 @@ CRITICAL INSTRUCTIONS:
         // Format the content with proper headings
         const formattedContent = formatChapterContent(chapterTemplate, chapterContent)
         
+        // Validate that we got actual content, not just an outline
+        const wordCount = formattedContent.split(/\s+/).filter(Boolean).length
+        if (wordCount < 200) {
+          console.warn(`[GenerateChapters] ⚠️ Chapter ${chapterTemplate.title} has only ${wordCount} words - might be an outline`)
+        }
+        
         generatedChapters.push({
           id: chapterTemplate.id,
           number: chapterTemplate.number,
@@ -62,7 +68,7 @@ CRITICAL INSTRUCTIONS:
           content: formattedContent,
         })
 
-        console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${chapterContent.length} chars)`)
+        console.log(`[GenerateChapters] ✅ Generated chapter ${i + 1}/${totalChapters}: ${chapterTemplate.title} (${chapterContent.length} chars, ${wordCount} words)`)
       } catch (error) {
         console.error(`[GenerateChapters] ❌ Failed to generate chapter ${chapterTemplate.number}:`, error)
         // Fallback to template structure if AI generation fails

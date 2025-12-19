@@ -3,7 +3,8 @@ import { callGPT } from "@/lib/openai"
 import { REAL_GROWTH_BOOK_TEMPLATE, ChapterTemplate } from "@/lib/book-templates"
 import { prisma } from "@/lib/prisma"
 
-export const maxDuration = 30 // 30 seconds per chapter is plenty
+// Set maximum duration for Vercel
+export const maxDuration = 30 // 30 seconds per chapter - should be plenty
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
@@ -36,27 +37,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify book belongs to user
-    const book = await prisma.book.findFirst({
-      where: { id: bookId, userId },
-      include: { chapters: true },
-    })
-
-    if (!book) {
+    // Find the chapter template
+    const chapterTemplate = REAL_GROWTH_BOOK_TEMPLATE.find(t => t.id === chapterId)
+    if (!chapterTemplate) {
       return NextResponse.json(
-        { error: "Book not found" },
+        { error: "Chapter template not found" },
         { status: 404 }
       )
     }
 
-    // Find the chapter template
-    const chapterTemplate = REAL_GROWTH_BOOK_TEMPLATE.find(
-      (ch) => ch.id === chapterId
-    )
+    // Verify book ownership
+    const book = await prisma.book.findUnique({
+      where: { id: bookId },
+      include: { chapters: true },
+    })
 
-    if (!chapterTemplate) {
+    if (!book || book.userId !== userId) {
       return NextResponse.json(
-        { error: "Chapter template not found" },
+        { error: "Book not found or unauthorized" },
         { status: 404 }
       )
     }
@@ -66,73 +64,54 @@ export async function POST(request: NextRequest) {
     // Build the prompt
     const chapterPrompt = buildChapterPrompt(chapterTemplate, answers, bookTitle, bookSubtitle)
 
-    // Generate content
+    // Generate chapter content
     let chapterContent: string
     try {
       chapterContent = await callGPT(chapterPrompt, {
         model: "gpt-4o",
         temperature: 0.7,
-        maxTokens: 4000,
-        systemPrompt: `You are an expert book writer. You MUST write FULLY DEVELOPED paragraphs with actual content. 
-
-CRITICAL RULES:
-- Write at least 2-3 FULL PARAGRAPHS per section (minimum 150-200 words per section)
-- Each paragraph must be 3-5 sentences minimum
-- NO bullet points, NO numbered lists, NO placeholders
-- Write complete thoughts with examples and explanations
-- If a chapter has ${chapterTemplate.sections.length} sections, write at least ${chapterTemplate.sections.length * 150} words total
-- Write as if teaching a real person - use full sentences and detailed explanations`,
+        maxTokens: 3000, // Reduced for faster generation
+        systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`,
       })
     } catch (modelError) {
       console.warn(`[GenerateSingleChapter] gpt-4o failed, trying gpt-4:`, modelError)
       chapterContent = await callGPT(chapterPrompt, {
         model: "gpt-4",
         temperature: 0.7,
-        maxTokens: 4000,
-        systemPrompt: `You are an expert book writer. You MUST write FULLY DEVELOPED paragraphs with actual content. 
-
-CRITICAL RULES:
-- Write at least 2-3 FULL PARAGRAPHS per section (minimum 150-200 words per section)
-- Each paragraph must be 3-5 sentences minimum
-- NO bullet points, NO numbered lists, NO placeholders
-- Write complete thoughts with examples and explanations
-- If a chapter has ${chapterTemplate.sections.length} sections, write at least ${chapterTemplate.sections.length * 150} words total
-- Write as if teaching a real person - use full sentences and detailed explanations`,
+        maxTokens: 3000,
+        systemPrompt: `You are an expert book writer. Write COMPLETE, FULLY-DEVELOPED paragraphs (NOT outlines or bullet points). Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Write complete thoughts with examples - NO bullet points, NO lists, NO placeholders.`,
       })
     }
 
     // Format content
     let formattedContent = formatChapterContent(chapterTemplate, chapterContent)
     
-    // Validate and expand if needed
+    // Validate content
     const wordCount = formattedContent.split(/\s+/).filter(Boolean).length
     const minRequiredWords = chapterTemplate.sections.length * 150
     
+    // If too short, expand it
     if (wordCount < minRequiredWords) {
       console.warn(`[GenerateSingleChapter] Content too short (${wordCount} words), expanding...`)
       
-      const context = `
+      const expansionPrompt = `Expand this into a FULLY WRITTEN chapter with complete paragraphs. Write at least ${minRequiredWords}+ words total. Each section needs 2-3 FULL PARAGRAPHS (150-200 words each). Convert all bullet points to paragraphs.
+
+Content to expand:
+${formattedContent}
+
+Context:
 Book Title: ${bookTitle || "Your Book"}
-Book Subtitle: ${bookSubtitle || ""}
 Target Reader: ${answers.targetReader || "General audience"}
 High-Ticket Offer: ${answers.highTicketOffer || ""}
 Transformation: ${answers.transformation || ""}
-`
+
+Write the complete expanded chapter:`
       
-      const expansionPrompt = `CRITICAL: This content is too short. Expand it into a FULLY WRITTEN chapter with at least ${minRequiredWords} words.
-
-Current Content:
-${formattedContent}
-
-Context: ${context}
-
-Write at least 2-3 FULL PARAGRAPHS per section (150-200 words each). Write complete thoughts with examples.`
-
       try {
         const expandedContent = await callGPT(expansionPrompt, {
           model: "gpt-4",
           temperature: 0.7,
-          maxTokens: 4000,
+          maxTokens: 3000,
           systemPrompt: `You are an expert book writer. Expand content into fully-written chapters with complete paragraphs. Write actual content, not bullet points.`,
         })
         formattedContent = formatChapterContent(chapterTemplate, expandedContent)
@@ -141,34 +120,46 @@ Write at least 2-3 FULL PARAGRAPHS per section (150-200 words each). Write compl
       }
     }
 
-    // Update chapter in database
-    const chapter = await prisma.chapter.findFirst({
-      where: { bookId, order: chapterTemplate.number },
-    })
-
+    // Find or create the chapter in database
+    let chapter = book.chapters.find(ch => ch.order === chapterTemplate.number)
+    
     if (chapter) {
-      await prisma.chapter.update({
+      // Update existing chapter
+      chapter = await prisma.chapter.update({
         where: { id: chapter.id },
-        data: { content: formattedContent },
+        data: {
+          title: chapterTemplate.title,
+          content: formattedContent,
+        },
+      })
+    } else {
+      // Create new chapter
+      chapter = await prisma.chapter.create({
+        data: {
+          bookId: book.id,
+          title: chapterTemplate.title,
+          content: formattedContent,
+          order: chapterTemplate.number,
+        },
       })
     }
 
     const finalWordCount = formattedContent.split(/\s+/).filter(Boolean).length
-    console.log(`[GenerateSingleChapter] ✅ Generated ${chapterTemplate.title}: ${finalWordCount} words`)
 
     return NextResponse.json({
-      success: true,
       chapter: {
-        id: chapterTemplate.id,
-        number: chapterTemplate.number,
-        title: chapterTemplate.title,
-        content: formattedContent,
+        id: chapter.id,
+        number: chapter.order,
+        title: chapter.title,
+        content: chapter.content,
         wordCount: finalWordCount,
       },
+      message: "Chapter generated successfully",
     })
   } catch (error) {
     console.error("Generate single chapter error:", error)
     const errorMessage = error instanceof Error ? error.message : "Failed to generate chapter"
+    
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }
@@ -205,7 +196,7 @@ MANDATORY: Write at least 2-3 FULL PARAGRAPHS (150-200 words minimum) for this s
 - Use real scenarios and case studies in paragraph form (not lists)`
   }).join("\n\n")
 
-  return `Write a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - you must write actual paragraphs with full sentences and complete thoughts.
+  const prompt = `Write a COMPLETE, FULLY-WRITTEN chapter for a book. This is NOT an outline - you must write actual paragraphs with full sentences.
 
 ${context}
 
@@ -213,38 +204,38 @@ Chapter: ${chapterTemplate.title}
 Description: ${chapterTemplate.description}
 
 CRITICAL INSTRUCTIONS:
-- You are writing a FULLY WRITTEN BOOK CHAPTER, not an outline
-- Write COMPLETE PARAGRAPHS (minimum 150-200 words per section)
-- Do NOT write bullet points, numbered lists, or outlines
-- Write actual content as if you're teaching a reader
+- Write FULLY WRITTEN BOOK CHAPTER, not an outline
+- Each section MUST have 2-3 FULL PARAGRAPHS (150-200 words per section)
+- Each paragraph MUST be 3-5 complete sentences
+- NO bullet points, NO numbered lists, NO placeholders
+- Write complete thoughts with detailed explanations
+- Include examples, stories, or case studies in paragraph form
+- Personalize using: Target Reader: ${answers.targetReader}, Offer: ${answers.highTicketOffer}, Transformation: ${answers.transformation}
+- Write in ${answers.tone || "professional and engaging"} tone
+- Minimum ${chapterTemplate.sections.length * 150} words total
+
+FORMATTING:
+- Start with: # ${chapterTemplate.title}
+- Use ## for each section heading
+- Write FULL PARAGRAPHS under each heading (not lists)
 
 This chapter must include the following sections. Write FULL CONTENT for each:
 
 ${sectionPrompts}
 
-MANDATORY REQUIREMENTS:
-1. Each section MUST have at least 2-3 FULL PARAGRAPHS (minimum 150-200 words per section)
-2. Each paragraph MUST be 3-5 complete sentences
-3. Write complete thoughts with detailed explanations
-4. Include specific examples, stories, or case studies in paragraph form
-5. Personalize content using: Target Reader: ${answers.targetReader}, Offer: ${answers.highTicketOffer}, Transformation: ${answers.transformation}
-6. Write in ${answers.tone || "professional and engaging"} tone
-7. MINIMUM ${chapterTemplate.sections.length * 150} words total
-8. DO NOT write just headings - you MUST write full paragraphs under each heading
-
-FORMATTING:
-- Start with: # ${chapterTemplate.title}
-- Use ## for each section heading
-- Write FULL PARAGRAPHS under each heading (not lists or bullet points)
-
 Now write the COMPLETE, FULLY-WRITTEN chapter with actual paragraphs:`
+
+  return prompt
 }
 
 function formatChapterContent(chapterTemplate: ChapterTemplate, aiContent: string): string {
   let formatted = aiContent.trim()
+  
   if (!formatted.startsWith(`# ${chapterTemplate.title}`)) {
     formatted = `# ${chapterTemplate.title}\n\n${formatted}`
   }
+  
   formatted = formatted.replace(/\n{3,}/g, '\n\n')
+  
   return formatted
 }

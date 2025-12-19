@@ -121,60 +121,91 @@ export default function BookWizardPage() {
           currentChapter: template.title,
         })
         
-        try {
-          console.log(`[BookWizard] Generating chapter ${i + 1}/${totalChapters}: ${template.title}`)
+        // Retry logic for chapter generation
+        let chapterGenerated = false
+        let retries = 0
+        const maxRetries = 2
+        
+        while (!chapterGenerated && retries <= maxRetries) {
+          try {
+            console.log(`[BookWizard] Generating chapter ${i + 1}/${totalChapters}: ${template.title}${retries > 0 ? ` (retry ${retries})` : ''}`)
+            
+            const chapterResponse = await fetch("/api/books/generate-single-chapter", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                bookId: createdBookId,
+                chapterId: template.id,
+                answers,
+                bookTitle: finalTitle,
+                bookSubtitle: finalSubtitle,
+              }),
+            })
+            
+            if (!chapterResponse.ok) {
+              const errorData = await chapterResponse.json().catch(() => ({}))
+              const errorMsg = errorData.error || `HTTP ${chapterResponse.status}`
+              
+              // If it's a timeout (504) or rate limit (429), retry
+              if ((chapterResponse.status === 504 || chapterResponse.status === 429) && retries < maxRetries) {
+                console.warn(`[BookWizard] Chapter generation failed (${errorMsg}), retrying in ${(retries + 1) * 2}s...`)
+                await new Promise(resolve => setTimeout(resolve, (retries + 1) * 2000)) // Exponential backoff
+                retries++
+                continue
+              }
+              
+              console.error(`[BookWizard] Failed to generate chapter ${template.title}:`, errorMsg)
+              // Continue with placeholder content
+              generatedChapters.push({
+                id: template.id,
+                number: template.number,
+                title: template.title,
+                content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed: ${errorMsg}. Please edit manually.]`),
+              })
+              chapterGenerated = true // Exit retry loop
+              continue
+            }
           
-          const chapterResponse = await fetch("/api/books/generate-single-chapter", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              bookId: createdBookId,
-              chapterId: template.id,
-              answers,
-              bookTitle: finalTitle,
-              bookSubtitle: finalSubtitle,
-            }),
-          })
-          
-          if (!chapterResponse.ok) {
-            const errorData = await chapterResponse.json().catch(() => ({}))
-            console.error(`[BookWizard] Failed to generate chapter ${template.title}:`, errorData.error)
-            // Continue with placeholder content
+            const chapterData = await chapterResponse.json()
+            const generatedChapter = chapterData.chapter
+            
+            generatedChapters.push({
+              id: generatedChapter.id,
+              number: generatedChapter.number,
+              title: generatedChapter.title,
+              content: markdownToHTML(generatedChapter.content),
+            })
+            
+            // Update chapters state incrementally so user sees progress
+            setChapters([...generatedChapters])
+            
+            console.log(`[BookWizard] ✅ Generated chapter ${i + 1}/${totalChapters}: ${generatedChapter.title} (${generatedChapter.wordCount || 'N/A'} words)`)
+            
+            chapterGenerated = true // Success, exit retry loop
+            
+            // Small delay to prevent rate limiting (longer delay between chapters)
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : "Unknown error"
+            
+            // Retry on network errors or timeouts
+            if (retries < maxRetries && (errorMsg.includes("timeout") || errorMsg.includes("network") || errorMsg.includes("504"))) {
+              console.warn(`[BookWizard] Network error (${errorMsg}), retrying in ${(retries + 1) * 2}s...`)
+              await new Promise(resolve => setTimeout(resolve, (retries + 1) * 2000))
+              retries++
+              continue
+            }
+            
+            console.error(`[BookWizard] Error generating chapter ${template.title}:`, errorMsg)
+            // Add placeholder chapter after all retries exhausted
             generatedChapters.push({
               id: template.id,
               number: template.number,
               title: template.title,
-              content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed. Please edit manually.]`),
+              content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed: ${errorMsg}. Please edit manually.]`),
             })
-            continue
+            chapterGenerated = true // Exit retry loop
           }
-          
-          const chapterData = await chapterResponse.json()
-          const generatedChapter = chapterData.chapter
-          
-          generatedChapters.push({
-            id: generatedChapter.id,
-            number: generatedChapter.number,
-            title: generatedChapter.title,
-            content: markdownToHTML(generatedChapter.content),
-          })
-          
-          // Update chapters state incrementally so user sees progress
-          setChapters([...generatedChapters])
-          
-          console.log(`[BookWizard] ✅ Generated chapter ${i + 1}/${totalChapters}: ${generatedChapter.title} (${generatedChapter.wordCount} words)`)
-          
-          // Small delay to prevent rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500))
-        } catch (error) {
-          console.error(`[BookWizard] Error generating chapter ${template.title}:`, error)
-          // Add placeholder chapter
-          generatedChapters.push({
-            id: template.id,
-            number: template.number,
-            title: template.title,
-            content: markdownToHTML(`# ${template.title}\n\n${template.description}\n\n[Generation failed. Please edit manually.]`),
-          })
         }
       }
       

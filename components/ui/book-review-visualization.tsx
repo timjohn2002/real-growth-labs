@@ -115,7 +115,7 @@ export function Visual3({
         }
       />
 
-      <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg bg-black dark:bg-black">
+      <div className="relative h-[180px] w-full overflow-hidden rounded-t-lg bg-white dark:bg-white">
         <Layer4
           color={mainColor}
           secondaryColor={secondaryColor}
@@ -209,7 +209,7 @@ const Layer2: React.FC<{ color: string }> = ({ color }) => {
       style={{ "--color": color } as React.CSSProperties}
     >
       <div className="ease-[cubic-bezier(0.6, 0.6, 0, 1)] absolute inset-0 z-[7] flex w-full translate-y-full items-start justify-center bg-transparent p-4 transition-transform duration-500 group-hover/animated-card:translate-y-0">
-        <div className="ease-[cubic-bezier(0.6, 0, 1)] rounded-md border border-zinc-200 bg-white/25 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover/animated-card:opacity-100 dark:border-zinc-200 dark:bg-white/25">
+        <div className="ease-[cubic-bezier(0.6, 0, 1)] rounded-md border border-zinc-200 bg-zinc-100 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover/animated-card:opacity-100 dark:border-zinc-200 dark:bg-zinc-100">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--color)]" />
             <p className="text-xs text-black dark:text-black">
